@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ev-primary: #1a3c5e;
+  --ev-secondary: #f0b323;
+  --ev-accent: #2f5d8a;
+  --ev-bg: #f4f6fa;
+  --ev-card: #ffffff;
+  --ev-text: #14202e;
+  --ev-radius: 14px;
+  --ev-font: 'Inter', system-ui, sans-serif;
+  --ev-heading-font: 'Poppins', 'Inter', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', system-ui, sans-serif; }
+
+/* Public event pages are themed with CSS variables */
+.event-theme { background: var(--ev-bg); color: var(--ev-text); font-family: var(--ev-font); }
+.event-theme h1, .event-theme h2, .event-theme h3 { font-family: var(--ev-heading-font); }
+.ev-card { background: var(--ev-card); border-radius: var(--ev-radius); }
+.ev-btn {
+  background: var(--ev-primary); color: #fff; border-radius: calc(var(--ev-radius) * 0.6);
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.ev-btn:hover { filter: brightness(1.12); }
+.ev-btn:active { transform: scale(0.98); }
+.ev-btn-outline {
+  background: transparent; color: var(--ev-primary); border: 2px solid var(--ev-primary);
+  border-radius: calc(var(--ev-radius) * 0.6);
+}
+.ev-btn-pill { border-radius: 999px; }
+.ev-input {
+  border-radius: calc(var(--ev-radius) * 0.5);
+}
+.ev-input:focus { outline: 2px solid var(--ev-primary); outline-offset: 1px; border-color: transparent; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Floor plan canvas */
+.plan-canvas { touch-action: none; user-select: none; }
+.booth-shape { cursor: pointer; }
+.booth-shape.selectable:hover { filter: brightness(1.15); }
+
+/* Printing: vendor signs and registration lists */
+@media print {
+  body { background: #fff !important; }
+  .no-print { display: none !important; }
+  .print-page { page-break-after: always; break-after: page; }
+  .print-page:last-child { page-break-after: auto; break-after: auto; }
+}
+
+/* Rich content blocks (descriptions, policies, rich text fields) */
+.ev-rich ul { list-style: disc; padding-left: 1.4rem; margin: 0.5rem 0; }
+.ev-rich ol { list-style: decimal; padding-left: 1.4rem; margin: 0.5rem 0; }
+.ev-rich li { margin: 0.15rem 0; }
+.ev-rich p { margin: 0.4rem 0; }
+.ev-rich h3 { font-size: 1.05rem; font-weight: 700; margin: 0.7rem 0 0.3rem; }
+.ev-rich strong { font-weight: 700; }
+.ev-rich a { text-decoration: underline; }
