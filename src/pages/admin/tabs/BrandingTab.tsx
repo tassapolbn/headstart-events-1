@@ -23,8 +23,8 @@ export default function BrandingTab({ draft, update }: TabProps) {
           <Switch
             checked={!b.hide_logo}
             onChange={(show) => update({ branding: { ...b, hide_logo: !show } })}
-            label="Show the floating logo over the banner"
-            description="Turn this off when your banner artwork already includes the school logo."
+            label="Show the school logo below the banner"
+            description="A small logo on the plain background above the event name. Turn off when the banner artwork already includes it."
           />
         </div>
       </Card>

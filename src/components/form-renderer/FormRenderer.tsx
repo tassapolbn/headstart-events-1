@@ -50,7 +50,7 @@ export function FormRenderer({
     switch (f.type) {
       case 'heading':
         return (
-          <h3 key={f.id} className="pt-2 text-lg font-bold" style={{ color: 'var(--ev-primary)' }}>
+          <h3 key={f.id} className="pt-2 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
             {f.content || f.label}
           </h3>
         );

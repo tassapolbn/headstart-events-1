@@ -180,16 +180,14 @@ export default function EventPage() {
         ) : (
           <div className="h-40 w-full sm:h-52" style={{ background: `linear-gradient(120deg, ${t.primary}, ${t.accent})` }} />
         )}
-        {!event.branding.hide_logo && (
-          <div className="absolute inset-x-0 -bottom-12 flex justify-center sm:-bottom-16">
-            <img src={logo} alt="School logo" className="h-28 w-auto max-w-[60vw] object-contain sm:h-44" style={{ filter: 'drop-shadow(0 4px 12px rgba(14,33,53,0.3))' }} />
-          </div>
-        )}
       </header>
 
-      <motion.div {...anim} className={`relative mx-auto max-w-3xl px-4 ${event.branding.hide_logo ? "mt-8" : "mt-16 sm:mt-24"}`}>
+      <motion.div {...anim} className="relative mx-auto mt-8 max-w-3xl px-4">
         <div className="text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl" style={{ color: 'var(--ev-primary)' }}>{event.name}</h1>
+          {!event.branding.hide_logo && (
+            <img src={logo} alt="School logo" className="mx-auto mb-5 h-14 w-auto max-w-[70vw] object-contain sm:h-16" />
+          )}
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl" style={{ color: 'var(--ev-title)' }}>{event.name}</h1>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-sm opacity-80">
             {event.event_date && (
               <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4" />{formatDate(event.event_date)}{event.end_date ? ` to ${formatDate(event.end_date, 'd MMMM yyyy')}` : ''}</span>
@@ -245,7 +243,7 @@ export default function EventPage() {
             {/* Policies */}
             {activePolicies.length > 0 && (
               <motion.section {...anim} className="ev-card mt-6 space-y-4 p-5 shadow-card" aria-labelledby="policies-heading">
-                <h2 id="policies-heading" className="flex items-center gap-2 text-lg font-bold" style={{ color: 'var(--ev-primary)' }}>
+                <h2 id="policies-heading" className="flex items-center gap-2 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
                   <ShieldCheck className="h-5 w-5" /> Event policies
                 </h2>
                 <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-2">
@@ -273,7 +271,7 @@ export default function EventPage() {
             {/* Booth picker */}
             {boothsEnabled && (
               <motion.section {...anim} className="ev-card mt-6 space-y-3 p-5 shadow-card" aria-labelledby="booth-heading">
-                <h2 id="booth-heading" className="text-lg font-bold" style={{ color: 'var(--ev-primary)' }}>
+                <h2 id="booth-heading" className="text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
                   {event.settings.boothSelectionLabel || 'Select your booth'}
                 </h2>
                 <BoothPicker
@@ -290,7 +288,7 @@ export default function EventPage() {
 
             {/* Form */}
             <motion.section {...anim} className="ev-card mt-6 p-5 shadow-card sm:p-7">
-              <h2 className="mb-5 text-lg font-bold" style={{ color: 'var(--ev-primary)' }}>Registration form</h2>
+              <h2 className="mb-5 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>Registration form</h2>
               {/* Honeypot: invisible to humans, irresistible to bots */}
               <input
                 ref={hpRef} type="text" name="website" tabIndex={-1} autoComplete="off"

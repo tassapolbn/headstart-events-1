@@ -41,6 +41,22 @@ export function ThemeEditor({ theme, onChange, eventName }: {
           <ColorInput label="Primary colour" value={theme.primary} onChange={(v) => set({ primary: v })} />
           <ColorInput label="Secondary colour" value={theme.secondary} onChange={(v) => set({ secondary: v })} />
           <ColorInput label="Accent colour" value={theme.accent} onChange={(v) => set({ accent: v })} />
+          <div className="flex items-end gap-2">
+            <ColorInput label="Event name colour" value={theme.titleColor ?? theme.primary} onChange={(v) => set({ titleColor: v })} />
+            {theme.titleColor && (
+              <button type="button" className="mb-1 rounded-lg px-2 py-1.5 text-xs text-slate-500 hover:bg-slate-100" onClick={() => set({ titleColor: undefined })}>
+                Use primary
+              </button>
+            )}
+          </div>
+          <div className="flex items-end gap-2">
+            <ColorInput label="Question heading colour" value={theme.headingColor ?? theme.primary} onChange={(v) => set({ headingColor: v })} />
+            {theme.headingColor && (
+              <button type="button" className="mb-1 rounded-lg px-2 py-1.5 text-xs text-slate-500 hover:bg-slate-100" onClick={() => set({ headingColor: undefined })}>
+                Use primary
+              </button>
+            )}
+          </div>
           <ColorInput label="Page background" value={theme.background} onChange={(v) => set({ background: v })} />
           <div className="flex items-end gap-2">
             <ColorInput label="Background gradient end (optional)" value={theme.backgroundTo ?? theme.background} onChange={(v) => set({ backgroundTo: v })} />

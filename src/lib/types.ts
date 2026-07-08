@@ -63,6 +63,10 @@ export interface EventTheme {
   primary: string;
   secondary: string;
   accent: string;
+  /** Event name colour (falls back to primary) */
+  titleColor?: string;
+  /** Question and section heading colour (falls back to primary) */
+  headingColor?: string;
   background: string;
   /** Optional second colour: the page background becomes a gradient */
   backgroundTo?: string;

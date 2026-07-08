@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft, BarChart3, ClipboardList, ExternalLink, FileText, LayoutGrid,
-  Mail, Palette, QrCode, Save, Settings2, ShieldCheck, Tag,
+  Link2, Mail, Palette, QrCode, Save, Settings2, ShieldCheck, Tag,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { EventRecord } from '@/lib/types';
@@ -19,6 +19,7 @@ import FloorPlanTab from './tabs/FloorPlanTab';
 import PoliciesTab from './tabs/PoliciesTab';
 import EmailTab from './tabs/EmailTab';
 import SettingsTab from './tabs/SettingsTab';
+import ShareTab from './tabs/ShareTab';
 
 const tabList = [
   { id: 'details', label: 'Details', icon: <Tag className="h-4 w-4" /> },
@@ -28,6 +29,7 @@ const tabList = [
   { id: 'policies', label: 'Policies', icon: <ShieldCheck className="h-4 w-4" /> },
   { id: 'email', label: 'Email', icon: <Mail className="h-4 w-4" /> },
   { id: 'settings', label: 'Settings', icon: <Settings2 className="h-4 w-4" /> },
+  { id: 'share', label: 'Share', icon: <Link2 className="h-4 w-4" /> },
 ];
 
 export type TabProps = {
@@ -138,6 +140,7 @@ export default function EventEditorPage() {
       {tab === 'policies' && <PoliciesTab draft={draft} update={update} />}
       {tab === 'email' && <EmailTab draft={draft} update={update} />}
       {tab === 'settings' && <SettingsTab draft={draft} update={update} />}
+      {tab === 'share' && <ShareTab draft={draft} update={update} />}
 
       {dirty && (
         <div className="no-print sticky bottom-3 z-20 flex justify-center">
