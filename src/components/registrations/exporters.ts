@@ -9,7 +9,13 @@ function cellValue(v: unknown): string {
   if (v === null || v === undefined) return '';
   if (Array.isArray(v)) return v.join(', ');
   if (isStoredFileRef(v)) return v.name;
-  if (typeof v === 'object') return JSON.stringify(v);
+  if (typeof v === 'object') {
+    const entries = Object.entries(v as Record<string, unknown>);
+    if (entries.length > 0 && entries.every(([, n]) => typeof n === 'number')) {
+      return entries.map(([k, n]) => `${k} x${n}`).join(', ');
+    }
+    return JSON.stringify(v);
+  }
   return String(v);
 }
 

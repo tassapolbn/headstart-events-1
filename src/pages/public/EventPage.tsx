@@ -99,6 +99,10 @@ export default function EventPage() {
           v = await uploadVendorFile(dataUrlToBlob(v), event.id, 'signature.png');
         } else if (f.type === 'multiple_choice' && v === '__other__') {
           v = `Other: ${values[`${f.id}__other`] ?? ''}`;
+        } else if (f.type === 'number' && f.collectNames) {
+          const names = String(values[`${f.id}__names`] ?? '')
+            .split('\n').map((x) => x.trim()).filter(Boolean).join(', ');
+          if (names) v = `${v} (${names})`;
         }
 
         data[f.id] = v;
@@ -142,7 +146,16 @@ export default function EventPage() {
         }).catch(() => undefined);
       }
 
-      navigate(`/e/${event.slug}/success/${res.reference}`, { state: { result: res } });
+      const menu = event.form_schema
+        .filter((f) => f.type === 'menu_quantity')
+        .map((f) => {
+          const v = values[f.id] as Record<string, number> | undefined;
+          const lines = Object.entries(v ?? {}).filter(([, n]) => n > 0).map(([k, n]) => `${k} x ${n}`);
+          return lines.length > 0 ? { label: f.label, lines } : null;
+        })
+        .filter((x): x is { label: string; lines: string[] } => !!x);
+
+      navigate(`/e/${event.slug}/success/${res.reference}`, { state: { result: res, menu } });
     } catch (err) {
       toast(friendlyError(err), 'error');
     } finally {
@@ -163,18 +176,20 @@ export default function EventPage() {
       {/* Banner */}
       <header className="relative">
         {event.branding.banner_url ? (
-          <img src={event.branding.banner_url} alt="" className="h-48 w-full object-cover sm:h-72" />
+          <img src={event.branding.banner_url} alt="" className="block h-auto w-full" />
         ) : (
           <div className="h-40 w-full sm:h-52" style={{ background: `linear-gradient(120deg, ${t.primary}, ${t.accent})` }} />
         )}
-        <div className="absolute inset-x-0 -bottom-10 flex justify-center">
-          <img src={logo} alt="School logo" className="h-24 w-24 object-contain sm:h-32 sm:w-32" style={{ filter: 'drop-shadow(0 4px 10px rgba(14,33,53,0.25))' }} />
-        </div>
+        {!event.branding.hide_logo && (
+          <div className="absolute inset-x-0 -bottom-12 flex justify-center sm:-bottom-16">
+            <img src={logo} alt="School logo" className="h-28 w-auto max-w-[60vw] object-contain sm:h-44" style={{ filter: 'drop-shadow(0 4px 12px rgba(14,33,53,0.3))' }} />
+          </div>
+        )}
       </header>
 
-      <motion.div {...anim} className="relative mx-auto mt-16 max-w-3xl px-4 sm:mt-20">
+      <motion.div {...anim} className={`relative mx-auto max-w-3xl px-4 ${event.branding.hide_logo ? "mt-8" : "mt-16 sm:mt-24"}`}>
         <div className="text-center">
-          <h1 className="text-3xl font-bold sm:text-4xl" style={{ color: 'var(--ev-primary)' }}>{event.name}</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl" style={{ color: 'var(--ev-primary)' }}>{event.name}</h1>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-sm opacity-80">
             {event.event_date && (
               <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4" />{formatDate(event.event_date)}{event.end_date ? ` to ${formatDate(event.end_date, 'd MMMM yyyy')}` : ''}</span>
@@ -203,7 +218,7 @@ export default function EventPage() {
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr]">
           {event.branding.poster_url && (
-            <img src={event.branding.poster_url} alt={`${event.name} poster`} className="mx-auto w-full max-w-md rounded-2xl shadow-card" style={{ borderRadius: 'var(--ev-radius)' }} />
+            <img src={event.branding.poster_url} alt={`${event.name} poster`} className="block h-auto w-full rounded-2xl shadow-card" style={{ borderRadius: 'var(--ev-radius)' }} />
           )}
         </div>
 
@@ -233,7 +248,7 @@ export default function EventPage() {
                 <h2 id="policies-heading" className="flex items-center gap-2 text-lg font-bold" style={{ color: 'var(--ev-primary)' }}>
                   <ShieldCheck className="h-5 w-5" /> Event policies
                 </h2>
-                <div className="max-h-72 space-y-4 overflow-y-auto pr-2">
+                <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-2">
                   {activePolicies.map((p) => (
                     <div key={p.id}>
                       <h3 className="text-sm font-semibold">{p.title}</h3>
@@ -241,6 +256,14 @@ export default function EventPage() {
                         className="ev-rich mt-1 text-sm opacity-80"
                         dangerouslySetInnerHTML={{ __html: richToHtml(p.content) }}
                       />
+                      {p.image_url && (
+                        <img
+                          src={p.image_url}
+                          alt={`${p.title} infographic`}
+                          className="mt-2 block h-auto w-full rounded-xl"
+                          loading="lazy"
+                        />
+                      )}
                     </div>
                   ))}
                 </div>

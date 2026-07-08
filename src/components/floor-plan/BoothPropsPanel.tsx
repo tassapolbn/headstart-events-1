@@ -1,6 +1,6 @@
 import { Copy, Trash2 } from 'lucide-react';
 import type { Booth, BoothStatus } from '@/lib/types';
-import { boothStatusList, boothStatusMeta } from '@/lib/boothColors';
+import { boothStatusChoices, boothStatusMeta } from '@/lib/boothColors';
 import { Button, Card } from '@/components/ui/basics';
 import { ColorInput, Field, Input, Select, Switch, Textarea } from '@/components/ui/inputs';
 
@@ -24,7 +24,7 @@ export function BoothPropsPanel({ booth, onChange, onDuplicate, onDelete }: {
 
         <Field label="Status">
           <Select value={booth.status} onChange={(e) => onChange({ status: e.target.value as BoothStatus })} aria-label="Booth status">
-            {boothStatusList.map((s) => (
+            {boothStatusChoices.map((s) => (
               <option key={s} value={s}>{boothStatusMeta[s].label}</option>
             ))}
           </Select>

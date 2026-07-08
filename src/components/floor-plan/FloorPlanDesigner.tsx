@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Download, Grid3X3, Hand, MousePointer2, PenSquare, Plus, Save, Upload, ZoomIn, ZoomOut,
+  Download, Grid3X3, Hand, Maximize2, MousePointer2, PenSquare, Plus, Save, Upload, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Booth, FloorPlanSettings } from '@/lib/types';
@@ -45,6 +45,16 @@ export function FloorPlanDesigner({ eventId, plan, onPlanChange }: {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>('select');
   const [zoom, setZoom] = useState(0.55);
+
+  /** Zoom so the whole plan (portrait or landscape) fits the visible area. */
+  function fitToScreen() {
+    const sc = scrollRef.current;
+    if (!sc) return;
+    const availW = sc.clientWidth - 34;
+    const availH = sc.clientHeight - 34;
+    if (availW <= 0 || availH <= 0) return;
+    setZoom(clamp(Math.min(availW / plan.width, availH / plan.height), 0.1, 2));
+  }
   const [drawDraft, setDrawDraft] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -59,9 +69,12 @@ export function FloorPlanDesigner({ eventId, plan, onPlanChange }: {
       setBooths(list);
       setLoadedIds(list.map((b) => b.id));
       setLoading(false);
+      window.setTimeout(fitToScreen, 60);
     }
     void load();
   }, [eventId]);
+
+  useEffect(() => { window.setTimeout(fitToScreen, 60); }, [plan.width, plan.height, plan.orientation]);
 
   function patchBooth(id: string, patch: Partial<Booth>) {
     setBooths((all) => all.map((b) => (b.id === id ? { ...b, ...patch } : b)));
@@ -280,6 +293,7 @@ export function FloorPlanDesigner({ eventId, plan, onPlanChange }: {
             <button aria-label="Zoom out" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" onClick={() => setZoom((z) => clamp(z - 0.1, 0.2, 2))}><ZoomOut className="h-4 w-4" /></button>
             <span className="w-10 text-center text-xs text-slate-500">{Math.round(zoom * 100)}%</span>
             <button aria-label="Zoom in" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" onClick={() => setZoom((z) => clamp(z + 0.1, 0.2, 2))}><ZoomIn className="h-4 w-4" /></button>
+            <button aria-label="Fit the whole plan on screen" title="Fit to screen" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" onClick={fitToScreen}><Maximize2 className="h-4 w-4" /></button>
           </div>
           <button
             aria-label="Toggle grid" aria-pressed={plan.showGrid} title="Toggle grid"
@@ -310,7 +324,7 @@ export function FloorPlanDesigner({ eventId, plan, onPlanChange }: {
         </div>
 
         {/* Canvas */}
-        <div ref={scrollRef} className="max-h-[64vh] overflow-auto bg-slate-50 p-4">
+        <div ref={scrollRef} className="h-[64vh] overflow-auto bg-slate-50 p-4">
           <svg
             ref={svgRef}
             className="plan-canvas mx-auto block rounded-xl border border-slate-200 bg-white shadow-sm"

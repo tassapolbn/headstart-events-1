@@ -250,7 +250,7 @@ function buildEmailHtml(template, mergeMap, event, reg, settings) {
   var logoUrl = branding.logo_url || settings.logo_url || '';
   var bannerUrl = branding.banner_url || '';
   var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(reg.reference);
-  var body = renderMerge(template.body, mergeMap);
+  var body = renderMerge(template.body, mergeMap) + menuBlock(event, reg);
 
   var button = '';
   if (template.buttonLabel && template.buttonUrl) {
@@ -284,6 +284,31 @@ function buildEmailHtml(template, mergeMap, event, reg, settings) {
     '<p style="font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;margin:0;">This email was sent automatically by HeadStart Events. Please do not reply to this message.</p>' +
     '</td></tr></table></td></tr></table></body></html>'
   );
+}
+
+// Lists menu-with-quantity answers on the email, like a food ticket.
+function menuBlock(event, reg) {
+  try {
+    var schema = event.form_schema || [];
+    var html = '';
+    schema.forEach(function (f) {
+      if (f.type !== 'menu_quantity') return;
+      var v = (reg.data || {})[f.id];
+      if (!v || typeof v !== 'object') return;
+      var lines = '';
+      Object.keys(v).forEach(function (k) {
+        if (v[k] > 0) lines += '<li>' + esc(k) + ' x ' + v[k] + '</li>';
+      });
+      if (lines) {
+        html += '<div style="background:#f8fafc;border-radius:10px;padding:12px 16px;margin:16px 0;">' +
+          '<p style="margin:0 0 6px;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">' + esc(f.label) + '</p>' +
+          '<ul style="margin:0;padding-left:18px;">' + lines + '</ul></div>';
+      }
+    });
+    return html;
+  } catch (e) {
+    return '';
+  }
 }
 
 function buildIcs(event, reference) {

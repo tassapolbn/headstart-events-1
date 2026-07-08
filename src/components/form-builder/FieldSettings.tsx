@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/basics';
 import { Field, Input, Select, Switch, Textarea } from '@/components/ui/inputs';
 import { RichTextArea } from '@/components/ui/RichTextArea';
 
-const selectionTypes = ['dropdown', 'radio', 'checkboxes', 'multiple_choice'];
+const selectionTypes = ['dropdown', 'radio', 'checkboxes', 'multiple_choice', 'menu_quantity'];
 const textTypes = ['short_text', 'paragraph'];
 
 export function FieldSettings({ field, allFields, onChange }: {
@@ -67,9 +67,22 @@ export function FieldSettings({ field, allFields, onChange }: {
             {field.type === 'multiple_choice' && (
               <Switch checked={!!field.allowOther} onChange={(allowOther) => onChange({ allowOther })} label="Allow an 'Other' answer" />
             )}
+            {field.type === 'menu_quantity' && (
+              <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                Registrants set a quantity for each menu item, e.g. for the whole family. The choices and amounts are printed on their ticket.
+              </p>
+            )}
           </>
         )}
 
+        {field.type === 'number' && (
+          <Switch
+            checked={!!field.collectNames}
+            onChange={(collectNames) => onChange({ collectNames })}
+            label="Also ask for the names"
+            description="When the number is 1 or more, a box appears asking for each name, one per line (e.g. staff members)."
+          />
+        )}
         {field.type === 'number' && (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Minimum">

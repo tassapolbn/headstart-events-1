@@ -4,7 +4,7 @@ export type EventStatus = 'draft' | 'published' | 'open' | 'closed' | 'waitlist'
 
 export type FieldType =
   | 'short_text' | 'paragraph' | 'email' | 'phone' | 'number' | 'date' | 'time'
-  | 'dropdown' | 'radio' | 'checkboxes' | 'multiple_choice'
+  | 'dropdown' | 'radio' | 'checkboxes' | 'multiple_choice' | 'menu_quantity'
   | 'file' | 'photo' | 'signature' | 'rich_text' | 'divider' | 'heading';
 
 export interface FieldCondition {
@@ -34,6 +34,8 @@ export interface FormField {
   content?: string;
   accept?: string;
   maxSizeMB?: number;
+  /** Number fields: also collect the names, one per line */
+  collectNames?: boolean;
   /** Copies this answer into the registration columns used for search and email */
   mapTo?: 'name' | 'email' | 'phone' | null;
 }
@@ -43,9 +45,13 @@ export interface PolicySection {
   title: string;
   content: string;
   enabled: boolean;
+  /** Optional infographic shown with this section */
+  image_url?: string;
 }
 
 export interface EventBranding {
+  /** Hide the floating logo (when the banner artwork already includes it) */
+  hide_logo?: boolean;
   poster_url?: string;
   banner_url?: string;
   header_url?: string;
@@ -58,6 +64,8 @@ export interface EventTheme {
   secondary: string;
   accent: string;
   background: string;
+  /** Optional second colour: the page background becomes a gradient */
+  backgroundTo?: string;
   card: string;
   text: string;
   font: string;
@@ -110,7 +118,8 @@ export interface FloorPlanSettings {
 
 export type BoothStatus =
   | 'available' | 'reserved' | 'booked' | 'disabled' | 'sponsor' | 'vip'
-  | 'food_zone' | 'activity_zone' | 'stage' | 'info_desk' | 'toilet' | 'emergency_exit';
+  | 'food_zone' | 'activity_zone' | 'stage' | 'info_desk' | 'toilet'
+  | 'emergency_exit' | 'entrance';
 
 export interface Booth {
   id: string;

@@ -26,6 +26,7 @@ export default function PoliciesTab({ draft, update }: TabProps) {
       <PoliciesEditor
         policies={draft.policies}
         onChange={(policies) => update({ policies })}
+        prefix={draft.id}
       />
     </div>
   );

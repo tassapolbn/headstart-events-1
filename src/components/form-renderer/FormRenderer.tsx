@@ -103,6 +103,60 @@ export function FormRenderer({
             </div>
           </FieldShell>
         );
+      case 'menu_quantity':
+        return (
+          <FieldShell key={f.id} field={f} error={err}>
+            <Controller
+              control={control}
+              name={f.id}
+              defaultValue={{}}
+              render={({ field: rhf }) => {
+                const counts: Record<string, number> = rhf.value ?? {};
+                const setCount = (opt: string, n: number) => {
+                  const next = { ...counts, [opt]: Math.max(0, Math.min(20, n)) };
+                  if (next[opt] === 0) delete next[opt];
+                  rhf.onChange(next);
+                };
+                return (
+                  <div className="space-y-2" role="group" aria-label={f.label}>
+                    {(f.options ?? []).map((o) => {
+                      const n = counts[o] ?? 0;
+                      return (
+                        <div key={o} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+                          <span className="min-w-0 flex-1 text-sm">{o}</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button" aria-label={`Fewer ${o}`}
+                              onClick={() => setCount(o, n - 1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-lg leading-none disabled:opacity-30"
+                              disabled={n === 0}
+                            >
+                              -
+                            </button>
+                            <span className="w-6 text-center text-sm font-bold" aria-live="polite">{n}</span>
+                            <button
+                              type="button" aria-label={`More ${o}`}
+                              onClick={() => setCount(o, n + 1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none text-white"
+                              style={{ background: 'var(--ev-primary)' }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {Object.keys(counts).length > 0 && (
+                      <p className="text-xs opacity-70">
+                        Total: {Object.values(counts).reduce((a, b) => a + b, 0)} item(s)
+                      </p>
+                    )}
+                  </div>
+                );
+              }}
+            />
+          </FieldShell>
+        );
       case 'checkboxes':
         return (
           <FieldShell key={f.id} field={f} error={err}>
@@ -172,15 +226,41 @@ export function FormRenderer({
             />
           </FieldShell>
         );
+      case 'number': {
+        const numValue = Number(values[f.id] ?? 0);
+        return (
+          <div key={f.id} className="space-y-3">
+            <FieldShell field={f} error={err}>
+              <input
+                id={f.id} type="number" placeholder={f.placeholder} className={inputCls}
+                aria-invalid={!!err} inputMode="numeric"
+                min={f.validation?.min} max={f.validation?.max}
+                {...register(f.id)}
+              />
+            </FieldShell>
+            {f.collectNames && numValue >= 1 && (
+              <div className="space-y-1.5 rounded-lg bg-slate-50/70 p-3">
+                <label htmlFor={`${f.id}__names`} className="block text-sm font-semibold">
+                  Please list the {numValue > 1 ? `${numValue} names` : 'name'} (one per line)
+                </label>
+                <textarea
+                  id={`${f.id}__names`} rows={Math.min(8, Math.max(2, numValue))}
+                  className={inputCls} placeholder={'Name 1\nName 2'}
+                  {...register(`${f.id}__names`)}
+                />
+              </div>
+            )}
+          </div>
+        );
+      }
       case 'date':
       case 'time':
-      case 'number':
       case 'email':
       case 'phone':
       case 'short_text':
       default: {
         const typeMap: Record<string, string> = {
-          date: 'date', time: 'time', number: 'number', email: 'email', phone: 'tel', short_text: 'text',
+          date: 'date', time: 'time', email: 'email', phone: 'tel', short_text: 'text',
         };
         return (
           <FieldShell key={f.id} field={f} error={err}>
@@ -190,7 +270,7 @@ export function FormRenderer({
               placeholder={f.placeholder}
               className={inputCls}
               aria-invalid={!!err}
-              inputMode={f.type === 'number' ? 'numeric' : f.type === 'phone' ? 'tel' : undefined}
+              inputMode={f.type === 'phone' ? 'tel' : undefined}
               {...register(f.id)}
             />
           </FieldShell>

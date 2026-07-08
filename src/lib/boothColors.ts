@@ -12,10 +12,16 @@ export const boothStatusMeta: Record<BoothStatus, { label: string; color: string
   stage:          { label: 'Stage',           color: '#1a3c5e', selectable: false },
   info_desk:      { label: 'Information Desk',color: '#06b6d4', selectable: false },
   toilet:         { label: 'Toilet',          color: '#64748b', selectable: false },
-  emergency_exit: { label: 'Emergency Exit',  color: '#dc2626', selectable: false },
+  emergency_exit: { label: 'Exit',            color: '#dc2626', selectable: false },
+  entrance:       { label: 'Entrance',        color: '#0ea5e9', selectable: false },
 };
 
 export const boothStatusList = Object.keys(boothStatusMeta) as BoothStatus[];
+
+/** The statuses offered in the designer and shown in legends. */
+export const boothStatusChoices: BoothStatus[] = [
+  'available', 'booked', 'reserved', 'stage', 'info_desk', 'toilet', 'emergency_exit', 'entrance',
+];
 
 export function boothFill(status: BoothStatus, override?: string | null): string {
   return override || boothStatusMeta[status].color;

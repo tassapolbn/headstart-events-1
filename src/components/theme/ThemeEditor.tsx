@@ -42,6 +42,14 @@ export function ThemeEditor({ theme, onChange, eventName }: {
           <ColorInput label="Secondary colour" value={theme.secondary} onChange={(v) => set({ secondary: v })} />
           <ColorInput label="Accent colour" value={theme.accent} onChange={(v) => set({ accent: v })} />
           <ColorInput label="Page background" value={theme.background} onChange={(v) => set({ background: v })} />
+          <div className="flex items-end gap-2">
+            <ColorInput label="Background gradient end (optional)" value={theme.backgroundTo ?? theme.background} onChange={(v) => set({ backgroundTo: v })} />
+            {theme.backgroundTo && (
+              <button type="button" className="mb-1 rounded-lg px-2 py-1.5 text-xs text-slate-500 hover:bg-slate-100" onClick={() => set({ backgroundTo: undefined })}>
+                Solid colour
+              </button>
+            )}
+          </div>
           <ColorInput label="Card background" value={theme.card} onChange={(v) => set({ card: v })} />
           <ColorInput label="Text colour" value={theme.text} onChange={(v) => set({ text: v })} />
           <Field label="Body font">

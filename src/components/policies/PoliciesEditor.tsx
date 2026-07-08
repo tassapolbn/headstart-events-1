@@ -5,15 +5,17 @@ import { uid } from '@/lib/utils';
 import { Button, Card, EmptyState } from '@/components/ui/basics';
 import { Field, Input, Switch } from '@/components/ui/inputs';
 import { RichTextArea } from '@/components/ui/RichTextArea';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 
 const suggestions = [
   'Rules', 'Terms and Conditions', 'Health and Safety', 'Safeguarding', 'Food Regulations',
   'Parking Information', 'Setup Instructions', 'Cleanup Instructions', 'Emergency Information',
 ];
 
-export function PoliciesEditor({ policies, onChange }: {
+export function PoliciesEditor({ policies, onChange, prefix }: {
   policies: PolicySection[];
   onChange: (p: PolicySection[]) => void;
+  prefix: string;
 }) {
   const [openId, setOpenId] = useState<string | null>(policies[0]?.id ?? null);
 
@@ -85,6 +87,13 @@ export function PoliciesEditor({ policies, onChange }: {
                     rows={6}
                     value={p.content}
                     onChange={(content) => patch(p.id, { content })}
+                  />
+                  <ImageUpload
+                    label="Infographic image (optional)"
+                    value={p.image_url}
+                    onChange={(image_url) => patch(p.id, { image_url })}
+                    prefix={`${prefix}/policies`}
+                    hint="Shown full width inside this section, e.g. artwork from the graphic team."
                   />
                   <Switch checked={p.enabled} onChange={(enabled) => patch(p.id, { enabled })} label="Show this section on the registration page" />
                 </div>

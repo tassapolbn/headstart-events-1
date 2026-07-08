@@ -12,7 +12,7 @@ export function themeStyle(theme?: Partial<EventTheme>): CSSProperties {
     '--ev-primary': t.primary,
     '--ev-secondary': t.secondary,
     '--ev-accent': t.accent,
-    '--ev-bg': t.background,
+    '--ev-bg': t.backgroundTo ? `linear-gradient(170deg, ${t.background} 0%, ${t.backgroundTo} 100%)` : t.background,
     '--ev-card': t.card,
     '--ev-text': t.text,
     '--ev-radius': `${t.radius}px`,

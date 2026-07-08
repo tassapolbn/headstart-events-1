@@ -55,6 +55,17 @@ function schemaForField(f: FormField): z.ZodTypeAny {
         }
       });
     }
+    case 'menu_quantity': {
+      return z.record(z.number()).superRefine((val, ctx) => {
+        const total = Object.values(val ?? {}).reduce((a, b) => a + (b || 0), 0);
+        if (f.required && total < 1) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please choose at least one item.' });
+        }
+        if (f.validation?.max !== undefined && total > f.validation.max) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Please choose at most ${f.validation.max} in total.` });
+        }
+      });
+    }
     case 'checkboxes': {
       let s = z.array(z.string());
       if (f.required) s = s.min(1, 'Please select at least one option.');
@@ -107,7 +118,7 @@ export function buildResolver(fields: FormField[]): Resolver<FieldValues> {
     for (const f of fields) {
       if (isContentField(f)) continue;
       if (!isVisible(f, values)) continue;
-      const result = schemaForField(f).safeParse(values[f.id] ?? (f.type === 'checkboxes' ? [] : ''));
+      const result = schemaForField(f).safeParse(values[f.id] ?? (f.type === 'checkboxes' ? [] : f.type === 'menu_quantity' ? {} : ''));
       if (!result.success) {
         errors[f.id] = { type: 'validation', message: result.error.issues[0]?.message ?? 'Invalid value.' };
       }

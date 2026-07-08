@@ -189,7 +189,7 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, onS
           })}
         </svg>
       </div>
-      <Legend statuses={['available', 'booked', 'reserved', 'food_zone', 'activity_zone', 'stage', 'info_desk', 'toilet', 'emergency_exit']} compact />
+      <Legend compact />
     </div>
   );
 }

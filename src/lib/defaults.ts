@@ -202,6 +202,7 @@ export const fieldTypeMeta: Record<string, { label: string; group: 'Basic' | 'Se
   radio: { label: 'Radio Buttons', group: 'Selection' },
   checkboxes: { label: 'Checkboxes', group: 'Selection' },
   multiple_choice: { label: 'Multiple Choice', group: 'Selection' },
+  menu_quantity: { label: 'Menu with Quantity', group: 'Selection' },
   file: { label: 'File Upload', group: 'Advanced' },
   photo: { label: 'Photo Upload', group: 'Advanced' },
   signature: { label: 'Signature', group: 'Advanced' },

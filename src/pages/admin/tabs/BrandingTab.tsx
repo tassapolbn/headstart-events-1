@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/basics';
+import { Switch } from '@/components/ui/inputs';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { ThemeEditor } from '@/components/theme/ThemeEditor';
 import type { TabProps } from '../EventEditorPage';
@@ -17,6 +18,14 @@ export default function BrandingTab({ draft, update }: TabProps) {
           <ImageUpload label="Header image" value={b.header_url} onChange={set('header_url')} prefix={draft.id} hint="Optional secondary header." />
           <ImageUpload label="School logo" value={b.logo_url} onChange={set('logo_url')} prefix={draft.id} hint="Overrides the default logo for this event." />
           <ImageUpload label="Background image" value={b.background_url} onChange={set('background_url')} prefix={draft.id} hint="Subtle full page background." />
+        </div>
+        <div className="mt-4">
+          <Switch
+            checked={!b.hide_logo}
+            onChange={(show) => update({ branding: { ...b, hide_logo: !show } })}
+            label="Show the floating logo over the banner"
+            description="Turn this off when your banner artwork already includes the school logo."
+          />
         </div>
       </Card>
 

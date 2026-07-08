@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { CalendarPlus, CheckCircle2, Printer } from 'lucide-react';
@@ -22,6 +22,8 @@ interface LookupResult {
 
 export default function SuccessPage() {
   const { slug, reference } = useParams<{ slug: string; reference: string }>();
+  const location = useLocation();
+  const menu = ((location.state as { menu?: Array<{ label: string; lines: string[] }> } | null)?.menu) ?? [];
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [reg, setReg] = useState<LookupResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +97,20 @@ export default function SuccessPage() {
             )}
           </dl>
 
+          {menu.length > 0 && (
+            <div className="mx-6 mb-4 rounded-xl bg-slate-50/80 px-4 py-3 text-left">
+              <p className="text-xs font-semibold uppercase tracking-wide opacity-60">Your selection</p>
+              {menu.map((m) => (
+                <div key={m.label} className="mt-1.5">
+                  <p className="text-xs opacity-60">{m.label}</p>
+                  <ul className="mt-0.5 space-y-0.5 text-sm font-medium">
+                    {m.lines.map((l) => <li key={l}>{l}</li>)}
+                  </ul>
+                </div>
+              ))}
+              <p className="mt-2 text-xs opacity-60">Show the QR code above to staff. It can only be used once.</p>
+            </div>
+          )}
           <p className="px-6 pb-2 text-xs opacity-60">A confirmation email is on its way to your inbox.</p>
 
           <div className="no-print flex flex-wrap justify-center gap-2 border-t border-slate-100 px-6 py-4">
