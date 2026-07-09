@@ -32,6 +32,7 @@ function snapshotBooth(b: Booth): Omit<Booth, 'id' | 'event_id'> {
     status: b.status === 'booked' ? 'available' : b.status,
     hidden: b.hidden, group_name: b.group_name, notes: b.notes,
     booked_label: null,
+    font_size: b.font_size ?? null,
   };
 }
 

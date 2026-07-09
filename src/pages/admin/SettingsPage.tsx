@@ -14,7 +14,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     supabase.from('app_settings').select('*').eq('id', 1).maybeSingle().then(({ data }) => {
-      setSettings((data as AppSettings) ?? { id: 1, school_name: 'HeadStart International School Phuket', logo_url: null, admin_email: null, webhook_url: null });
+      setSettings((data as AppSettings) ?? { id: 1, school_name: 'HeadStart International School Phuket', logo_url: null, email_logo_url: null, admin_email: null, webhook_url: null });
     });
   }, []);
 
@@ -26,6 +26,7 @@ export default function SettingsPage() {
       .update({
         school_name: settings.school_name,
         logo_url: settings.logo_url,
+        email_logo_url: settings.email_logo_url,
         admin_email: settings.admin_email,
         webhook_url: settings.webhook_url,
       })
@@ -68,7 +69,15 @@ export default function SettingsPage() {
               value={settings.logo_url ?? undefined}
               onChange={(logo_url) => setSettings({ ...settings, logo_url: logo_url ?? null })}
               prefix="app"
-              hint="Used on public pages, emails and vendor signs unless an event has its own logo."
+              hint="Used on public pages and vendor signs unless an event has its own logo."
+            />
+            <ImageUpload
+              label="Email header logo (white version)"
+              value={settings.email_logo_url ?? undefined}
+              onChange={(email_logo_url) => setSettings({ ...settings, email_logo_url: email_logo_url ?? null })}
+              prefix="app"
+              hint="The email header is navy blue, so upload the white PNG version of the logo here. When set, the school name text is removed from the header."
+              dark
             />
           </div>
         </Card>

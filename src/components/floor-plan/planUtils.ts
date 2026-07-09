@@ -38,6 +38,7 @@ export function makeBooth(eventId: string, x: number, y: number, w = 120, h = 80
     group_name: null,
     notes: null,
     booked_label: null,
+    font_size: null,
   };
 }
 

@@ -33,6 +33,11 @@ export function FieldSettings({ field, allFields, onChange }: {
           </Field>
         )}
 
+        {field.type === 'divider' && (
+          <Field label="Divider text (optional)" hint="Small centered text, e.g. STALL DETAILS. Leave empty for a decorative line.">
+            <Input value={field.content ?? ''} onChange={(e) => onChange({ content: e.target.value })} />
+          </Field>
+        )}
         {field.type === 'heading' && (
           <Field label="Heading text">
             <Textarea rows={2} value={field.content ?? ''} onChange={(e) => onChange({ content: e.target.value })} />

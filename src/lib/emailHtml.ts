@@ -36,8 +36,9 @@ export function buildEmailHtml(opts: {
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;">
         <tr>
           <td style="background:#1a3c5e;padding:20px 32px;text-align:center;">
-            ${template.showLogo && logoUrl ? `<img src="${logoUrl}" alt="School logo" height="52" style="height:52px;max-width:180px;object-fit:contain;"/>` : ''}
-            <p style="font-family:Arial,sans-serif;color:#ffffff;font-size:18px;font-weight:bold;margin:8px 0 0;">${schoolName ?? 'HeadStart International School Phuket'}</p>
+            ${template.showLogo && logoUrl
+              ? `<img src="${logoUrl}" alt="School logo" height="56" style="height:56px;max-width:320px;object-fit:contain;"/>`
+              : `<p style="font-family:Arial,sans-serif;color:#ffffff;font-size:18px;font-weight:bold;margin:8px 0 0;">${schoolName ?? 'HeadStart International School Phuket'}</p>`}
           </td>
         </tr>
         ${template.showBanner && bannerUrl ? `<tr><td><img src="${bannerUrl}" alt="" width="600" style="width:100%;display:block;"/></td></tr>` : ''}

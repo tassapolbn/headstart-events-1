@@ -247,7 +247,7 @@ function renderMerge(text, map) {
 
 function buildEmailHtml(template, mergeMap, event, reg, settings) {
   var branding = event.branding || {};
-  var logoUrl = branding.logo_url || settings.logo_url || '';
+  var logoUrl = settings.email_logo_url || branding.logo_url || settings.logo_url || '';
   var bannerUrl = branding.banner_url || '';
   var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(reg.reference);
   var body = renderMerge(template.body, mergeMap) + menuBlock(event, reg);
@@ -273,8 +273,9 @@ function buildEmailHtml(template, mergeMap, event, reg, settings) {
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px;"><tr><td align="center">' +
     '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;">' +
     '<tr><td style="background:#1a3c5e;padding:20px 32px;text-align:center;">' +
-    (template.showLogo && logoUrl ? '<img src="' + logoUrl + '" alt="School logo" height="52" style="height:52px;max-width:180px;object-fit:contain;"/>' : '') +
-    '<p style="font-family:Arial,sans-serif;color:#ffffff;font-size:18px;font-weight:bold;margin:8px 0 0;">' + esc(settings.school_name || 'HeadStart International School Phuket') + '</p>' +
+    (template.showLogo && logoUrl
+      ? '<img src="' + logoUrl + '" alt="School logo" height="56" style="height:56px;max-width:320px;object-fit:contain;"/>'
+      : '<p style="font-family:Arial,sans-serif;color:#ffffff;font-size:18px;font-weight:bold;margin:8px 0 0;">' + esc(settings.school_name || 'HeadStart International School Phuket') + '</p>') +
     '</td></tr>' +
     (template.showBanner && bannerUrl ? '<tr><td><img src="' + bannerUrl + '" alt="" width="600" style="width:100%;display:block;"/></td></tr>' : '') +
     '<tr><td style="padding:32px;font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#14202e;">' +

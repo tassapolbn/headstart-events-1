@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { Controller, useForm, type FieldValues } from 'react-hook-form';
 import { Paperclip } from 'lucide-react';
 import type { EventTheme, FormField } from '@/lib/types';
@@ -28,7 +28,7 @@ function FieldShell({ field, error, children }: { field: FormField; error?: stri
 
 export function FormRenderer({
   fields, onSubmit, busy, theme, submitLabel = 'Submit registration',
-  beforeSubmit, submitDisabled, preview,
+  beforeSubmit, submitDisabled, preview, onValuesChange,
 }: {
   fields: FormField[];
   onSubmit: (values: FieldValues) => void | Promise<void>;
@@ -38,10 +38,18 @@ export function FormRenderer({
   beforeSubmit?: ReactNode;
   submitDisabled?: boolean;
   preview?: boolean;
+  /** Live answers, e.g. so the booth picker can react to the vendor type */
+  onValuesChange?: (values: FieldValues) => void;
 }) {
   const resolver = useMemo(() => buildResolver(fields), [fields]);
   const { register, control, handleSubmit, watch, formState: { errors } } = useForm({ resolver, mode: 'onBlur' });
   const values = watch();
+
+  useEffect(() => {
+    if (!onValuesChange) return;
+    const sub = watch((v) => onValuesChange(v));
+    return () => sub.unsubscribe();
+  }, [watch, onValuesChange]);
 
   function renderField(f: FormField) {
     if (!isVisible(f, values)) return null;
@@ -63,7 +71,21 @@ export function FormRenderer({
           />
         );
       case 'divider':
-        return <hr key={f.id} className="border-slate-200" />;
+        return (
+          <div key={f.id} className="flex items-center gap-3 py-2" role="separator" aria-label="Section divider">
+            <span className="h-px flex-1" style={{ background: 'linear-gradient(to right, transparent, var(--ev-primary))', opacity: 0.35 }} />
+            {f.content ? (
+              <span className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: 'var(--ev-heading)' }}>{f.content}</span>
+            ) : (
+              <span className="flex gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--ev-primary)' }} />
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--ev-secondary)' }} />
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--ev-primary)' }} />
+              </span>
+            )}
+            <span className="h-px flex-1" style={{ background: 'linear-gradient(to left, transparent, var(--ev-primary))', opacity: 0.35 }} />
+          </div>
+        );
       case 'paragraph':
         return (
           <FieldShell key={f.id} field={f} error={err}>
@@ -85,13 +107,16 @@ export function FormRenderer({
           <FieldShell key={f.id} field={f} error={err}>
             <div role="radiogroup" aria-label={f.label} className="space-y-2">
               {(f.options ?? []).map((o) => (
-                <label key={o} className="flex cursor-pointer items-center gap-2.5 text-sm">
+                <label
+                  key={o}
+                  className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition hover:border-slate-300 has-[:checked]:border-[var(--ev-primary)] has-[:checked]:bg-[var(--ev-bg)] has-[:checked]:font-semibold"
+                >
                   <input type="radio" value={o} className="h-4 w-4" style={{ accentColor: 'var(--ev-primary)' }} {...register(f.id)} />
                   {o}
                 </label>
               ))}
               {f.type === 'multiple_choice' && f.allowOther && (
-                <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+                <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition hover:border-slate-300 has-[:checked]:border-[var(--ev-primary)] has-[:checked]:font-semibold">
                   <input type="radio" value="__other__" className="h-4 w-4" style={{ accentColor: 'var(--ev-primary)' }} {...register(f.id)} />
                   Other:
                   <input
@@ -170,7 +195,10 @@ export function FormRenderer({
                     const list: string[] = rhf.value ?? [];
                     const checked = list.includes(o);
                     return (
-                      <label key={o} className="flex cursor-pointer items-center gap-2.5 text-sm">
+                      <label
+                        key={o}
+                        className={`flex cursor-pointer items-center gap-2.5 rounded-xl border bg-white px-3.5 py-2.5 text-sm transition hover:border-slate-300 ${checked ? 'border-[var(--ev-primary)] font-semibold' : 'border-slate-200'}`}
+                      >
                         <input
                           type="checkbox" checked={checked} className="h-4 w-4 rounded"
                           style={{ accentColor: 'var(--ev-primary)' }}
@@ -292,7 +320,7 @@ export function FormRenderer({
         disabled={busy || submitDisabled || preview}
         className={cn(
           buttonClass(theme),
-          'flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60'
+          'flex w-full items-center justify-center gap-2 px-5 py-3.5 text-base font-bold shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0'
         )}
       >
         {busy && <Spinner size={16} />}

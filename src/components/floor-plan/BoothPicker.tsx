@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Booth, FloorPlanSettings } from '@/lib/types';
-import { boothFill, boothStatusMeta } from '@/lib/boothColors';
+import { boothFill, boothStatusMeta, isMarkerStatus } from '@/lib/boothColors';
 import { contrastText } from '@/lib/utils';
 import { flagForText } from '@/lib/countries';
 import { Legend } from './Legend';
@@ -12,12 +12,15 @@ import { Legend } from './Legend';
  * booked by someone else turns red for every open visitor within a second.
  * Booked booths can display a label (e.g. country flag and name).
  */
-export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, onSelectionLost, onLimitReached }: {
+export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, allowedGroups, zoneNotice, onSelectionLost, onLimitReached }: {
   eventId: string;
   plan: FloorPlanSettings;
   value: string[];
   onChange: (boothIds: string[], booths: Booth[]) => void;
   maxBooths?: number;
+  /** null or empty = any zone; otherwise only these booth groups are selectable */
+  allowedGroups?: string[] | null;
+  zoneNotice?: string;
   onSelectionLost?: (booth: Booth) => void;
   onLimitReached?: () => void;
 }) {
@@ -93,11 +96,28 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, onS
     onChange(next, booths.filter((b) => next.includes(b.id)));
   }
 
+  function inAllowedZone(b: Booth): boolean {
+    if (!allowedGroups || allowedGroups.length === 0) return true;
+    return !!b.group_name && allowedGroups.includes(b.group_name);
+  }
+
+  // Drop selections that fall outside the zone when the vendor type changes.
+  useEffect(() => {
+    if (value.length === 0) return;
+    const keep = value.filter((id) => {
+      const b = booths.find((x) => x.id === id);
+      return b && inAllowedZone(b);
+    });
+    if (keep.length !== value.length) {
+      onChange(keep, booths.filter((b) => keep.includes(b.id)));
+    }
+  }, [allowedGroups, booths]);
+
   const selectedBooths = useMemo(
     () => value.map((id) => booths.find((b) => b.id === id)).filter((b): b is Booth => !!b),
     [booths, value]
   );
-  const availableCount = booths.filter((b) => b.status === 'available').length;
+  const availableCount = booths.filter((b) => b.status === 'available' && inAllowedZone(b)).length;
 
   if (loading) {
     return <div className="ev-card animate-pulse p-6 text-center text-sm opacity-60">Loading floor plan…</div>;
@@ -106,9 +126,12 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, onS
 
   return (
     <div className="space-y-3">
+      {zoneNotice && (
+        <p className="rounded-xl border border-slate-200 bg-white/70 px-4 py-2.5 text-sm font-medium">{zoneNotice}</p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="font-semibold">
-          {availableCount} booth{availableCount === 1 ? '' : 's'} available
+          {availableCount} booth{availableCount === 1 ? '' : 's'} available{allowedGroups && allowedGroups.length > 0 ? ' in your zone' : ''}
           {maxBooths > 1 && <span className="font-normal opacity-70"> (choose up to {maxBooths})</span>}
         </span>
         {selectedBooths.length > 0 && (
@@ -129,7 +152,10 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, onS
             <image href={plan.background_url} x="0" y="0" width={plan.width} height={plan.height} preserveAspectRatio="xMidYMid slice" opacity="0.9" />
           )}
           {booths.map((b) => {
-            const selectable = boothStatusMeta[b.status].selectable;
+            const zoneOk = inAllowedZone(b);
+            const marker = isMarkerStatus(b.status);
+            const selectable = boothStatusMeta[b.status].selectable && zoneOk;
+            const outOfZone = boothStatusMeta[b.status].selectable && !zoneOk;
             const isSelected = value.includes(b.id);
             const fill = isSelected ? 'var(--ev-primary)' : boothFill(b.status, b.color);
             const text = isSelected ? '#ffffff' : contrastText(boothFill(b.status, b.color));
@@ -139,18 +165,21 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, onS
               <g key={b.id}>
                 <rect
                   x={b.x} y={b.y} width={b.w} height={b.h} rx={6}
-                  fill={fill} fillOpacity={selectable || isSelected ? 0.95 : 0.55}
+                  fill={outOfZone ? '#cbd5e1' : fill} fillOpacity={selectable || isSelected ? 0.95 : marker ? 0.45 : 0.55}
                   stroke={isSelected ? 'var(--ev-secondary)' : 'rgba(0,0,0,0.25)'}
                   strokeWidth={isSelected ? 4 : 1}
+                  strokeDasharray={outOfZone ? '5 4' : undefined}
                   className={selectable ? 'booth-shape selectable' : undefined}
-                  style={{ cursor: selectable ? 'pointer' : 'not-allowed' }}
+                  style={{ cursor: selectable ? 'pointer' : marker ? 'default' : 'not-allowed' }}
                   role={selectable ? 'button' : undefined}
                   tabIndex={selectable ? 0 : -1}
                   aria-pressed={selectable ? isSelected : undefined}
                   aria-label={
                     selectable
                       ? `${isSelected ? 'Unselect' : 'Choose'} booth ${b.label} ${b.number}`
-                      : `Booth ${b.label} ${b.number}: ${boothStatusMeta[b.status].label}${b.booked_label ? `, ${b.booked_label}` : ''}`
+                      : outOfZone
+                        ? `Booth ${b.label} ${b.number} is reserved for a different vendor type`
+                        : `${b.label || boothStatusMeta[b.status].label}: ${boothStatusMeta[b.status].label}${b.booked_label ? `, ${b.booked_label}` : ''}`
                   }
                   onClick={() => { if (selectable) toggle(b); }}
                   onKeyDown={(e) => {
@@ -160,29 +189,55 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, onS
                     }
                   }}
                 />
-                {flag && (
-                  <text
-                    x={b.x + b.w / 2} y={b.y + b.h / 2 - Math.min(10, b.h / 6)}
-                    textAnchor="middle" fontSize={Math.min(26, b.h / 2.6)} pointerEvents="none"
-                  >
-                    {flag}
-                  </text>
-                )}
-                <text
-                  x={b.x + b.w / 2}
-                  y={flag ? b.y + b.h / 2 + Math.min(10, b.h / 6) : b.y + b.h / 2 - (subLabel ? 4 : -4)}
-                  textAnchor="middle" fontSize={flag ? Math.min(13, b.h / 5) : Math.min(22, b.h / 3)} fontWeight={700}
-                  fill={text} pointerEvents="none"
-                >
-                  {flag ? (subLabel.length > 16 ? `${subLabel.slice(0, 15)}…` : subLabel) : b.number}
-                </text>
-                {!flag && subLabel && (
-                  <text
-                    x={b.x + b.w / 2} y={b.y + b.h / 2 + Math.min(16, b.h / 4)}
-                    textAnchor="middle" fontSize={Math.min(12, b.h / 5)} fill={text} pointerEvents="none"
-                  >
-                    {subLabel.length > 18 ? `${subLabel.slice(0, 17)}…` : subLabel}
-                  </text>
+                {marker ? (
+                  <>
+                    <text
+                      x={b.x + b.w / 2} y={b.y + b.h / 2 + (b.label ? -2 : 8)}
+                      textAnchor="middle" fontSize={b.font_size ?? Math.min(30, b.h / 2.2)} pointerEvents="none"
+                    >
+                      {boothStatusMeta[b.status].icon}
+                    </text>
+                    {b.label && (
+                      <text
+                        x={b.x + b.w / 2} y={b.y + b.h / 2 + Math.min(20, b.h / 3.2)}
+                        textAnchor="middle" fontSize={b.font_size ? Math.max(9, b.font_size * 0.55) : Math.min(12, b.h / 5)}
+                        fontWeight={700} fill={text} pointerEvents="none"
+                      >
+                        {b.label}
+                      </text>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {flag && (
+                      <text
+                        x={b.x + b.w / 2} y={b.y + b.h / 2 - Math.min(10, b.h / 6)}
+                        textAnchor="middle" fontSize={b.font_size ?? Math.min(26, b.h / 2.6)} pointerEvents="none"
+                      >
+                        {flag}
+                      </text>
+                    )}
+                    <text
+                      x={b.x + b.w / 2}
+                      y={flag ? b.y + b.h / 2 + Math.min(10, b.h / 6) : b.y + b.h / 2 - (subLabel ? 4 : -4)}
+                      textAnchor="middle"
+                      fontSize={flag ? (b.font_size ? Math.max(9, b.font_size * 0.55) : Math.min(13, b.h / 5)) : (b.font_size ?? Math.min(22, b.h / 3))}
+                      fontWeight={700}
+                      fill={text} pointerEvents="none"
+                    >
+                      {flag ? (subLabel.length > 16 ? `${subLabel.slice(0, 15)}…` : subLabel) : b.number}
+                    </text>
+                    {!flag && subLabel && (
+                      <text
+                        x={b.x + b.w / 2} y={b.y + b.h / 2 + Math.min(16, b.h / 4)}
+                        textAnchor="middle"
+                        fontSize={b.font_size ? Math.max(9, b.font_size * 0.55) : Math.min(12, b.h / 5)}
+                        fill={text} pointerEvents="none"
+                      >
+                        {subLabel.length > 18 ? `${subLabel.slice(0, 17)}…` : subLabel}
+                      </text>
+                    )}
+                  </>
                 )}
               </g>
             );

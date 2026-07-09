@@ -41,7 +41,7 @@ export function EmailTemplateEditor({ event, template, onChange }: {
       buildEmailHtml({
         template,
         mergeMap: sampleMap,
-        logoUrl: event.branding.logo_url ?? appSettings?.logo_url ?? `${window.location.origin}/logo.svg`,
+        logoUrl: appSettings?.email_logo_url ?? event.branding.logo_url ?? appSettings?.logo_url ?? `${window.location.origin}/logo.svg`,
         bannerUrl: event.branding.banner_url,
         qrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=HS-4F7A2C',
         schoolName: appSettings?.school_name,
@@ -93,7 +93,11 @@ export function EmailTemplateEditor({ event, template, onChange }: {
 
         <Card title="Extras">
           <div className="space-y-4">
-            <Switch checked={template.showLogo} onChange={(showLogo) => set({ showLogo })} label="Show the school logo in the header" />
+            <Switch
+              checked={template.showLogo} onChange={(showLogo) => set({ showLogo })}
+              label="Show the school logo in the header"
+              description="Uses the white email logo from Settings, made for the dark blue header. The school name text is hidden when the logo is shown."
+            />
             <Switch checked={template.showBanner} onChange={(showBanner) => set({ showBanner })} label="Show the event banner image" />
             <Switch checked={template.showQr} onChange={(showQr) => set({ showQr })} label="Include the check in QR code" />
             <Switch checked={template.attachCalendar} onChange={(attachCalendar) => set({ attachCalendar })} label="Attach a calendar invitation (.ics)" />

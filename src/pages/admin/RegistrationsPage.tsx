@@ -9,10 +9,13 @@ import { useEvent } from '@/hooks/useEvent';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { formatDateTime } from '@/lib/utils';
 import { boothText } from '@/lib/regBooths';
+import { isStoredFileRef } from '@/lib/storage';
 import { useToast } from '@/context/ToastContext';
 import { Badge, Button, Card, EmptyState, PageLoader } from '@/components/ui/basics';
 import { Input, Select } from '@/components/ui/inputs';
-import { ConfirmDialog } from '@/components/ui/overlays';
+import { ConfirmDialog, Modal } from '@/components/ui/overlays';
+import { Switch } from '@/components/ui/inputs';
+import { isContentField } from '@/components/form-renderer/fieldZod';
 import { RegistrationModal } from '@/components/registrations/RegistrationModal';
 import { exportCsv, exportXlsx } from '@/components/registrations/exporters';
 
@@ -35,6 +38,49 @@ export default function RegistrationsPage() {
   const [sort, setSort] = useState<'newest' | 'oldest' | 'name'>('newest');
   const [openReg, setOpenReg] = useState<Registration | null>(null);
   const [deleteReg, setDeleteReg] = useState<Registration | null>(null);
+
+  // Print options
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printMode, setPrintMode] = useState<'labels' | 'list'>('labels');
+  const [printCols, setPrintCols] = useState<Set<string>>(new Set(['name', 'booth']));
+  const [signatureBox, setSignatureBox] = useState(false);
+
+  function togglePrintCol(key: string) {
+    setPrintCols((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  function startPrint() {
+    setPrintOpen(false);
+    window.setTimeout(() => window.print(), 150);
+  }
+
+  function printValue(r: Registration, key: string): string {
+    switch (key) {
+      case 'name': return r.name ?? '';
+      case 'reference': return r.reference;
+      case 'email': return r.email ?? '';
+      case 'phone': return r.phone ?? '';
+      case 'booth': return boothText(r);
+      case 'status': return r.status;
+      case 'created': return formatDateTime(r.created_at);
+      default: {
+        const v = r.data?.[key];
+        if (v === null || v === undefined) return '';
+        if (Array.isArray(v)) return v.join(', ');
+        if (isStoredFileRef(v)) return v.name;
+        if (typeof v === 'object') {
+          return Object.entries(v as Record<string, unknown>)
+            .filter(([, n]) => typeof n === 'number' && (n as number) > 0)
+            .map(([k, n]) => `${k} x${n}`).join(', ');
+        }
+        return String(v);
+      }
+    }
+  }
 
   async function load() {
     if (!id) return;
@@ -118,7 +164,7 @@ export default function RegistrationsPage() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={() => exportCsv(event, visible)}>CSV</Button>
           <Button variant="outline" icon={<FileSpreadsheet className="h-4 w-4" />} onClick={() => exportXlsx(event, visible)}>Excel</Button>
-          <Button variant="outline" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Print</Button>
+          <Button variant="outline" icon={<Printer className="h-4 w-4" />} onClick={() => setPrintOpen(true)}>Print</Button>
         </div>
       </div>
 
@@ -148,7 +194,7 @@ export default function RegistrationsPage() {
       {visible.length === 0 ? (
         <EmptyState title="No registrations match" hint="Try a different filter or search term." />
       ) : (
-        <Card padded={false}>
+        <Card padded={false} className="print:hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
@@ -210,6 +256,122 @@ export default function RegistrationsPage() {
           onSaved={() => void load()}
         />
       )}
+
+      {/* Print options */}
+      <Modal
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        title="Print registrations"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setPrintOpen(false)}>Cancel</Button>
+            <Button icon={<Printer className="h-4 w-4" />} onClick={startPrint}>Print {visible.length} item{visible.length === 1 ? '' : 's'}</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setPrintMode('labels')}
+              className={`rounded-xl border p-3 text-left text-sm transition ${printMode === 'labels' ? 'border-navy-500 ring-2 ring-navy-100' : 'border-slate-200 hover:border-slate-300'}`}
+            >
+              <span className="block font-semibold text-navy-800">Name cards</span>
+              <span className="text-xs text-slate-500">Big vendor name and booth number, 8 per page, to attach at each booth.</span>
+            </button>
+            <button
+              onClick={() => setPrintMode('list')}
+              className={`rounded-xl border p-3 text-left text-sm transition ${printMode === 'list' ? 'border-navy-500 ring-2 ring-navy-100' : 'border-slate-200 hover:border-slate-300'}`}
+            >
+              <span className="block font-semibold text-navy-800">Detail list</span>
+              <span className="text-xs text-slate-500">A table with only the columns you tick, for the front desk.</span>
+            </button>
+          </div>
+
+          {printMode === 'list' && (
+            <>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Columns to include</p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  ['name', 'Name'], ['reference', 'Reference'], ['booth', 'Booth'],
+                  ['email', 'Email'], ['phone', 'Phone'], ['status', 'Status'], ['created', 'Submitted'],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => togglePrintCol(key)}
+                    aria-pressed={printCols.has(key)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${printCols.has(key) ? 'border-navy-600 bg-navy-700 text-white' : 'border-slate-300 text-slate-500 hover:border-navy-300'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {event.form_schema.filter((f) => !isContentField(f)).map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => togglePrintCol(f.id)}
+                    aria-pressed={printCols.has(f.id)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${printCols.has(f.id) ? 'border-navy-600 bg-navy-700 text-white' : 'border-slate-300 text-slate-500 hover:border-navy-300'}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <Switch
+                checked={signatureBox}
+                onChange={setSignatureBox}
+                label="Add a signature box column"
+                description="An empty box on each row for the vendor to sign when registering at the front desk."
+              />
+            </>
+          )}
+          <p className="text-xs text-slate-500">Prints the {visible.length} registrations currently shown (respects your search and filter).</p>
+        </div>
+      </Modal>
+
+      {/* Print output */}
+      <div className="hidden print:block">
+        {printMode === 'labels' ? (
+          <div className="grid grid-cols-2 gap-4">
+            {visible.map((r) => (
+              <div key={r.id} className="flex h-56 flex-col items-center justify-center rounded-xl border-4 border-[#1a3c5e] p-4 text-center" style={{ breakInside: 'avoid' }}>
+                <p className="text-3xl font-extrabold leading-tight text-[#1a3c5e]">{r.name ?? 'Unnamed'}</p>
+                {boothText(r) && (
+                  <p className="mt-3 rounded-full bg-[#F0B323] px-5 py-1.5 text-xl font-bold text-[#1a3c5e]">Booth {boothText(r)}</p>
+                )}
+                <p className="mt-3 font-mono text-xs text-slate-400">{r.reference}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <h1 className="mb-1 text-xl font-bold">{event.name}: registrations</h1>
+            <p className="mb-4 text-sm">Printed {new Date().toLocaleString()} - {visible.length} item(s)</p>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th className="border border-slate-400 px-2 py-1.5 text-left">#</th>
+                  {[...printCols].map((key) => {
+                    const builtIn: Record<string, string> = { name: 'Name', reference: 'Reference', booth: 'Booth', email: 'Email', phone: 'Phone', status: 'Status', created: 'Submitted' };
+                    const label = builtIn[key] ?? event.form_schema.find((f) => f.id === key)?.label ?? key;
+                    return <th key={key} className="border border-slate-400 px-2 py-1.5 text-left">{label}</th>;
+                  })}
+                  {signatureBox && <th className="border border-slate-400 px-2 py-1.5 text-left" style={{ width: '160px' }}>Signature</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((r, i) => (
+                  <tr key={r.id}>
+                    <td className="border border-slate-400 px-2 py-1.5">{i + 1}</td>
+                    {[...printCols].map((key) => (
+                      <td key={key} className="border border-slate-400 px-2 py-1.5 text-xs">{printValue(r, key)}</td>
+                    ))}
+                    {signatureBox && <td className="h-14 border border-slate-400 px-2 py-1.5" />}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
 
       <ConfirmDialog
         open={!!deleteReg}

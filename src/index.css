@@ -20,7 +20,22 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
 /* Public event pages are themed with CSS variables */
 .event-theme { background: var(--ev-bg); color: var(--ev-text); font-family: var(--ev-font); }
 .event-theme h1, .event-theme h2, .event-theme h3 { font-family: var(--ev-heading-font); }
-.ev-card { background: var(--ev-card); border-radius: var(--ev-radius); }
+.ev-card {
+  background: var(--ev-card);
+  border-radius: var(--ev-radius);
+  box-shadow: 0 12px 32px rgba(14, 33, 53, 0.14), 0 2px 8px rgba(14, 33, 53, 0.07);
+}
+.ev-accent-top {
+  position: relative;
+  overflow: hidden;
+}
+.ev-accent-top::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 5px;
+  background: linear-gradient(90deg, var(--ev-primary), var(--ev-secondary));
+}
 .ev-btn {
   background: var(--ev-primary); color: #fff; border-radius: calc(var(--ev-radius) * 0.6);
   transition: filter 0.15s ease, transform 0.1s ease;
@@ -34,8 +49,16 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
 .ev-btn-pill { border-radius: 999px; }
 .ev-input {
   border-radius: calc(var(--ev-radius) * 0.5);
+  background: #fafbfd;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
-.ev-input:focus { outline: 2px solid var(--ev-primary); outline-offset: 1px; border-color: transparent; }
+.ev-input:hover { border-color: #b6c3d4; }
+.ev-input:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: var(--ev-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ev-primary) 18%, transparent);
+}
 
 /* Scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }

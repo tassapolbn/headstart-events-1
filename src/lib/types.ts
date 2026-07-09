@@ -118,6 +118,10 @@ export interface FloorPlanSettings {
   gridSize: number;
   /** Form field whose answer is displayed on booked booths (e.g. Country) */
   bookedLabelField?: string;
+  /** Form field that determines the vendor type (e.g. Outside Provider) */
+  vendorTypeField?: string;
+  /** vendor type answer -> allowed booth group names (empty = anywhere) */
+  zoneMap?: Record<string, string[]>;
 }
 
 export type BoothStatus =
@@ -142,6 +146,8 @@ export interface Booth {
   notes: string | null;
   /** Public label shown while booked, e.g. the country name */
   booked_label: string | null;
+  /** Optional fixed font size for the booth text on the plan */
+  font_size?: number | null;
 }
 
 export interface EventRecord {
@@ -206,6 +212,8 @@ export interface AppSettings {
   id: number;
   school_name: string;
   logo_url: string | null;
+  /** White version of the logo for the dark email header */
+  email_logo_url: string | null;
   admin_email: string | null;
   webhook_url: string | null;
 }

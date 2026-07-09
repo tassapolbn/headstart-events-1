@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CalendarDays, Clock, MapPin, ShieldCheck } from 'lucide-react';
@@ -30,6 +30,8 @@ export default function EventPage() {
   const [boothIds, setBoothIds] = useState<string[]>([]);
   const [boothInfos, setBoothInfos] = useState<Booth[]>([]);
   const [ack, setAck] = useState(false);
+  const [liveValues, setLiveValues] = useState<Record<string, unknown>>({});
+  const handleValuesChange = useCallback((v: Record<string, unknown>) => setLiveValues(v), []);
   const [busy, setBusy] = useState(false);
   const startedAt = useRef(Date.now());
   const hpRef = useRef<HTMLInputElement>(null);
@@ -67,6 +69,23 @@ export default function EventPage() {
 
   const t = event.theme;
   const boothsEnabled = event.floor_plan.enabled && event.settings.boothSelection === 'single';
+
+  // Vendor type zones: which booth groups may this registrant use?
+  const vendorTypeField = event.floor_plan.vendorTypeField ?? '';
+  const zoneMap = event.floor_plan.zoneMap ?? {};
+  const vendorTypeValue = vendorTypeField ? String(liveValues[vendorTypeField] ?? '') : '';
+  const allowedGroups: string[] | null = vendorTypeField
+    ? (vendorTypeValue && Array.isArray(zoneMap[vendorTypeValue]) && zoneMap[vendorTypeValue].length > 0
+        ? zoneMap[vendorTypeValue]
+        : vendorTypeValue ? null : null)
+    : null;
+  const zoneNotice = boothsEnabled && vendorTypeField
+    ? (!vendorTypeValue
+        ? 'Please answer the vendor type question in the form below first, then choose your booth.'
+        : allowedGroups && allowedGroups.length > 0
+          ? `As "${vendorTypeValue}", you can choose booths in: ${allowedGroups.join(', ')}`
+          : undefined)
+    : undefined;
   const activePolicies = event.policies.filter((p) => p.enabled && (p.title || p.content));
   const logo = event.branding.logo_url ?? appSettings?.logo_url ?? '/logo.svg';
   const anim = t.animations
@@ -206,7 +225,7 @@ export default function EventPage() {
         )}
 
         {event.description && (
-          <div className="ev-card mt-6 p-5 shadow-card">
+          <div className="ev-card mt-6 p-5">
             <div
               className="ev-rich text-sm leading-relaxed opacity-90"
               dangerouslySetInnerHTML={{ __html: richToHtml(event.description) }}
@@ -242,7 +261,7 @@ export default function EventPage() {
           <>
             {/* Policies */}
             {activePolicies.length > 0 && (
-              <motion.section {...anim} className="ev-card mt-6 space-y-4 p-5 shadow-card" aria-labelledby="policies-heading">
+              <motion.section {...anim} className="ev-card ev-accent-top mt-6 space-y-4 p-5" aria-labelledby="policies-heading">
                 <h2 id="policies-heading" className="flex items-center gap-2 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
                   <ShieldCheck className="h-5 w-5" /> Event policies
                 </h2>
@@ -270,7 +289,7 @@ export default function EventPage() {
 
             {/* Booth picker */}
             {boothsEnabled && (
-              <motion.section {...anim} className="ev-card mt-6 space-y-3 p-5 shadow-card" aria-labelledby="booth-heading">
+              <motion.section {...anim} className="ev-card ev-accent-top mt-6 space-y-3 p-5" aria-labelledby="booth-heading">
                 <h2 id="booth-heading" className="text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
                   {event.settings.boothSelectionLabel || 'Select your booth'}
                 </h2>
@@ -279,6 +298,8 @@ export default function EventPage() {
                   plan={event.floor_plan}
                   value={boothIds}
                   maxBooths={Math.max(1, event.settings.maxBooths || 1)}
+                  allowedGroups={vendorTypeField && !vendorTypeValue ? [] : allowedGroups}
+                  zoneNotice={zoneNotice}
                   onChange={(ids, booths) => { setBoothIds(ids); setBoothInfos(booths); }}
                   onSelectionLost={(b) => toast(`Booth ${b.label || b.number} was just taken by someone else. Please pick another.`, 'info')}
                   onLimitReached={() => toast(`You can choose up to ${event.settings.maxBooths} booths. Unselect one first.`, 'info')}
@@ -287,7 +308,7 @@ export default function EventPage() {
             )}
 
             {/* Form */}
-            <motion.section {...anim} className="ev-card mt-6 p-5 shadow-card sm:p-7">
+            <motion.section {...anim} className="ev-card ev-accent-top mt-6 p-5 sm:p-7">
               <h2 className="mb-5 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>Registration form</h2>
               {/* Honeypot: invisible to humans, irresistible to bots */}
               <input
@@ -298,6 +319,7 @@ export default function EventPage() {
                 fields={event.form_schema}
                 theme={t}
                 busy={busy}
+                onValuesChange={handleValuesChange}
                 onSubmit={handleSubmit}
                 submitLabel={event.status === 'waitlist' ? 'Join the waitlist' : 'Submit registration'}
                 beforeSubmit={

@@ -1,6 +1,6 @@
 import { Copy, Trash2 } from 'lucide-react';
 import type { Booth, BoothStatus } from '@/lib/types';
-import { boothStatusChoices, boothStatusMeta } from '@/lib/boothColors';
+import { boothStatusChoices, boothStatusMeta, isMarkerStatus } from '@/lib/boothColors';
 import { Button, Card } from '@/components/ui/basics';
 import { ColorInput, Field, Input, Select, Switch, Textarea } from '@/components/ui/inputs';
 
@@ -14,13 +14,20 @@ export function BoothPropsPanel({ booth, onChange, onDuplicate, onDelete }: {
     <Card title={`Booth: ${booth.label || booth.number || 'untitled'}`}>
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Booth name">
+          <Field label={isMarkerStatus(booth.status) ? 'Marker name' : 'Booth name'}>
             <Input value={booth.label} onChange={(e) => onChange({ label: e.target.value })} />
           </Field>
-          <Field label="Booth number">
-            <Input value={booth.number} onChange={(e) => onChange({ number: e.target.value })} />
-          </Field>
+          {!isMarkerStatus(booth.status) && (
+            <Field label="Booth number">
+              <Input value={booth.number} onChange={(e) => onChange({ number: e.target.value })} />
+            </Field>
+          )}
         </div>
+        {isMarkerStatus(booth.status) && (
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            Markers like {boothStatusMeta[booth.status].label} show an icon and name only. Visitors cannot click them and they need no number.
+          </p>
+        )}
 
         <Field label="Status">
           <Select value={booth.status} onChange={(e) => onChange({ status: e.target.value as BoothStatus })} aria-label="Booth status">
@@ -49,7 +56,24 @@ export function BoothPropsPanel({ booth, onChange, onDuplicate, onDelete }: {
           ))}
         </div>
 
-        <Field label="Group" hint="e.g. Food Court, Craft Corner. Used in analytics.">
+        <Field label={`Text size${booth.font_size ? `: ${booth.font_size}px` : ': automatic'}`}>
+          <div className="flex items-center gap-2">
+            <input
+              type="range" min={8} max={44} step={1}
+              value={booth.font_size ?? 0}
+              onChange={(e) => onChange({ font_size: Number(e.target.value) < 8 ? null : Number(e.target.value) })}
+              className="w-full accent-navy-700"
+              aria-label="Booth text size"
+            />
+            {booth.font_size && (
+              <button type="button" className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100" onClick={() => onChange({ font_size: null })}>
+                Auto
+              </button>
+            )}
+          </div>
+        </Field>
+
+        <Field label="Group / Zone" hint="e.g. Outside Provider Zone, Food Court. Used for vendor type zones and analytics.">
           <Input value={booth.group_name ?? ''} onChange={(e) => onChange({ group_name: e.target.value || null })} />
         </Field>
 

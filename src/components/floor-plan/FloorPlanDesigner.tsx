@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Booth, FloorPlanSettings } from '@/lib/types';
-import { boothFill, boothStatusMeta } from '@/lib/boothColors';
+import { boothFill, boothStatusMeta, isMarkerStatus } from '@/lib/boothColors';
 import { contrastText, download, uid, clamp } from '@/lib/utils';
 import { flagForText } from '@/lib/countries';
 import { useToast } from '@/context/ToastContext';
@@ -353,6 +353,10 @@ export function FloorPlanDesigner({ eventId, plan, onPlanChange }: {
               const isSel = b.id === selectedId;
               const bookedFlag = b.status === 'booked' ? flagForText(b.booked_label) : '';
               const displayLabel = b.status === 'booked' && b.booked_label ? b.booked_label : b.label;
+              const marker = isMarkerStatus(b.status);
+              const markerIcon = boothStatusMeta[b.status].icon;
+              const baseFont = b.font_size ?? Math.min(22, b.h / 3);
+              const smallFont = b.font_size ? Math.max(9, b.font_size * 0.55) : Math.min(12, b.h / 5);
               return (
                 <g key={b.id} opacity={b.hidden ? 0.35 : 1}>
                   <rect
@@ -363,30 +367,52 @@ export function FloorPlanDesigner({ eventId, plan, onPlanChange }: {
                     className="booth-shape"
                     onPointerDown={(e) => onBoothPointerDown(e, b)}
                   />
-                  {bookedFlag && (
-                    <text
-                      x={b.x + b.w / 2} y={b.y + b.h / 2 - Math.min(10, b.h / 6)}
-                      textAnchor="middle" fontSize={Math.min(26, b.h / 2.6)} pointerEvents="none"
-                    >
-                      {bookedFlag}
-                    </text>
-                  )}
-                  <text
-                    x={b.x + b.w / 2}
-                    y={bookedFlag ? b.y + b.h / 2 + Math.min(10, b.h / 6) : b.y + b.h / 2 - (displayLabel ? 4 : -4)}
-                    textAnchor="middle" fontSize={bookedFlag ? Math.min(13, b.h / 5) : Math.min(22, b.h / 3)} fontWeight={700}
-                    fill={text} pointerEvents="none"
-                  >
-                    {bookedFlag ? (displayLabel.length > 16 ? `${displayLabel.slice(0, 15)}…` : displayLabel) : b.number}
-                  </text>
-                  {!bookedFlag && displayLabel && (
-                    <text
-                      x={b.x + b.w / 2} y={b.y + b.h / 2 + Math.min(16, b.h / 4)}
-                      textAnchor="middle" fontSize={Math.min(12, b.h / 5)}
-                      fill={text} pointerEvents="none"
-                    >
-                      {displayLabel.length > 18 ? `${displayLabel.slice(0, 17)}…` : displayLabel}
-                    </text>
+                  {marker ? (
+                    <>
+                      <text
+                        x={b.x + b.w / 2} y={b.y + b.h / 2 + (b.label ? -2 : 8)}
+                        textAnchor="middle" fontSize={b.font_size ?? Math.min(30, b.h / 2.2)} pointerEvents="none"
+                      >
+                        {markerIcon}
+                      </text>
+                      {b.label && (
+                        <text
+                          x={b.x + b.w / 2} y={b.y + b.h / 2 + Math.min(20, b.h / 3.2)}
+                          textAnchor="middle" fontSize={smallFont} fontWeight={700}
+                          fill={text} pointerEvents="none"
+                        >
+                          {b.label}
+                        </text>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {bookedFlag && (
+                        <text
+                          x={b.x + b.w / 2} y={b.y + b.h / 2 - Math.min(10, b.h / 6)}
+                          textAnchor="middle" fontSize={b.font_size ?? Math.min(26, b.h / 2.6)} pointerEvents="none"
+                        >
+                          {bookedFlag}
+                        </text>
+                      )}
+                      <text
+                        x={b.x + b.w / 2}
+                        y={bookedFlag ? b.y + b.h / 2 + Math.min(10, b.h / 6) : b.y + b.h / 2 - (displayLabel ? 4 : -4)}
+                        textAnchor="middle" fontSize={bookedFlag ? smallFont : baseFont} fontWeight={700}
+                        fill={text} pointerEvents="none"
+                      >
+                        {bookedFlag ? (displayLabel.length > 16 ? `${displayLabel.slice(0, 15)}…` : displayLabel) : b.number}
+                      </text>
+                      {!bookedFlag && displayLabel && (
+                        <text
+                          x={b.x + b.w / 2} y={b.y + b.h / 2 + Math.min(16, b.h / 4)}
+                          textAnchor="middle" fontSize={smallFont}
+                          fill={text} pointerEvents="none"
+                        >
+                          {displayLabel.length > 18 ? `${displayLabel.slice(0, 17)}…` : displayLabel}
+                        </text>
+                      )}
+                    </>
                   )}
                   {isSel && (['nw', 'ne', 'sw', 'se'] as const).map((h) => (
                     <circle
