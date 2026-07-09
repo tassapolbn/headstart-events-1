@@ -19,5 +19,18 @@ export function friendlyError(error: unknown): string {
   for (const code of Object.keys(messages)) {
     if (raw.includes(code)) return messages[code];
   }
-  return 'Something went wrong while submitting. Please check your connection and try again.';
+  // Infrastructure level causes, phrased for the administrator.
+  if (raw.includes('Could not find the function') || raw.includes('schema cache')) {
+    return 'ADMIN: the website is newer than the database. Please run the latest migration file(s) in the Supabase SQL Editor.';
+  }
+  if (raw.includes('Bucket not found')) {
+    return 'ADMIN: the storage bucket is missing. Please run supabase/schema.sql storage section in the SQL Editor.';
+  }
+  if (raw.toLowerCase().includes('row-level security')) {
+    return 'ADMIN: a database permission rule blocked this action. Please re-run the latest migration file in Supabase.';
+  }
+  if (raw.includes('Failed to fetch')) {
+    return 'Could not reach the server. Please check your internet connection and try again.';
+  }
+  return `Something went wrong while submitting. Technical detail: ${raw.slice(0, 160)}`;
 }

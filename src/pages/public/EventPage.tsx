@@ -161,6 +161,7 @@ export default function EventPage() {
 
       navigate(`/e/${event.slug}/success/${res.reference}`, { state: { result: res, menu } });
     } catch (err) {
+      console.error('Registration submit failed:', err);
       toast(friendlyError(err), 'error');
     } finally {
       setBusy(false);
