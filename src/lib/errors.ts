@@ -14,8 +14,28 @@ const messages: Record<string, string> = {
   NOT_FOUND: 'No registration was found for that reference.',
 };
 
+/** Extract a readable message from any error shape Supabase can produce. */
+function messageOf(error: unknown): string {
+  if (!error) return '';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'object') {
+    const e = error as Record<string, unknown>;
+    for (const key of ['message', 'error_description', 'details', 'hint', 'error', 'msg']) {
+      const v = e[key];
+      if (typeof v === 'string' && v.trim()) return v;
+    }
+    try {
+      return JSON.stringify(error).slice(0, 300);
+    } catch {
+      return 'Unknown error';
+    }
+  }
+  return String(error);
+}
+
 export function friendlyError(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error ?? '');
+  const raw = messageOf(error);
   for (const code of Object.keys(messages)) {
     if (raw.includes(code)) return messages[code];
   }
