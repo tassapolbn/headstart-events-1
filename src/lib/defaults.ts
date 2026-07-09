@@ -73,6 +73,7 @@ export const defaultSettings: EventSettings = {
   requirePolicyAck: true,
   policyAckText: 'I have read and understood the event policies and agree to comply with them.',
   confirmationMessage: 'Thank you for registering. We look forward to seeing you at the event.',
+  showQrOnSuccess: true,
   boothSelection: 'none',
   boothSelectionLabel: 'Select your booth',
 };

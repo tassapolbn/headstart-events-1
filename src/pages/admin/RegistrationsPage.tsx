@@ -85,9 +85,10 @@ export default function RegistrationsPage() {
   async function load() {
     if (!id) return;
     const [r, b] = await Promise.all([
-      supabase.from('registrations').select('*, booths(label, number), registration_booths(booth_id, booths(label, number))').eq('event_id', id).order('created_at', { ascending: false }).limit(2000),
+      supabase.from('registrations').select('*, booths!registrations_booth_id_fkey(label, number), registration_booths(booth_id, booths(label, number))').eq('event_id', id).order('created_at', { ascending: false }).limit(2000),
       supabase.from('booths').select('*').eq('event_id', id).eq('status', 'available'),
     ]);
+    if (r.error) toast(`Could not load registrations: ${r.error.message}`, 'error');
     setRegs((r.data ?? []) as Registration[]);
     setBooths((b.data ?? []) as Booth[]);
     setLoading(false);

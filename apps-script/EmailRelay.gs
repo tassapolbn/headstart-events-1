@@ -176,7 +176,7 @@ function supabaseGet(path) {
 
 function fetchRegistration(reference) {
   var rows = supabaseGet(
-    '/rest/v1/registrations?select=*,events(*),booths(label,number),registration_booths(booths(label,number))&reference=eq.' + encodeURIComponent(reference)
+    '/rest/v1/registrations?select=*,events(*),booths!registrations_booth_id_fkey(label,number),registration_booths(booths(label,number))&reference=eq.' + encodeURIComponent(reference)
   );
   return rows && rows[0];
 }

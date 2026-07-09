@@ -37,7 +37,7 @@ export default function SignsPage() {
     if (!id) return;
     supabase
       .from('registrations')
-      .select('*, booths(label, number), registration_booths(booth_id, booths(label, number))')
+      .select('*, booths!registrations_booth_id_fkey(label, number), registration_booths(booth_id, booths(label, number))')
       .eq('event_id', id)
       .in('status', ['confirmed', 'pending'])
       .order('created_at')

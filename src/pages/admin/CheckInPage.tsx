@@ -39,12 +39,13 @@ export default function CheckInPage() {
 
   async function load() {
     if (!id) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('registrations')
-      .select('*, booths(label, number), registration_booths(booth_id, booths(label, number))')
+      .select('*, booths!registrations_booth_id_fkey(label, number), registration_booths(booth_id, booths(label, number))')
       .eq('event_id', id)
       .in('status', ['confirmed', 'pending'])
       .order('name');
+    if (error) toast(`Could not load attendees: ${error.message}`, 'error');
     setRegs((data ?? []) as Registration[]);
     setLoading(false);
   }

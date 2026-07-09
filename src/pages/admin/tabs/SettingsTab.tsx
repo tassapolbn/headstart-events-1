@@ -1,5 +1,6 @@
 import { Card } from '@/components/ui/basics';
-import { Field, Input, Switch, Textarea } from '@/components/ui/inputs';
+import { Field, Input, Switch } from '@/components/ui/inputs';
+import { RichTextArea } from '@/components/ui/RichTextArea';
 import type { TabProps } from '../EventEditorPage';
 
 export default function SettingsTab({ draft, update }: TabProps) {
@@ -28,9 +29,20 @@ export default function SettingsTab({ draft, update }: TabProps) {
             label="Allow the same email to register twice"
             description="Usually off, which blocks duplicate submissions from the same address."
           />
-          <Field label="Confirmation message" htmlFor="conf-msg" hint="Shown on screen after a successful registration.">
-            <Textarea id="conf-msg" rows={3} value={s.confirmationMessage} onChange={(e) => set({ confirmationMessage: e.target.value })} />
-          </Field>
+          <RichTextArea
+            id="conf-msg"
+            label="Thank you message"
+            rows={4}
+            value={s.confirmationMessage}
+            onChange={(confirmationMessage) => set({ confirmationMessage })}
+            hint="Shown on the confirmation page after a successful registration. Supports bold, lists and links."
+          />
+          <Switch
+            checked={s.showQrOnSuccess}
+            onChange={(showQrOnSuccess) => set({ showQrOnSuccess })}
+            label="Include QR Code after Registration"
+            description="Show the attendee's check in QR code on the confirmation page. Turn off for simple events without check in."
+          />
         </div>
       </Card>
 

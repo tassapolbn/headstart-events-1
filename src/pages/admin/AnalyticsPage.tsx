@@ -25,7 +25,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (!id) return;
     Promise.all([
-      supabase.from('registrations').select('*, booths(label, number)').eq('event_id', id),
+      supabase.from('registrations').select('*, booths!registrations_booth_id_fkey(label, number)').eq('event_id', id),
       supabase.from('booths').select('*').eq('event_id', id),
     ]).then(([r, b]) => {
       setRegs((r.data ?? []) as Registration[]);

@@ -1,16 +1,21 @@
 import { useRef, useState } from 'react';
-import { Bold, Eye, EyeOff, Heading2, Italic, List, ListOrdered, Underline } from 'lucide-react';
+import { Bold, Eye, EyeOff, Heading2, Italic, Link2, List, ListOrdered, Underline } from 'lucide-react';
 import { fontOptions } from '@/lib/defaults';
 import { cn } from '@/lib/utils';
 
 /** Render stored rich content. Plain text keeps its line breaks. */
 export function richToHtml(content: string): string {
   if (!content) return '';
-  if (/<[a-z][\s\S]*>/i.test(content)) return content;
-  return content
-    .split('\n')
-    .map((line) => (line.trim() === '' ? '<br/>' : `<p>${line}</p>`))
-    .join('');
+  const hasTags = /<[a-z][\s\S]*>/i.test(content);
+  if (!hasTags) {
+    return content
+      .split('\n')
+      .map((line) => (line.trim() === '' ? '<br/>' : `<p>${line}</p>`))
+      .join('');
+  }
+  // Inline-only formatting (bold, links...) still respects the author's line breaks.
+  const hasBlocks = /<(p|div|ul|ol|li|h[1-6]|table|br)\b/i.test(content);
+  return hasBlocks ? content : content.replace(/\n/g, '<br/>');
 }
 
 /**
@@ -74,6 +79,15 @@ export function RichTextArea({ value, onChange, rows = 6, label, hint, id }: {
           <button type="button" title="Heading" aria-label="Heading" className={btn} onClick={() => surround('\n<h3>', '</h3>\n', 'Heading')}><Heading2 className="h-4 w-4" /></button>
           <button type="button" title="Bullet points" aria-label="Bullet points" className={btn} onClick={() => makeList(false)}><List className="h-4 w-4" /></button>
           <button type="button" title="Numbered list" aria-label="Numbered list" className={btn} onClick={() => makeList(true)}><ListOrdered className="h-4 w-4" /></button>
+          <button
+            type="button" title="Insert link" aria-label="Insert link" className={btn}
+            onClick={() => {
+              const url = window.prompt('Link address (https://…)');
+              if (url) surround(`<a href="${url.trim()}" target="_blank" rel="noreferrer">`, '</a>', 'link text');
+            }}
+          >
+            <Link2 className="h-4 w-4" />
+          </button>
           <select
             aria-label="Apply font to selection"
             className="ml-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600"

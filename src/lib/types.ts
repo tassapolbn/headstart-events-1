@@ -104,6 +104,8 @@ export interface EventSettings {
   requirePolicyAck: boolean;
   policyAckText: string;
   confirmationMessage: string;
+  /** Show the QR code on the confirmation page */
+  showQrOnSuccess: boolean;
   boothSelection: 'none' | 'single';
   boothSelectionLabel: string;
 }
