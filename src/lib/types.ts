@@ -148,6 +148,8 @@ export interface Booth {
   booked_label: string | null;
   /** Optional fixed font size for the booth text on the plan */
   font_size?: number | null;
+  /** Vendor types allowed to select this booth (null or empty = everyone) */
+  allowed_types?: string[] | null;
 }
 
 export interface EventRecord {

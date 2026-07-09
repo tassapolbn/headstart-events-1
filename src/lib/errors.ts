@@ -1,7 +1,7 @@
 /** Translate database error codes into friendly messages for the public form. */
 const messages: Record<string, string> = {
   BOOTH_TAKEN: 'Sorry, that booth was just taken by someone else. Please choose another booth.',
-  BOOTH_NOT_ALLOWED: 'Your vendor type cannot book that booth. Please choose a booth inside your zone on the floor plan.',
+  BOOTH_NOT_ALLOWED: 'That booth is reserved for a different vendor type. Please choose one of the booths available to you.',
   TOO_MANY_BOOTHS: 'You have selected more booths than allowed for this event.',
   EVENT_FULL: 'This event has reached its maximum number of registrations.',
   REGISTRATION_CLOSED: 'Registration for this event has closed.',

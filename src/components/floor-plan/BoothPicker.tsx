@@ -12,15 +12,14 @@ import { Legend } from './Legend';
  * booked by someone else turns red for every open visitor within a second.
  * Booked booths can display a label (e.g. country flag and name).
  */
-export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, allowedGroups, zoneNotice, onSelectionLost, onLimitReached }: {
+export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, vendorType, onSelectionLost, onLimitReached }: {
   eventId: string;
   plan: FloorPlanSettings;
   value: string[];
   onChange: (boothIds: string[], booths: Booth[]) => void;
   maxBooths?: number;
-  /** null or empty = any zone; otherwise only these booth groups are selectable */
-  allowedGroups?: string[] | null;
-  zoneNotice?: string;
+  /** The registrant's answer to the vendor type question, if the event uses one */
+  vendorType?: string;
   onSelectionLost?: (booth: Booth) => void;
   onLimitReached?: () => void;
 }) {
@@ -97,11 +96,13 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, all
   }
 
   function inAllowedZone(b: Booth): boolean {
-    if (!allowedGroups || allowedGroups.length === 0) return true;
-    return !!b.group_name && allowedGroups.includes(b.group_name);
+    const types = b.allowed_types ?? [];
+    if (types.length === 0) return true;
+    return !!vendorType && types.includes(vendorType);
   }
+  const hasRestrictions = booths.some((b) => (b.allowed_types?.length ?? 0) > 0);
 
-  // Drop selections that fall outside the zone when the vendor type changes.
+  // Drop selections that stop being allowed when the vendor type changes.
   useEffect(() => {
     if (value.length === 0) return;
     const keep = value.filter((id) => {
@@ -111,13 +112,18 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, all
     if (keep.length !== value.length) {
       onChange(keep, booths.filter((b) => keep.includes(b.id)));
     }
-  }, [allowedGroups, booths]);
+  }, [vendorType, booths]);
 
   const selectedBooths = useMemo(
     () => value.map((id) => booths.find((b) => b.id === id)).filter((b): b is Booth => !!b),
     [booths, value]
   );
   const availableCount = booths.filter((b) => b.status === 'available' && inAllowedZone(b)).length;
+  const zoneNotice = hasRestrictions
+    ? (!vendorType
+        ? 'Some booths are reserved for specific vendor types. Please answer the vendor type question in the form below first.'
+        : `Booths available to "${vendorType}" are shown in green. Grey dashed booths are reserved for other vendor types.`)
+    : undefined;
 
   if (loading) {
     return <div className="ev-card animate-pulse p-6 text-center text-sm opacity-60">Loading floor plan…</div>;
@@ -131,7 +137,7 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, all
       )}
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="font-semibold">
-          {availableCount} booth{availableCount === 1 ? '' : 's'} available{allowedGroups && allowedGroups.length > 0 ? ' in your zone' : ''}
+          {availableCount} booth{availableCount === 1 ? '' : 's'} available{hasRestrictions && vendorType ? ' for you' : ''}
           {maxBooths > 1 && <span className="font-normal opacity-70"> (choose up to {maxBooths})</span>}
         </span>
         {selectedBooths.length > 0 && (

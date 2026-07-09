@@ -33,6 +33,7 @@ function snapshotBooth(b: Booth): Omit<Booth, 'id' | 'event_id'> {
     hidden: b.hidden, group_name: b.group_name, notes: b.notes,
     booked_label: null,
     font_size: b.font_size ?? null,
+    allowed_types: b.allowed_types ?? null,
   };
 }
 

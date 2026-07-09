@@ -1,27 +1,10 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { FloorPlanDesigner } from '@/components/floor-plan/FloorPlanDesigner';
 import { Card } from '@/components/ui/basics';
 import { Field, Select, Switch } from '@/components/ui/inputs';
 import { isContentField } from '@/components/form-renderer/fieldZod';
-import { cn } from '@/lib/utils';
 import type { TabProps } from '../EventEditorPage';
 
 export default function FloorPlanTab({ draft, update }: TabProps) {
-  const [groups, setGroups] = useState<string[]>([]);
-
-  useEffect(() => {
-    supabase
-      .from('booths')
-      .select('group_name')
-      .eq('event_id', draft.id)
-      .not('group_name', 'is', null)
-      .then(({ data }) => {
-        const names = [...new Set((data ?? []).map((r) => r.group_name as string).filter(Boolean))].sort();
-        setGroups(names);
-      });
-  }, [draft.id]);
-
   const labelCandidates = draft.form_schema.filter(
     (f) => !isContentField(f) && ['short_text', 'dropdown', 'radio', 'multiple_choice'].includes(f.type)
   );
@@ -29,13 +12,7 @@ export default function FloorPlanTab({ draft, update }: TabProps) {
     (f) => !isContentField(f) && ['dropdown', 'radio', 'multiple_choice'].includes(f.type) && (f.options?.length ?? 0) > 0
   );
   const typeField = draft.form_schema.find((f) => f.id === draft.floor_plan.vendorTypeField);
-  const zoneMap = draft.floor_plan.zoneMap ?? {};
-
-  function toggleZone(option: string, group: string) {
-    const current = zoneMap[option] ?? [];
-    const next = current.includes(group) ? current.filter((g) => g !== group) : [...current, group];
-    update({ floor_plan: { ...draft.floor_plan, zoneMap: { ...zoneMap, [option]: next } } });
-  }
+  const vendorTypes = typeField?.options ?? [];
 
   return (
     <div className="space-y-4">
@@ -79,14 +56,14 @@ export default function FloorPlanTab({ draft, update }: TabProps) {
         </div>
       </Card>
 
-      <Card
-        title="Vendor type zones"
-      >
+      <Card title="Vendor type restrictions (e.g. Outside Provider)">
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Limit where each vendor type can book. First give your booths a <strong>Group / Zone</strong> name in the designer below
-            (e.g. "Outside Provider Zone" on 5 booths). Then pick the question that asks for the vendor type and tick the zones
-            each answer is allowed to use. Answers with no zones ticked can book anywhere. The database enforces these rules.
+            How it works, in two steps: <strong>1)</strong> pick the question that asks for the vendor type.
+            <strong> 2)</strong> in the designer below, click a booth (or drag to select several) and tick which
+            vendor types may select it, e.g. mark 5 booths as "Outside Provider" only. Booths with no ticks stay
+            open to everyone. Restricted booths show a gold dot and a dashed border in the designer, and the
+            database enforces the rule on every submission.
           </p>
           <Field label="Vendor type question">
             <Select
@@ -100,48 +77,11 @@ export default function FloorPlanTab({ draft, update }: TabProps) {
               ))}
             </Select>
           </Field>
-
           {typeField && (
-            groups.length === 0 ? (
-              <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                No booth groups found yet. In the designer below, select a booth and fill in its <strong>Group / Zone</strong> field
-                (e.g. "Outside Provider Zone"), press Save layout, then come back here.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {(typeField.options ?? []).map((opt) => {
-                  const chosen = zoneMap[opt] ?? [];
-                  return (
-                    <div key={opt} className="rounded-xl border border-slate-200 p-3">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-700">{opt}</p>
-                        <span className="text-xs text-slate-400">
-                          {chosen.length === 0 ? 'Can book anywhere' : `Limited to: ${chosen.join(', ')}`}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {groups.map((g) => (
-                          <button
-                            key={g}
-                            type="button"
-                            onClick={() => toggleZone(opt, g)}
-                            aria-pressed={chosen.includes(g)}
-                            className={cn(
-                              'rounded-full border px-3 py-1 text-xs font-medium transition',
-                              chosen.includes(g)
-                                ? 'border-navy-600 bg-navy-700 text-white'
-                                : 'border-slate-300 text-slate-500 hover:border-navy-300 hover:text-navy-600'
-                            )}
-                          >
-                            {g}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )
+            <p className="rounded-xl bg-navy-50 px-4 py-3 text-sm text-navy-700">
+              Types found: {vendorTypes.join(', ') || 'none'}. Now click booths below and use
+              "Who can select this booth" to assign them. Remember to press Save layout.
+            </p>
           )}
         </div>
       </Card>
@@ -149,6 +89,7 @@ export default function FloorPlanTab({ draft, update }: TabProps) {
       <FloorPlanDesigner
         eventId={draft.id}
         plan={draft.floor_plan}
+        vendorTypes={draft.floor_plan.vendorTypeField ? vendorTypes : []}
         onPlanChange={(floor_plan) => update({ floor_plan })}
       />
     </div>

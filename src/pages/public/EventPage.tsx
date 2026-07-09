@@ -69,23 +69,8 @@ export default function EventPage() {
 
   const t = event.theme;
   const boothsEnabled = event.floor_plan.enabled && event.settings.boothSelection === 'single';
-
-  // Vendor type zones: which booth groups may this registrant use?
   const vendorTypeField = event.floor_plan.vendorTypeField ?? '';
-  const zoneMap = event.floor_plan.zoneMap ?? {};
   const vendorTypeValue = vendorTypeField ? String(liveValues[vendorTypeField] ?? '') : '';
-  const allowedGroups: string[] | null = vendorTypeField
-    ? (vendorTypeValue && Array.isArray(zoneMap[vendorTypeValue]) && zoneMap[vendorTypeValue].length > 0
-        ? zoneMap[vendorTypeValue]
-        : vendorTypeValue ? null : null)
-    : null;
-  const zoneNotice = boothsEnabled && vendorTypeField
-    ? (!vendorTypeValue
-        ? 'Please answer the vendor type question in the form below first, then choose your booth.'
-        : allowedGroups && allowedGroups.length > 0
-          ? `As "${vendorTypeValue}", you can choose booths in: ${allowedGroups.join(', ')}`
-          : undefined)
-    : undefined;
   const activePolicies = event.policies.filter((p) => p.enabled && (p.title || p.content));
   const logo = event.branding.logo_url ?? appSettings?.logo_url ?? '/logo.svg';
   const anim = t.animations
@@ -298,8 +283,7 @@ export default function EventPage() {
                   plan={event.floor_plan}
                   value={boothIds}
                   maxBooths={Math.max(1, event.settings.maxBooths || 1)}
-                  allowedGroups={vendorTypeField && !vendorTypeValue ? [] : allowedGroups}
-                  zoneNotice={zoneNotice}
+                  vendorType={vendorTypeValue || undefined}
                   onChange={(ids, booths) => { setBoothIds(ids); setBoothInfos(booths); }}
                   onSelectionLost={(b) => toast(`Booth ${b.label || b.number} was just taken by someone else. Please pick another.`, 'info')}
                   onLimitReached={() => toast(`You can choose up to ${event.settings.maxBooths} booths. Unselect one first.`, 'info')}
