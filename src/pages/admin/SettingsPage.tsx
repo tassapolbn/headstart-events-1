@@ -76,7 +76,7 @@ export default function SettingsPage() {
               value={settings.email_logo_url ?? undefined}
               onChange={(email_logo_url) => setSettings({ ...settings, email_logo_url: email_logo_url ?? null })}
               prefix="app"
-              hint="The email header is navy blue, so upload the white PNG version of the logo here. When set, the school name text is removed from the header."
+              hint="Upload the white PNG version of the logo. Used in the navy email header and on the navy home page header. When set, the school name text is removed from the email header."
               dark
             />
           </div>

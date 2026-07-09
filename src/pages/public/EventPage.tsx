@@ -72,7 +72,7 @@ export default function EventPage() {
   const vendorTypeField = event.floor_plan.vendorTypeField ?? '';
   const vendorTypeValue = vendorTypeField ? String(liveValues[vendorTypeField] ?? '') : '';
   const activePolicies = event.policies.filter((p) => p.enabled && (p.title || p.content));
-  const logo = event.branding.logo_url ?? appSettings?.email_logo_url ?? appSettings?.logo_url ?? '/logo.svg';
+  const logo = event.branding.logo_url ?? appSettings?.logo_url ?? '/logo.svg';
   const anim = t.animations
     ? { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 } }
     : { initial: false as const, animate: undefined };
@@ -189,17 +189,10 @@ export default function EventPage() {
 
       <motion.div {...anim} className="relative mx-auto mt-8 max-w-3xl px-4">
         <div className="text-center">
-          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5">
-            {!event.branding.hide_logo && (
-              <span
-                className="inline-flex items-center rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5"
-                style={{ background: 'var(--ev-primary)' }}
-              >
-                <img src={logo} alt="School logo" className="h-8 w-auto max-w-[40vw] object-contain sm:h-12" />
-              </span>
-            )}
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl" style={{ color: 'var(--ev-title)' }}>{event.name}</h1>
-          </div>
+          {!event.branding.hide_logo && (
+            <img src={logo} alt="School logo" className="mx-auto mb-5 h-14 w-auto max-w-[70vw] object-contain sm:h-16" />
+          )}
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl" style={{ color: 'var(--ev-title)' }}>{event.name}</h1>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-sm opacity-80">
             {event.event_date && (
               <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4" />{formatDate(event.event_date)}{event.end_date ? ` to ${formatDate(event.end_date, 'd MMMM yyyy')}` : ''}</span>

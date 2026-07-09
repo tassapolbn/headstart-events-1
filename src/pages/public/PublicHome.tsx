@@ -28,7 +28,7 @@ export default function PublicHome() {
   return (
     <main className="min-h-screen bg-slate-100">
       <header className="bg-navy-800 pb-16 pt-10 text-center text-white">
-        <img src={settings?.logo_url ?? '/logo.svg'} alt="School logo" className="mx-auto h-16 w-16 rounded-2xl object-contain" />
+        <img src={settings?.email_logo_url ?? settings?.logo_url ?? '/logo.svg'} alt="School logo" className="mx-auto h-20 w-auto max-w-[82vw] object-contain sm:h-24" />
         <h1 className="mt-4 font-display text-3xl font-bold">HeadStart Events</h1>
         <p className="mt-1 text-navy-100">{settings?.school_name ?? 'HeadStart International School Phuket'}</p>
         <Link to="/lookup" className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-navy-100 hover:bg-white/20">
