@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CalendarDays, CalendarPlus, Copy, FileBarChart2, Globe2, PencilRuler, Shapes, Users } from 'lucide-react';
+import { ArrowRight, CalendarDays, CalendarPlus, Copy, FileBarChart2, Globe2, PencilRuler, Shapes, Users } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import type { EventRecord, Registration } from '@/lib/types';
@@ -12,8 +12,29 @@ const statusColor: Record<string, 'gray' | 'green' | 'blue' | 'amber' | 'red' | 
   draft: 'gray', published: 'blue', open: 'green', closed: 'red', waitlist: 'amber',
 };
 
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function lastEdited(): { id: string; name: string } | null {
+  try {
+    const raw = localStorage.getItem('hs:lastEvent');
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { id: string; name: string; at: number };
+    // Only surface it while it is still fresh (7 days).
+    if (Date.now() - v.at > 7 * 24 * 60 * 60 * 1000) return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const last = lastEdited();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [recent, setRecent] = useState<Array<Registration & { events: { name: string } | null }>>([]);
   const [totalRegs, setTotalRegs] = useState(0);
@@ -66,8 +87,10 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-navy-800">Dashboard</h1>
-          <p className="text-sm text-slate-500">Everything happening across your school events.</p>
+          <h1 className="font-display text-2xl font-bold text-navy-800">{greeting()}, Boss</h1>
+          <p className="text-sm text-slate-500">
+            {format(new Date(), 'EEEE d MMMM yyyy')} - everything happening across your school events.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button icon={<CalendarPlus className="h-4 w-4" />} onClick={() => navigate('/admin/events?new=1')}>
@@ -78,6 +101,19 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {last && (
+        <button
+          onClick={() => navigate(`/admin/events/${last.id}`)}
+          className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-gold-200 bg-gold-50 px-5 py-3.5 text-left transition hover:border-gold-400 hover:bg-gold-100"
+        >
+          <span className="min-w-0">
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-gold-700">Continue where you left off</span>
+            <span className="block truncate font-display text-sm font-semibold text-navy-800">{last.name}</span>
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0 text-gold-600 transition group-hover:translate-x-0.5" />
+        </button>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard label="Upcoming Events" value={upcoming.length} icon={<CalendarDays className="h-5 w-5" />} tone="navy" />

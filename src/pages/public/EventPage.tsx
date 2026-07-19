@@ -170,6 +170,7 @@ export default function EventPage() {
 
   return (
     <main className="event-theme min-h-screen pb-16" style={themeStyle(t)}>
+      <a href="#registration-form" className="skip-link">Skip to the registration form</a>
       {event.branding.background_url && (
         <div
           className="pointer-events-none fixed inset-0 bg-cover bg-center opacity-15"
@@ -192,7 +193,7 @@ export default function EventPage() {
           {!event.branding.hide_logo && (
             <img src={logo} alt="School logo" className="mx-auto mb-5 h-14 w-auto max-w-[70vw] object-contain sm:h-16" />
           )}
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl" style={{ color: 'var(--ev-title)' }}>{event.name}</h1>
+          <h1 className="ev-title-fluid font-extrabold" style={{ color: 'var(--ev-title)' }}>{event.name}</h1>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-sm opacity-80">
             {event.event_date && (
               <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4" />{formatDate(event.event_date)}{event.end_date ? ` to ${formatDate(event.end_date, 'd MMMM yyyy')}` : ''}</span>
@@ -293,7 +294,7 @@ export default function EventPage() {
             )}
 
             {/* Form */}
-            <motion.section {...anim} className="ev-card ev-accent-top mt-6 p-5 sm:p-7">
+            <motion.section {...anim} id="registration-form" className="ev-card ev-accent-top mt-6 scroll-mt-6 p-5 sm:p-7">
               <h2 className="mb-5 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>Registration form</h2>
               {/* Honeypot: invisible to humans, irresistible to bots */}
               <input

@@ -47,6 +47,15 @@ export default function EventEditorPage() {
 
   useEffect(() => { if (event) setDraft(event); }, [event]);
 
+  // Anticipatory shortcut: the dashboard offers to continue where you left off.
+  useEffect(() => {
+    if (event) {
+      try {
+        localStorage.setItem('hs:lastEvent', JSON.stringify({ id: event.id, name: event.name, at: Date.now() }));
+      } catch { /* private mode, ignore */ }
+    }
+  }, [event?.id, event?.name]);
+
   const dirty = useMemo(
     () => !!draft && !!event && JSON.stringify(draft) !== JSON.stringify(event),
     [draft, event]

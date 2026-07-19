@@ -86,3 +86,51 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
 .ev-rich h3 { font-size: 1.05rem; font-weight: 700; margin: 0.7rem 0 0.3rem; }
 .ev-rich strong { font-weight: 700; }
 .ev-rich a { text-decoration: underline; }
+
+
+/* ---- 2026 polish pass ---------------------------------------- */
+
+/* Fluid Typography: the event title scales smoothly with the viewport */
+.ev-title-fluid {
+  font-size: clamp(2.1rem, 5.5vw, 3.6rem);
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+
+/* Universal design: honour reduced motion preferences everywhere */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Zero ambiguity keyboard navigation on themed public pages */
+.event-theme a:focus-visible,
+.event-theme button:focus-visible,
+.event-theme input:focus-visible,
+.event-theme select:focus-visible,
+.event-theme textarea:focus-visible {
+  outline: 3px solid var(--ev-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Skip link for keyboard and screen reader users */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--ev-primary, #1a3c5e);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.skip-link:focus {
+  left: 0;
+}
