@@ -122,6 +122,8 @@ export interface FloorPlanSettings {
   bookedLabelField?: string;
   /** Form field that determines the vendor type (e.g. Outside Provider) */
   vendorTypeField?: string;
+  /** Note shown to registrants above the floor plan, e.g. power availability */
+  note?: string;
   /** vendor type answer -> allowed booth group names (empty = anywhere) */
   zoneMap?: Record<string, string[]>;
 }

@@ -1,6 +1,7 @@
 import { FloorPlanDesigner } from '@/components/floor-plan/FloorPlanDesigner';
 import { Card } from '@/components/ui/basics';
 import { Field, Select, Switch } from '@/components/ui/inputs';
+import { RichTextArea } from '@/components/ui/RichTextArea';
 import { isContentField } from '@/components/form-renderer/fieldZod';
 import type { TabProps } from '../EventEditorPage';
 
@@ -54,6 +55,16 @@ export default function FloorPlanTab({ draft, update }: TabProps) {
             </Select>
           </Field>
         </div>
+      </Card>
+
+      <Card title="Note for registrants">
+        <RichTextArea
+          label="Message shown above the floor plan"
+          rows={4}
+          value={draft.floor_plan.note ?? ''}
+          onChange={(note) => update({ floor_plan: { ...draft.floor_plan, note } })}
+          hint='Appears in the booth selection section on the registration page. Example: "Electrical points are available for booths 11 to 20 only." Supports bold, bullet points and links. Leave empty to hide.'
+        />
       </Card>
 
       <Card title="Vendor type restrictions (e.g. Outside Provider)">

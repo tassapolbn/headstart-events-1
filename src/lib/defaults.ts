@@ -86,6 +86,7 @@ export const defaultFloorPlan: FloorPlanSettings = {
   showGrid: true,
   gridSize: 20,
   bookedLabelField: '',
+  note: '',
 };
 
 export const defaultEmailTemplate: EmailTemplate = {

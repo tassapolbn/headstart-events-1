@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CalendarDays, Clock, MapPin, ShieldCheck } from 'lucide-react';
+import { CalendarDays, Clock, Info, MapPin, ShieldCheck } from 'lucide-react';
 import type { FieldValues } from 'react-hook-form';
 import { supabase } from '@/lib/supabase';
 import type { Booth, EventRecord, SubmitResult } from '@/lib/types';
@@ -280,6 +280,19 @@ export default function EventPage() {
                 <h2 id="booth-heading" className="text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
                   {event.settings.boothSelectionLabel || 'Select your booth'}
                 </h2>
+                {event.floor_plan.note && (
+                  <div
+                    className="flex items-start gap-2.5 rounded-xl px-4 py-3"
+                    style={{ background: 'color-mix(in srgb, var(--ev-secondary) 22%, transparent)' }}
+                    role="note"
+                  >
+                    <Info className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--ev-primary)' }} aria-hidden="true" />
+                    <div
+                      className="ev-rich text-sm leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: richToHtml(event.floor_plan.note) }}
+                    />
+                  </div>
+                )}
                 <BoothPicker
                   eventId={event.id}
                   plan={event.floor_plan}
