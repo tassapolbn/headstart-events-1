@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft, BarChart3, ClipboardList, ExternalLink, FileText, LayoutGrid,
-  Link2, Mail, Palette, QrCode, Save, Settings2, ShieldCheck, Tag,
+  Link2, Mail, Map, Palette, QrCode, Save, Settings2, ShieldCheck, Tag,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { EventRecord } from '@/lib/types';
@@ -137,6 +137,9 @@ export default function EventEditorPage() {
         </Link>
         <Link to={`/admin/events/${id}/signs`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
           <Tag className="h-3.5 w-3.5" /> Vendor signs
+        </Link>
+        <Link to={`/admin/events/${id}/plan`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
+          <Map className="h-3.5 w-3.5" /> Print floor plan
         </Link>
       </div>
 

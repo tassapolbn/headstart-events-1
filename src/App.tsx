@@ -11,6 +11,7 @@ import RegistrationsPage from './pages/admin/RegistrationsPage';
 import AnalyticsPage from './pages/admin/AnalyticsPage';
 import CheckInPage from './pages/admin/CheckInPage';
 import SignsPage from './pages/admin/SignsPage';
+import PlanPrintPage from './pages/admin/PlanPrintPage';
 import TemplatesPage from './pages/admin/TemplatesPage';
 import SettingsPage from './pages/admin/SettingsPage';
 
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="events/:id/analytics" element={<AnalyticsPage />} />
         <Route path="events/:id/checkin" element={<CheckInPage />} />
         <Route path="events/:id/signs" element={<SignsPage />} />
+        <Route path="events/:id/plan" element={<PlanPrintPage />} />
         <Route path="templates" element={<TemplatesPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
