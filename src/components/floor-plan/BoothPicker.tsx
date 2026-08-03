@@ -136,7 +136,12 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, ven
         <p className="rounded-xl border border-slate-200 bg-white/70 px-4 py-2.5 text-sm font-medium">{zoneNotice}</p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span className="font-semibold">
+        <span className="inline-flex items-center gap-2 font-semibold">
+          <span
+            className="ev-pulse inline-block h-2 w-2 rounded-full"
+            style={{ background: availableCount > 0 ? '#22c55e' : '#ef4444' }}
+            aria-hidden="true"
+          />
           {availableCount} booth{availableCount === 1 ? '' : 's'} available{hasRestrictions && vendorType ? ' for you' : ''}
           {maxBooths > 1 && <span className="font-normal opacity-70"> (choose up to {maxBooths})</span>}
         </span>

@@ -62,6 +62,7 @@ export default function PlanPrintPage() {
   const [showEmpty, setShowEmpty] = useState(true);
   const [showLegend, setShowLegend] = useState(true);
   const [showNumbers, setShowNumbers] = useState(true);
+  const [nameSize, setNameSize] = useState(22);
 
   useEffect(() => {
     if (!id) return;
@@ -152,6 +153,27 @@ export default function PlanPrintPage() {
                 {textFields.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
               </Select>
             </Field>
+            <Field label={`Name size: ${nameSize}px`} hint="Larger names may extend past small booths, which keeps them readable on a printed plan.">
+              <input
+                type="range" min={10} max={48} step={1}
+                value={nameSize}
+                onChange={(e) => setNameSize(Number(e.target.value))}
+                className="w-full accent-navy-700"
+                aria-label="Vendor name size"
+              />
+              <div className="mt-1 flex gap-1.5">
+                {[14, 22, 30, 40].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setNameSize(v)}
+                    className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${nameSize === v ? 'border-navy-600 bg-navy-700 text-white' : 'border-slate-300 text-slate-500 hover:border-navy-300'}`}
+                  >
+                    {v === 14 ? 'Small' : v === 22 ? 'Medium' : v === 30 ? 'Large' : 'Huge'}
+                  </button>
+                ))}
+              </div>
+            </Field>
             <Switch checked={showNumbers} onChange={setShowNumbers} label="Show booth numbers" />
             <Switch checked={showEmpty} onChange={setShowEmpty} label="Show empty booths" description="Turn off to print only booths that have been taken." />
             <Switch checked={showLegend} onChange={setShowLegend} label="Show the status legend" />
@@ -166,6 +188,7 @@ export default function PlanPrintPage() {
               names={namesByBooth}
               placement={placement}
               showNumbers={showNumbers}
+              nameSize={nameSize}
               className="mx-auto block h-auto w-full max-w-3xl"
             />
           </div>
@@ -198,6 +221,7 @@ export default function PlanPrintPage() {
           names={namesByBooth}
           placement={placement}
           showNumbers={showNumbers}
+          nameSize={nameSize}
           className="block h-auto w-full"
         />
         {showLegend && (
@@ -211,16 +235,17 @@ export default function PlanPrintPage() {
 }
 
 /** The floor plan drawing, shared by the preview and the printed page. */
-function PlanSvg({ plan, booths, names, placement, showNumbers, className }: {
+function PlanSvg({ plan, booths, names, placement, showNumbers, nameSize, className }: {
   plan: NonNullable<ReturnType<typeof useEvent>['event']>['floor_plan'];
   booths: Booth[];
   names: Map<string, string>;
   placement: Placement;
   showNumbers: boolean;
+  nameSize: number;
   className?: string;
 }) {
-  // Extra room on the right when names sit beside the booths.
-  const pad = placement === 'beside' ? 220 : 0;
+  // Extra room on the right when names sit beside the booths, scaled to the text size.
+  const pad = placement === 'beside' ? Math.round(nameSize * 13) : 0;
 
   return (
     <svg
@@ -234,7 +259,9 @@ function PlanSvg({ plan, booths, names, placement, showNumbers, className }: {
         <image href={plan.background_url} x="0" y="0" width={plan.width} height={plan.height} preserveAspectRatio="xMidYMid slice" opacity="0.35" />
       )}
 
-      {booths.map((b) => {
+      {[...booths]
+        .sort((a, b) => Number(names.has(a.id)) - Number(names.has(b.id)))
+        .map((b) => {
         const marker = isMarkerStatus(b.status);
         const name = names.get(b.id);
         const fill = marker ? boothFill(b.status, b.color) : name ? '#e2e8f0' : '#f8fafc';
@@ -242,13 +269,19 @@ function PlanSvg({ plan, booths, names, placement, showNumbers, className }: {
 
         // Label chip: white box with a dark border so the name is always
         // readable, whatever colour the booth underneath happens to be.
-        const chipLines = name ? wrapName(name, placement === 'beside' ? 22 : Math.max(8, Math.floor(b.w / 7)), 2) : [];
-        const chipFont = placement === 'beside' ? 15 : Math.min(15, Math.max(9, b.w / 8));
+        const chipFont = nameSize;
+        // Wrap to roughly the booth width, but never narrower than 10 characters,
+        // so big text stays on two readable lines instead of one long crop.
+        const charsPerLine = placement === 'beside'
+          ? 22
+          : Math.max(10, Math.round((b.w * 1.35) / (chipFont * 0.58)));
+        const chipLines = name ? wrapName(name, charsPerLine, 2) : [];
         const lineH = chipFont * 1.15;
-        const chipH = chipLines.length * lineH + 8;
+        const chipH = chipLines.length * lineH + chipFont * 0.5;
+        const longest = Math.max(...chipLines.map((l) => l.length), 1);
         const chipW = placement === 'beside'
-          ? 200
-          : Math.min(b.w - 6, Math.max(40, Math.max(...chipLines.map((l) => l.length), 1) * chipFont * 0.58 + 12));
+          ? pad - 24
+          : Math.max(40, longest * chipFont * 0.58 + chipFont * 0.7);
         const chipX = placement === 'beside' ? plan.width + 12 : centreX - chipW / 2;
         const chipY = placement === 'beside'
           ? b.y + b.h / 2 - chipH / 2
@@ -298,8 +331,8 @@ function PlanSvg({ plan, booths, names, placement, showNumbers, className }: {
                 {name && chipLines.length > 0 && (
                   <g>
                     <rect
-                      x={chipX} y={chipY} width={chipW} height={chipH} rx={4}
-                      fill="#ffffff" stroke="#1a3c5e" strokeWidth={1.2}
+                      x={chipX} y={chipY} width={chipW} height={chipH} rx={Math.max(4, chipFont * 0.22)}
+                      fill="#ffffff" stroke="#1a3c5e" strokeWidth={Math.max(1.2, chipFont * 0.07)}
                     />
                     {chipLines.map((line, i) => (
                       <text

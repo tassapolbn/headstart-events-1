@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CalendarDays, Clock, Info, MapPin, ShieldCheck } from 'lucide-react';
+import { CalendarDays, ChevronDown, Clock, Info, MapPin, ShieldCheck } from 'lucide-react';
 import type { FieldValues } from 'react-hook-form';
 import { supabase } from '@/lib/supabase';
 import type { Booth, EventRecord, SubmitResult } from '@/lib/types';
@@ -76,6 +76,16 @@ export default function EventPage() {
   const anim = t.animations
     ? { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 } }
     : { initial: false as const, animate: undefined };
+
+  // Sections lift into view as the visitor scrolls, with a springy settle.
+  const reveal = t.animations
+    ? {
+        initial: { opacity: 0, y: 34 },
+        whileInView: { opacity: 1, y: 0 },
+        viewport: { once: true, amount: 0.15 },
+        transition: { type: 'spring' as const, stiffness: 120, damping: 18, mass: 0.7 },
+      }
+    : {};
 
   async function handleSubmit(values: FieldValues) {
     if (!event) return;
@@ -171,6 +181,13 @@ export default function EventPage() {
   return (
     <main className="event-theme min-h-screen pb-16" style={themeStyle(t)}>
       <a href="#registration-form" className="skip-link">Skip to the registration form</a>
+
+      {t.animations && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[70vh] overflow-hidden" aria-hidden="true">
+          <span className="ev-aurora left-[-10%] top-[8%] h-72 w-72" style={{ background: 'var(--ev-primary)' }} />
+          <span className="ev-aurora ev-aurora-2 right-[-8%] top-[22%] h-80 w-80" style={{ background: 'var(--ev-secondary)' }} />
+        </div>
+      )}
       {event.branding.background_url && (
         <div
           className="pointer-events-none fixed inset-0 bg-cover bg-center opacity-15"
@@ -193,18 +210,49 @@ export default function EventPage() {
           {!event.branding.hide_logo && (
             <img src={logo} alt="School logo" className="mx-auto mb-5 h-14 w-auto max-w-[70vw] object-contain sm:h-16" />
           )}
-          <h1 className="ev-title-fluid font-extrabold" style={{ color: 'var(--ev-title)' }}>{event.name}</h1>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-sm opacity-80">
-            {event.event_date && (
-              <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4" />{formatDate(event.event_date)}{event.end_date ? ` to ${formatDate(event.end_date, 'd MMMM yyyy')}` : ''}</span>
-            )}
-            {formatTimeRange(event.start_time, event.end_time) && (
-              <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4" />{formatTimeRange(event.start_time, event.end_time)}</span>
-            )}
-            {event.location && (
-              <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4" />{event.location}</span>
-            )}
+          <motion.h1
+            className={`ev-title-fluid font-extrabold ${t.animations ? 'ev-sheen' : ''}`}
+            style={{ color: 'var(--ev-title)' }}
+            initial={t.animations ? { opacity: 0, y: 22, scale: 0.97 } : false}
+            animate={t.animations ? { opacity: 1, y: 0, scale: 1 } : undefined}
+            transition={{ type: 'spring', stiffness: 130, damping: 16 }}
+          >
+            {event.name}
+          </motion.h1>
+
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {([
+              event.event_date && { icon: CalendarDays, text: `${formatDate(event.event_date)}${event.end_date ? ` to ${formatDate(event.end_date, 'd MMMM yyyy')}` : ''}` },
+              formatTimeRange(event.start_time, event.end_time) && { icon: Clock, text: formatTimeRange(event.start_time, event.end_time) },
+              event.location && { icon: MapPin, text: event.location },
+            ].filter(Boolean) as Array<{ icon: typeof Clock; text: string }>).map((item, i) => (
+              <motion.span
+                key={item.text}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3.5 py-1.5 text-sm font-medium shadow-sm backdrop-blur-sm"
+                initial={t.animations ? { opacity: 0, y: 12 } : false}
+                animate={t.animations ? { opacity: 1, y: 0 } : undefined}
+                transition={{ delay: 0.15 + i * 0.09, type: 'spring', stiffness: 160, damping: 18 }}
+                whileHover={t.animations ? { y: -3 } : undefined}
+              >
+                <item.icon className="h-4 w-4" style={{ color: 'var(--ev-primary)' }} />
+                {item.text}
+              </motion.span>
+            ))}
           </div>
+
+          {t.animations && windowState === 'open' && (
+            <motion.a
+              href="#registration-form"
+              className="mt-6 inline-flex flex-col items-center gap-1 text-xs font-semibold uppercase tracking-widest"
+              style={{ color: 'var(--ev-primary)' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.9 }}
+            >
+              Register below
+              <ChevronDown className="ev-bob h-5 w-5" aria-hidden="true" />
+            </motion.a>
+          )}
         </div>
 
         {event.branding.header_url && (
@@ -212,17 +260,23 @@ export default function EventPage() {
         )}
 
         {event.description && (
-          <div className="ev-card mt-6 p-5">
+          <motion.div {...reveal} className="ev-card mt-6 p-5">
             <div
               className="ev-rich text-sm leading-relaxed opacity-90"
               dangerouslySetInnerHTML={{ __html: richToHtml(event.description) }}
             />
-          </div>
+          </motion.div>
         )}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr]">
           {event.branding.poster_url && (
-            <img src={event.branding.poster_url} alt={`${event.name} poster`} className="block h-auto w-full rounded-2xl shadow-card" style={{ borderRadius: 'var(--ev-radius)' }} />
+            <motion.img
+              {...reveal}
+              src={event.branding.poster_url}
+              alt={`${event.name} poster`}
+              className="block h-auto w-full rounded-2xl shadow-card"
+              style={{ borderRadius: 'var(--ev-radius)' }}
+            />
           )}
         </div>
 
@@ -248,7 +302,7 @@ export default function EventPage() {
           <>
             {/* Policies */}
             {activePolicies.length > 0 && (
-              <motion.section {...anim} className="ev-card ev-accent-top mt-6 space-y-4 p-5" aria-labelledby="policies-heading">
+              <motion.section {...reveal} className="ev-card ev-accent-top mt-6 space-y-4 p-5" aria-labelledby="policies-heading">
                 <h2 id="policies-heading" className="flex items-center gap-2 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
                   <ShieldCheck className="h-5 w-5" /> Event policies
                 </h2>
@@ -276,7 +330,7 @@ export default function EventPage() {
 
             {/* Booth picker */}
             {boothsEnabled && (
-              <motion.section {...anim} className="ev-card ev-accent-top mt-6 space-y-3 p-5" aria-labelledby="booth-heading">
+              <motion.section {...reveal} className="ev-card ev-accent-top mt-6 space-y-3 p-5" aria-labelledby="booth-heading">
                 <h2 id="booth-heading" className="text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
                   {event.settings.boothSelectionLabel || 'Select your booth'}
                 </h2>
@@ -307,7 +361,7 @@ export default function EventPage() {
             )}
 
             {/* Form */}
-            <motion.section {...anim} id="registration-form" className="ev-card ev-accent-top mt-6 scroll-mt-6 p-5 sm:p-7">
+            <motion.section {...reveal} id="registration-form" className="ev-card ev-accent-top mt-6 scroll-mt-6 p-5 sm:p-7">
               <h2 className="mb-5 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>Registration form</h2>
               {/* Honeypot: invisible to humans, irresistible to bots */}
               <input

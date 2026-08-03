@@ -8,7 +8,7 @@ import type { Booth, Registration, RegistrationStatus } from '@/lib/types';
 import { useEvent } from '@/hooks/useEvent';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { formatDateTime } from '@/lib/utils';
-import { boothText } from '@/lib/regBooths';
+import { boothList, boothText } from '@/lib/regBooths';
 import { isStoredFileRef } from '@/lib/storage';
 import { useToast } from '@/context/ToastContext';
 import { Badge, Button, Card, EmptyState, PageLoader } from '@/components/ui/basics';
@@ -31,11 +31,12 @@ export default function RegistrationsPage() {
   const { toast } = useToast();
 
   const [regs, setRegs] = useState<Registration[]>([]);
-  const [booths, setBooths] = useState<Booth[]>([]);
+  const [allBooths, setAllBooths] = useState<Booth[]>([]);
+  const [boothFilter, setBoothFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<(typeof filterTabs)[number]>('all');
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<'newest' | 'oldest' | 'name'>('newest');
+  const [sort, setSort] = useState<'newest' | 'oldest' | 'name' | 'booth'>('newest');
   const [openReg, setOpenReg] = useState<Registration | null>(null);
   const [deleteReg, setDeleteReg] = useState<Registration | null>(null);
 
@@ -86,14 +87,32 @@ export default function RegistrationsPage() {
     if (!id) return;
     const [r, b] = await Promise.all([
       supabase.from('registrations').select('*, booths!registrations_booth_id_fkey(label, number), registration_booths(booth_id, booths(label, number))').eq('event_id', id).order('created_at', { ascending: false }).limit(2000),
-      supabase.from('booths').select('*').eq('event_id', id).eq('status', 'available'),
+      supabase.from('booths').select('*').eq('event_id', id).order('number'),
     ]);
     if (r.error) toast(`Could not load registrations: ${r.error.message}`, 'error');
     setRegs((r.data ?? []) as Registration[]);
-    setBooths((b.data ?? []) as Booth[]);
+    setAllBooths((b.data ?? []) as Booth[]);
     setLoading(false);
   }
   useEffect(() => { void load(); }, [id]);
+
+  const booths = useMemo(() => allBooths.filter((b) => b.status === 'available'), [allBooths]);
+
+  /** Booths that appear in the filter: those actually held by a registration. */
+  const boothOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const r of regs) {
+      for (const b of boothList(r)) {
+        const key = (b.number || b.label).trim();
+        if (key) seen.set(key, `${b.label} ${b.number}`.trim());
+      }
+    }
+    return [...seen.keys()].sort((a, b) => {
+      const na = Number(a), nb = Number(b);
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
+  }, [regs]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: regs.length };
@@ -103,6 +122,13 @@ export default function RegistrationsPage() {
 
   const visible = useMemo(() => {
     let list = filter === 'all' ? regs : regs.filter((r) => r.status === filter);
+
+    if (boothFilter === '__none__') {
+      list = list.filter((r) => boothList(r).length === 0);
+    } else if (boothFilter !== 'all') {
+      list = list.filter((r) => boothList(r).some((b) => (b.number || b.label).trim() === boothFilter));
+    }
+
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter((r) =>
@@ -113,8 +139,17 @@ export default function RegistrationsPage() {
     if (sort === 'newest') list = [...list].sort((a, b) => b.created_at.localeCompare(a.created_at));
     if (sort === 'oldest') list = [...list].sort((a, b) => a.created_at.localeCompare(b.created_at));
     if (sort === 'name') list = [...list].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    if (sort === 'booth') {
+      const key = (r: Registration) => {
+        const first = boothList(r)[0];
+        if (!first) return Number.POSITIVE_INFINITY;
+        const n = Number(first.number);
+        return Number.isNaN(n) ? Number.POSITIVE_INFINITY - 1 : n;
+      };
+      list = [...list].sort((a, b) => key(a) - key(b) || boothText(a).localeCompare(boothText(b)));
+    }
     return list;
-  }, [regs, filter, search, sort]);
+  }, [regs, filter, search, sort, boothFilter]);
 
   async function setStatus(reg: Registration, status: RegistrationStatus) {
     // Rejecting or cancelling releases all held booths automatically (database trigger).
@@ -185,15 +220,29 @@ export default function RegistrationsPage() {
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, booth" className="pl-9" aria-label="Search registrations" />
         </div>
+        <Select
+          value={boothFilter}
+          onChange={(e) => setBoothFilter(e.target.value)}
+          className="w-44"
+          aria-label="Filter by booth number"
+        >
+          <option value="all">All booths</option>
+          <option value="__none__">No booth assigned</option>
+          {boothOptions.map((b) => <option key={b} value={b}>Booth {b}</option>)}
+        </Select>
         <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="w-36" aria-label="Sort registrations">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
           <option value="name">By name</option>
+          <option value="booth">By booth number</option>
         </Select>
       </div>
 
       {visible.length === 0 ? (
-        <EmptyState title="No registrations match" hint="Try a different filter or search term." />
+        <EmptyState
+          title="No registrations match"
+          hint={boothFilter !== 'all' ? 'No one has taken that booth yet. Try "All booths".' : 'Try a different filter or search term.'}
+        />
       ) : (
         <Card padded={false} className="print:hidden">
           <div className="overflow-x-auto">

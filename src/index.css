@@ -134,3 +134,56 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
 .skip-link:focus {
   left: 0;
 }
+
+/* ---- Public page motion (respects prefers-reduced-motion above) ---- */
+
+/* Slow drifting colour wash behind the header */
+@keyframes ev-aurora {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(3%, -4%, 0) scale(1.12); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+.ev-aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.4;
+  pointer-events: none;
+  animation: ev-aurora 18s ease-in-out infinite;
+}
+.ev-aurora-2 { animation-duration: 24s; animation-direction: reverse; }
+
+/* Light sweep across the title, once on arrival */
+@keyframes ev-sheen {
+  0%   { background-position: -180% 0; }
+  60%  { background-position: 180% 0; }
+  100% { background-position: 180% 0; }
+}
+.ev-sheen {
+  background-image: linear-gradient(
+    100deg,
+    currentColor 0%, currentColor 40%,
+    color-mix(in srgb, var(--ev-secondary) 85%, white) 50%,
+    currentColor 60%, currentColor 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ev-sheen 2.6s ease-out 0.5s 1 both;
+}
+
+/* Gentle nudge inviting the visitor to scroll */
+@keyframes ev-bob {
+  0%, 100% { transform: translateY(0); opacity: 0.55; }
+  50%      { transform: translateY(6px); opacity: 1; }
+}
+.ev-bob { animation: ev-bob 1.9s ease-in-out infinite; }
+
+/* Live pulse on the availability badge */
+@keyframes ev-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ev-primary) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 9px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.ev-pulse { animation: ev-pulse-ring 2.2s ease-out infinite; }
