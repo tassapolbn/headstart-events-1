@@ -14,12 +14,40 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 
 type SignFormat = 'a4-portrait' | 'a4-landscape' | 'a3-portrait' | 'a3-landscape';
 
-const pageCss: Record<SignFormat, string> = {
-  'a4-portrait': '@page { size: A4 portrait; margin: 0; }',
-  'a4-landscape': '@page { size: A4 landscape; margin: 0; }',
-  'a3-portrait': '@page { size: A3 portrait; margin: 0; }',
-  'a3-landscape': '@page { size: A3 landscape; margin: 0; }',
+/** True paper dimensions so one sign always fills exactly one sheet. */
+const paperSize: Record<SignFormat, { w: number; h: number; css: string }> = {
+  'a4-portrait': { w: 210, h: 297, css: 'A4 portrait' },
+  'a4-landscape': { w: 297, h: 210, css: 'A4 landscape' },
+  'a3-portrait': { w: 297, h: 420, css: 'A3 portrait' },
+  'a3-landscape': { w: 420, h: 297, css: 'A3 landscape' },
 };
+
+/**
+ * Print styles for the vendor signs.
+ * Everything is expressed in millimetres and the sheet is clipped, so a long
+ * vendor name can never push content onto a second page.
+ */
+function signPrintCss(format: SignFormat): string {
+  const { w, h, css } = paperSize[format];
+  return `
+    @page { size: ${css}; margin: 0; }
+    @media print {
+      html, body { margin: 0 !important; padding: 0 !important; }
+      .sign-sheet {
+        width: ${w}mm;
+        height: ${h}mm;
+        box-sizing: border-box;
+        overflow: hidden;
+        display: flex;
+        page-break-after: always;
+        break-after: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .sign-sheet:last-child { page-break-after: auto; break-after: auto; }
+    }
+  `;
+}
 
 export default function SignsPage() {
   const { id } = useParams<{ id: string }>();
@@ -69,7 +97,7 @@ export default function SignsPage() {
 
   return (
     <div className="space-y-5">
-      <style>{pageCss[format]}</style>
+      <style>{signPrintCss(format)}</style>
 
       <div className="no-print flex flex-wrap items-center gap-3">
         <Link to={`/admin/events/${id}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200" aria-label="Back to event">
@@ -88,7 +116,7 @@ export default function SignsPage() {
         <div className="space-y-4">
           <Card title="Sign options">
             <div className="space-y-4">
-              <Field label="Paper format">
+              <Field label="Paper format" hint="One vendor per sheet. The sign fills the whole page exactly.">
                 <Select value={format} onChange={(e) => setFormat(e.target.value as SignFormat)} aria-label="Paper format">
                   <option value="a4-portrait">A4 Portrait</option>
                   <option value="a4-landscape">A4 Landscape</option>
@@ -150,8 +178,15 @@ export default function SignsPage() {
           {chosen.length === 0 ? (
             <EmptyState title="Select at least one vendor" />
           ) : (
-            <div className="mx-auto aspect-[4/3] w-full max-w-md">
-              <SignLayout reg={chosen[0]} title={signTitle(chosen[0])} eventName={event.name} logo={logo} sponsorLogo={sponsorLogo} showQr={showQr} preview />
+            <div
+              className="mx-auto w-full max-w-md"
+              style={{ aspectRatio: `${paperSize[format].w} / ${paperSize[format].h}` }}
+            >
+              <SignLayout
+                reg={chosen[0]} title={signTitle(chosen[0])} eventName={event.name}
+                logo={logo} sponsorLogo={sponsorLogo} showQr={showQr}
+                format={format} preview
+              />
             </div>
           )}
         </Card>
@@ -160,8 +195,12 @@ export default function SignsPage() {
       {/* Print output: one sign per page */}
       <div className="hidden print:block">
         {chosen.map((r) => (
-          <div key={r.id} className="print-page flex h-screen w-full items-stretch">
-            <SignLayout reg={r} title={signTitle(r)} eventName={event.name} logo={logo} sponsorLogo={sponsorLogo} showQr={showQr} />
+          <div key={r.id} className="sign-sheet">
+            <SignLayout
+              reg={r} title={signTitle(r)} eventName={event.name}
+              logo={logo} sponsorLogo={sponsorLogo} showQr={showQr}
+              format={format}
+            />
           </div>
         ))}
       </div>
@@ -169,7 +208,7 @@ export default function SignsPage() {
   );
 }
 
-function SignLayout({ reg, title, eventName, logo, sponsorLogo, showQr, preview }: {
+function SignLayout({ reg, title, eventName, logo, sponsorLogo, showQr, preview, format = 'a4-landscape' }: {
   reg: Registration;
   title: string;
   eventName: string;
@@ -177,32 +216,126 @@ function SignLayout({ reg, title, eventName, logo, sponsorLogo, showQr, preview 
   sponsorLogo?: string;
   showQr: boolean;
   preview?: boolean;
+  format?: SignFormat;
 }) {
   const lookupUrl = `${window.location.origin}/lookup?ref=${reg.reference}`;
+  const { w, h } = paperSize[format];
+  const short = Math.min(w, h);
+
+  // Everything scales from the shorter paper edge, so an A3 sign is simply a
+  // larger version of the A4 one and nothing ever overflows the sheet.
+  const mm = (v: number) => `${(short * v) / 100}mm`;
+
+  // Long names step down in size so they still fit on one line or two.
+  const nameLen = title.trim().length;
+  const nameScale = nameLen > 34 ? 0.44 : nameLen > 24 ? 0.55 : nameLen > 16 ? 0.7 : 1;
+
+  if (preview) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-between rounded-xl border-8 border-[#1a3c5e] bg-white p-4 text-center">
+        <div className="flex w-full items-center justify-between gap-2">
+          <img src={logo} alt="School logo" className="h-10 w-auto max-w-[28%] object-contain" />
+          <p className="min-w-0 flex-1 truncate font-display text-sm font-semibold text-[#1a3c5e]">{eventName}</p>
+          {sponsorLogo
+            ? <img src={sponsorLogo} alt="Sponsor logo" className="h-10 w-auto max-w-[28%] object-contain" />
+            : <span className="h-10 w-10" />}
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-2">
+          <p className="font-display text-2xl font-extrabold leading-tight text-[#1a3c5e] line-clamp-3">{title}</p>
+          {boothList(reg).length > 0 && (
+            <p className="rounded-full bg-[#F0B323] px-4 py-1 font-display text-base font-bold text-[#1a3c5e]">
+              Booth {boothNumbersText(reg)}
+            </p>
+          )}
+        </div>
+        <div className="flex w-full items-end justify-between">
+          <p className="font-mono text-[10px] text-slate-400">{reg.reference}</p>
+          {showQr && <QRCodeSVG value={lookupUrl} size={56} level="M" />}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`flex h-full w-full flex-col items-center justify-between border-[12px] border-[#1a3c5e] bg-white p-[4%] text-center ${preview ? 'rounded-xl border-8' : ''}`}>
-      <div className="flex w-full items-center justify-between">
-        <img src={logo} alt="School logo" className={preview ? 'h-12 w-12 object-contain' : 'h-24 w-24 object-contain'} />
-        <p className={`font-display font-semibold text-[#1a3c5e] ${preview ? 'text-sm' : 'text-3xl'}`}>{eventName}</p>
-        {sponsorLogo ? (
-          <img src={sponsorLogo} alt="Sponsor logo" className={preview ? 'h-12 w-12 object-contain' : 'h-24 w-24 object-contain'} />
-        ) : (
-          <div className={preview ? 'h-12 w-12' : 'h-24 w-24'} />
-        )}
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        textAlign: 'center',
+        background: '#ffffff',
+        border: `${mm(2.4)} solid #1a3c5e`,
+        padding: mm(5),
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header: logos and event name */}
+      <div style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: mm(3) }}>
+        <img src={logo} alt="School logo" style={{ height: mm(11), width: 'auto', maxWidth: '26%', objectFit: 'contain' }} />
+        <p
+          style={{
+            flex: 1, minWidth: 0, margin: 0,
+            fontFamily: 'Poppins, Inter, sans-serif', fontWeight: 600, color: '#1a3c5e',
+            fontSize: mm(4.4), lineHeight: 1.2,
+            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          }}
+        >
+          {eventName}
+        </p>
+        {sponsorLogo
+          ? <img src={sponsorLogo} alt="Sponsor logo" style={{ height: mm(11), width: 'auto', maxWidth: '26%', objectFit: 'contain' }} />
+          : <span style={{ height: mm(11), width: mm(11) }} />}
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-[2%]">
-        <p className={`font-display font-extrabold leading-tight text-[#1a3c5e] ${preview ? 'text-3xl' : 'text-8xl'}`}>{title}</p>
+      {/* Vendor name and booth */}
+      <div
+        style={{
+          flex: 1, width: '100%',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: mm(4),
+          overflow: 'hidden', padding: `0 ${mm(2)}`,
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontFamily: 'Poppins, Inter, sans-serif', fontWeight: 800, color: '#1a3c5e',
+            fontSize: `calc(${mm(17)} * ${nameScale})`,
+            lineHeight: 1.08,
+            wordBreak: 'break-word',
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {title}
+        </p>
         {boothList(reg).length > 0 && (
-          <p className={`inline-block rounded-full bg-[#F0B323] px-[6%] py-[1.5%] font-display font-bold text-[#1a3c5e] ${preview ? 'text-lg' : 'text-6xl'}`}>
+          <p
+            style={{
+              margin: 0,
+              background: '#F0B323', color: '#1a3c5e',
+              borderRadius: '9999px',
+              padding: `${mm(1.6)} ${mm(6)}`,
+              fontFamily: 'Poppins, Inter, sans-serif', fontWeight: 700,
+              fontSize: mm(8), lineHeight: 1.15,
+              whiteSpace: 'nowrap',
+            }}
+          >
             Booth {boothNumbersText(reg)}
           </p>
         )}
       </div>
 
-      <div className="flex w-full items-end justify-between">
-        <p className={`font-mono text-slate-400 ${preview ? 'text-[10px]' : 'text-xl'}`}>{reg.reference}</p>
-        {showQr && <QRCodeSVG value={lookupUrl} size={preview ? 64 : 180} level="M" />}
+      {/* Footer: reference and QR */}
+      <div style={{ display: 'flex', width: '100%', alignItems: 'flex-end', justifyContent: 'space-between', gap: mm(3) }}>
+        <p style={{ margin: 0, fontFamily: 'monospace', color: '#94a3b8', fontSize: mm(3.2) }}>{reg.reference}</p>
+        {showQr && <QRCodeSVG value={lookupUrl} size={Math.round(short * 0.55)} level="M" />}
       </div>
     </div>
   );
