@@ -12,6 +12,7 @@ import { useToast } from '@/context/ToastContext';
 import { Badge, Button, PageLoader } from '@/components/ui/basics';
 import { Select } from '@/components/ui/inputs';
 import { Tabs } from '@/components/ui/overlays';
+import { useCampus } from '@/context/CampusContext';
 import DetailsTab from './tabs/DetailsTab';
 import BrandingTab from './tabs/BrandingTab';
 import FormTab from './tabs/FormTab';
@@ -44,6 +45,8 @@ export default function EventEditorPage() {
   const [tab, setTab] = useState('details');
   const [draft, setDraft] = useState<EventRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const { campuses } = useCampus();
+  const campusTag = campuses.find((c) => c.id === draft?.campus_id);
 
   useEffect(() => { if (event) setDraft(event); }, [event]);
 
@@ -96,6 +99,11 @@ export default function EventEditorPage() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate font-display text-xl font-bold text-navy-800">{draft.name}</h1>
+            {campusTag && (
+              <span className="rounded-full px-2.5 py-0.5 text-xs font-bold text-white" style={{ background: campusTag.accent }}>
+                {campusTag.name}
+              </span>
+            )}
             {dirty && <Badge color="amber">Unsaved changes</Badge>}
           </div>
           <p className="truncate text-xs text-slate-500">/e/{draft.slug}</p>

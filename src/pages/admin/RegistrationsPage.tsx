@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Check, Clock3, Download, FileSpreadsheet, Mail, Printer, Search, Trash2, X,
+  ArrowLeft, Check, Clock3, Download, Eye, FileSpreadsheet, Mail, Printer, Search, Trash2, X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Booth, Registration, RegistrationStatus } from '@/lib/types';
 import { useEvent } from '@/hooks/useEvent';
 import { useAppSettings } from '@/hooks/useAppSettings';
+import { fetchCampus } from '@/context/CampusContext';
 import { formatDateTime } from '@/lib/utils';
 import { boothList, boothText } from '@/lib/regBooths';
 import { isStoredFileRef } from '@/lib/storage';
@@ -38,6 +39,7 @@ export default function RegistrationsPage() {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<'newest' | 'oldest' | 'name' | 'booth'>('newest');
   const [openReg, setOpenReg] = useState<Registration | null>(null);
+  const [campusWebhook, setCampusWebhook] = useState<string | null>(null);
   const [deleteReg, setDeleteReg] = useState<Registration | null>(null);
 
   // Print options
@@ -95,6 +97,9 @@ export default function RegistrationsPage() {
     setLoading(false);
   }
   useEffect(() => { void load(); }, [id]);
+  useEffect(() => {
+    if (event?.campus_id) void fetchCampus(event.campus_id).then((c) => setCampusWebhook(c?.webhook_url ?? null));
+  }, [event?.campus_id]);
 
   const booths = useMemo(() => allBooths.filter((b) => b.status === 'available'), [allBooths]);
 
@@ -173,11 +178,12 @@ export default function RegistrationsPage() {
   }
 
   function resendEmail(reg: Registration) {
-    if (!appSettings?.webhook_url) {
+    const relay = campusWebhook ?? appSettings?.webhook_url;
+    if (!relay) {
       toast('Set the email relay URL in Settings first.', 'error');
       return;
     }
-    void fetch(appSettings.webhook_url, {
+    void fetch(relay, {
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ reference: reg.reference, resend: true }),
@@ -276,6 +282,14 @@ export default function RegistrationsPage() {
                     <td className="whitespace-nowrap px-4 py-2.5 text-xs text-slate-500">{formatDateTime(r.created_at)}</td>
                     <td className="no-print px-4 py-2.5">
                       <div className="flex items-center gap-1">
+                        <button
+                          title="View and edit details"
+                          aria-label={`View details for ${r.reference}`}
+                          onClick={() => setOpenReg(r)}
+                          className="mr-1 inline-flex items-center gap-1 rounded-lg bg-navy-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-navy-600"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> View
+                        </button>
                         {r.status !== 'confirmed' && (
                           <button title="Approve" aria-label={`Approve ${r.reference}`} onClick={() => void setStatus(r, 'confirmed')} className="rounded p-1.5 text-emerald-500 hover:bg-emerald-50"><Check className="h-4 w-4" /></button>
                         )}

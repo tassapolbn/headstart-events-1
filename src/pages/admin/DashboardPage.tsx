@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useCampus } from '@/context/CampusContext';
+import { CampusBadge } from '@/components/CampusSwitcher';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowRight, CalendarDays, CalendarPlus, Copy, FileBarChart2, Globe2, PencilRuler, Shapes, Users } from 'lucide-react';
 import { format, subDays } from 'date-fns';
@@ -34,6 +36,7 @@ function lastEdited(): { id: string; name: string } | null {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { campusId, campus } = useCampus();
   const last = lastEdited();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [recent, setRecent] = useState<Array<Registration & { events: { name: string } | null }>>([]);
@@ -43,21 +46,30 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
       const since = subDays(new Date(), 13).toISOString().slice(0, 10);
-      const [ev, rec, total, trend] = await Promise.all([
-        supabase.from('events').select('*').order('event_date', { ascending: true, nullsFirst: false }),
-        supabase.from('registrations').select('*, events(name)').order('created_at', { ascending: false }).limit(8),
-        supabase.from('registrations').select('id', { count: 'exact', head: true }),
-        supabase.from('registrations').select('created_at').gte('created_at', since),
+      const { data: evData } = await supabase
+        .from('events').select('*').eq('campus_id', campusId)
+        .order('event_date', { ascending: true, nullsFirst: false });
+      const evList = (evData ?? []) as EventRecord[];
+      setEvents(evList);
+
+      const ids = evList.map((e) => e.id);
+      if (ids.length === 0) {
+        setRecent([]); setTotalRegs(0); setTrendRows([]); setLoading(false); return;
+      }
+      const [rec, total, trend] = await Promise.all([
+        supabase.from('registrations').select('*, events(name)').in('event_id', ids).order('created_at', { ascending: false }).limit(8),
+        supabase.from('registrations').select('id', { count: 'exact', head: true }).in('event_id', ids),
+        supabase.from('registrations').select('created_at').in('event_id', ids).gte('created_at', since),
       ]);
-      setEvents((ev.data ?? []) as EventRecord[]);
       setRecent((rec.data ?? []) as Array<Registration & { events: { name: string } | null }>);
       setTotalRegs(total.count ?? 0);
       setTrendRows((trend.data ?? []) as Array<{ created_at: string }>);
       setLoading(false);
     }
     void load();
-  }, []);
+  }, [campusId]);
 
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = useMemo(
@@ -87,9 +99,12 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-navy-800">{greeting()}, Boss</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-2xl font-bold text-navy-800">{greeting()}, Boss</h1>
+            <CampusBadge />
+          </div>
           <p className="text-sm text-slate-500">
-            {format(new Date(), 'EEEE d MMMM yyyy')} - everything happening across your school events.
+            {format(new Date(), 'EEEE d MMMM yyyy')} - events for {campus?.name ?? 'this campus'}.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

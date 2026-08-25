@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import type { EventRecord, EventTemplateRecord } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
 import { createBlankEvent, createFromTemplate, deleteEvent, duplicateEvent, publicEventUrl, saveAsTemplate } from '@/lib/eventOps';
+import { useCampus } from '@/context/CampusContext';
+import { CampusBadge } from '@/components/CampusSwitcher';
 import { useToast } from '@/context/ToastContext';
 import { Badge, Button, Card, EmptyState, PageLoader } from '@/components/ui/basics';
 import { Field, Input, Select, Textarea } from '@/components/ui/inputs';
@@ -20,6 +22,7 @@ const filters = ['all', 'draft', 'published', 'open', 'closed', 'waitlist', 'pas
 export default function EventsListPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { campusId, campus } = useCampus();
   const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState<EventRow[]>([]);
   const [templates, setTemplates] = useState<EventTemplateRecord[]>([]);
@@ -43,14 +46,14 @@ export default function EventsListPage() {
 
   async function load() {
     const [ev, tpl] = await Promise.all([
-      supabase.from('events').select('*, registrations(count)').order('created_at', { ascending: false }),
-      supabase.from('event_templates').select('*').order('created_at', { ascending: false }),
+      supabase.from('events').select('*, registrations(count)').eq('campus_id', campusId).order('created_at', { ascending: false }),
+      supabase.from('event_templates').select('*').eq('campus_id', campusId).order('created_at', { ascending: false }),
     ]);
     setRows((ev.data ?? []) as EventRow[]);
     setTemplates((tpl.data ?? []) as EventTemplateRecord[]);
     setLoading(false);
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [campusId]);
 
   const today = new Date().toISOString().slice(0, 10);
   const visible = useMemo(() => {
@@ -68,11 +71,11 @@ export default function EventsListPage() {
     try {
       let id: string;
       if (newFrom === 'blank') {
-        id = await createBlankEvent(newName.trim());
+        id = await createBlankEvent(newName.trim(), campusId);
       } else {
         const tpl = templates.find((t) => t.id === newFrom);
         if (!tpl) throw new Error('Template not found');
-        id = await createFromTemplate(tpl.snapshot, newName.trim());
+        id = await createFromTemplate(tpl.snapshot, newName.trim(), campusId);
       }
       toast('Event created.');
       navigate(`/admin/events/${id}`);
@@ -130,8 +133,11 @@ export default function EventsListPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-navy-800">Events</h1>
-          <p className="text-sm text-slate-500">Create, publish and manage every school event.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-2xl font-bold text-navy-800">Events</h1>
+            <CampusBadge />
+          </div>
+          <p className="text-sm text-slate-500">Create, publish and manage events for {campus?.name ?? 'this campus'}.</p>
         </div>
         <Button icon={<CalendarPlus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>Create New Event</Button>
       </div>

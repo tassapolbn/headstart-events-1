@@ -58,12 +58,13 @@ async function uniqueSlug(base: string): Promise<string> {
 async function insertEventWithBooths(
   eventFields: Partial<EventRecord>,
   booths: Array<Omit<Booth, 'id' | 'event_id'>>,
-  name: string
+  name: string,
+  campusId: string
 ): Promise<string> {
   const slug = await uniqueSlug(name);
   const { data: created, error } = await supabase
     .from('events')
-    .insert({ ...eventFields, name, slug, status: 'draft', event_date: null, end_date: null, reg_opens_at: null, reg_closes_at: null })
+    .insert({ ...eventFields, campus_id: campusId, name, slug, status: 'draft', event_date: null, end_date: null, reg_opens_at: null, reg_closes_at: null })
     .select('id')
     .single();
   if (error) throw error;
@@ -79,7 +80,7 @@ async function insertEventWithBooths(
 
 export async function duplicateEvent(eventId: string): Promise<string> {
   const { event, booths } = await loadEventWithBooths(eventId);
-  return insertEventWithBooths(snapshotEventFields(event), booths.map(snapshotBooth), `Copy of ${event.name}`);
+  return insertEventWithBooths(snapshotEventFields(event), booths.map(snapshotBooth), `Copy of ${event.name}`, event.campus_id ?? 'hsc');
 }
 
 export async function saveAsTemplate(eventId: string, name: string, description: string): Promise<void> {
@@ -88,17 +89,17 @@ export async function saveAsTemplate(eventId: string, name: string, description:
     event: snapshotEventFields(event),
     booths: booths.map(snapshotBooth),
   };
-  const { error } = await supabase.from('event_templates').insert({ name, description, snapshot });
+  const { error } = await supabase.from('event_templates').insert({ name, description, snapshot, campus_id: event.campus_id ?? 'hsc' });
   if (error) throw error;
 }
 
-export async function createFromTemplate(snapshot: TemplateSnapshot, name: string): Promise<string> {
-  return insertEventWithBooths(snapshot.event ?? {}, snapshot.booths ?? [], name);
+export async function createFromTemplate(snapshot: TemplateSnapshot, name: string, campusId = 'hsc'): Promise<string> {
+  return insertEventWithBooths(snapshot.event ?? {}, snapshot.booths ?? [], name, campusId);
 }
 
-export async function createBlankEvent(name: string): Promise<string> {
+export async function createBlankEvent(name: string, campusId = 'hsc'): Promise<string> {
   const slug = await uniqueSlug(name);
-  const { data, error } = await supabase.from('events').insert(newEventDraft(name, slug)).select('id').single();
+  const { data, error } = await supabase.from('events').insert(newEventDraft(name, slug, campusId)).select('id').single();
   if (error) throw error;
   return data.id as string;
 }

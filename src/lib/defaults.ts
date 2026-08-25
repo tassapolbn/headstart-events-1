@@ -117,8 +117,9 @@ export const defaultPolicies: PolicySection[] = [
   { id: uid(), title: 'Safeguarding', content: 'All visitors must sign in at reception and wear a visitor badge while on campus.', enabled: true },
 ];
 
-export function newEventDraft(name: string, slug: string): Omit<EventRecord, 'id' | 'created_at' | 'updated_at'> {
+export function newEventDraft(name: string, slug: string, campusId = 'hsc'): Omit<EventRecord, 'id' | 'created_at' | 'updated_at'> {
   return {
+    campus_id: campusId,
     slug,
     name,
     description: '',

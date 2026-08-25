@@ -19,6 +19,21 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
 
 /* Public event pages are themed with CSS variables */
 .event-theme { background: var(--ev-bg); color: var(--ev-text); font-family: var(--ev-font); }
+
+/* Full-page themed routes: the background is painted on a fixed layer that
+   always maps to the viewport, so gradients look identical on desktop and
+   mobile regardless of how long the page is. */
+.event-theme-page { position: relative; background: transparent; color: var(--ev-text); font-family: var(--ev-font); }
+.event-theme-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--ev-bg);
+  background-size: cover;
+  background-repeat: no-repeat;
+  z-index: -2;
+}
+.event-theme-page h1, .event-theme-page h2, .event-theme-page h3 { font-family: var(--ev-heading-font); }
 .event-theme h1, .event-theme h2, .event-theme h3 { font-family: var(--ev-heading-font); }
 .ev-card {
   background: var(--ev-card);

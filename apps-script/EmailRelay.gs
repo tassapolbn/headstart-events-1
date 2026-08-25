@@ -47,17 +47,17 @@ function doPost(e) {
     var payload = JSON.parse(e.postData.contents || '{}');
 
     if (payload.test) {
-      var settings = fetchAppSettings();
-      var to = settings.admin_email;
-      if (to) {
+      var camp = fetchCampus(payload.campus || 'hsc');
+      var recips = notifyList(camp);
+      if (recips.length) {
         MailApp.sendEmail({
-          to: to,
-          subject: 'HeadStart Events: test email',
-          htmlBody: '<p>Your email relay is working correctly.</p>',
+          to: recips.join(','),
+          subject: 'HeadStart Events: test email (' + (camp && camp.name ? camp.name : 'campus') + ')',
+          htmlBody: '<p>Your email relay is working correctly. This test was sent to all notification recipients for this campus.</p>',
           name: FROM_NAME,
         });
       }
-      return jsonOut({ ok: true, test: true });
+      return jsonOut({ ok: true, test: true, recipients: recips.length });
     }
 
     var reference = String(payload.reference || '').trim().toUpperCase();
@@ -76,7 +76,8 @@ function doPost(e) {
     if (!template.enabled) return jsonOut({ ok: true, skipped: 'disabled' });
     if (!reg.email) return jsonOut({ ok: false, error: 'registration has no email' });
 
-    var settings2 = fetchAppSettings();
+    var campus = fetchCampus(event.campus_id || 'hsc');
+    var settings2 = mergeSettings(fetchAppSettings(), campus);
     var mergeMap = buildMergeMap(event, reg);
     var subject = renderMerge(template.subject, mergeMap);
     var htmlBody = buildEmailHtml(template, mergeMap, event, reg, settings2);
@@ -100,10 +101,14 @@ function doPost(e) {
 
     // Notify the administrator, if enabled.
     if (template.adminNotify) {
-      var adminTo = template.adminEmail || settings2.admin_email;
-      if (adminTo) {
+      var recipients = notifyList(campus);
+      if (template.adminEmail) recipients.push(template.adminEmail);
+      // De-duplicate.
+      var seen = {}; var adminTo = [];
+      recipients.forEach(function (r) { r = String(r).toLowerCase(); if (r && !seen[r]) { seen[r] = 1; adminTo.push(r); } });
+      if (adminTo.length) {
         MailApp.sendEmail({
-          to: adminTo,
+          to: adminTo.join(','),
           subject: 'New registration: ' + event.name + ' (' + reference + ')',
           htmlBody:
             '<p><strong>' + esc(reg.name || 'Unnamed') + '</strong> registered for <strong>' + esc(event.name) + '</strong>.</p>' +
@@ -128,12 +133,19 @@ function doPost(e) {
 // Optional: daily summary email (add a time driven trigger)
 // ------------------------------------------------------------
 function dailySummary() {
-  var settings = fetchAppSettings();
-  if (!settings.admin_email) return;
+  var campuses = supabaseGet('/rest/v1/campuses?select=*');
+  if (!campuses) return;
+  campuses.forEach(function (camp) { dailySummaryForCampus(camp); });
+}
+
+function dailySummaryForCampus(camp) {
+  var recips = notifyList(camp);
+  if (!recips.length) return;
 
   var since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   var rows = supabaseGet(
-    '/rest/v1/registrations?select=reference,name,email,status,created_at,events(name)&created_at=gte.' +
+    '/rest/v1/registrations?select=reference,name,email,status,created_at,events!inner(name,campus_id)&events.campus_id=eq.' +
+    encodeURIComponent(camp.id) + '&created_at=gte.' +
     encodeURIComponent(since) + '&order=created_at.desc&limit=200'
   );
   if (!rows || rows.length === 0) return;
@@ -155,8 +167,8 @@ function dailySummary() {
   });
 
   MailApp.sendEmail({
-    to: settings.admin_email,
-    subject: 'HeadStart Events: ' + rows.length + ' registration(s) in the last 24 hours',
+    to: recips.join(','),
+    subject: 'HeadStart Events (' + camp.name + '): ' + rows.length + ' registration(s) in the last 24 hours',
     htmlBody: html,
     name: FROM_NAME,
   });
@@ -184,6 +196,35 @@ function fetchRegistration(reference) {
 function fetchAppSettings() {
   var rows = supabaseGet('/rest/v1/app_settings?select=*&id=eq.1');
   return (rows && rows[0]) || {};
+}
+
+// Campus branding overrides the legacy global app_settings.
+function mergeSettings(base, campus) {
+  base = base || {};
+  if (!campus) return base;
+  return {
+    school_name: campus.school_name || base.school_name,
+    logo_url: campus.logo_url || base.logo_url,
+    email_logo_url: campus.email_logo_url || base.email_logo_url,
+    admin_email: base.admin_email,
+  };
+}
+
+function fetchCampus(id) {
+  if (!id) id = 'hsc';
+  var rows = supabaseGet('/rest/v1/campuses?select=*&id=eq.' + encodeURIComponent(id));
+  return (rows && rows[0]) || null;
+}
+
+// Notification recipients for a campus: the managed list, plus a legacy fallback.
+function notifyList(campus) {
+  var list = [];
+  if (campus && campus.notify_emails) {
+    var arr = campus.notify_emails;
+    if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch (e) { arr = []; } }
+    if (arr && arr.length) list = arr.slice();
+  }
+  return list.filter(function (x) { return x && x.indexOf('@') > 0; });
 }
 
 function markEmailSent(id) {

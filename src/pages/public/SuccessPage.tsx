@@ -66,7 +66,7 @@ export default function SuccessPage() {
   ].filter(Boolean) as Array<{ icon: typeof CalendarDays; label: string; value: string }>;
 
   return (
-    <main className="event-theme min-h-screen py-10 sm:py-14" style={themeStyle(event?.theme)}>
+    <main className="event-theme event-theme-page min-h-screen py-10 sm:py-14" style={themeStyle(event?.theme)}>
       <div className="mx-auto max-w-xl px-4">
         {/* Hero */}
         <motion.div

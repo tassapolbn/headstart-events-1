@@ -8,6 +8,7 @@ export function normalizeEvent(row: Record<string, unknown>): EventRecord {
   const e = row as unknown as EventRecord;
   return {
     ...e,
+    campus_id: e.campus_id ?? 'hsc',
     branding: e.branding ?? {},
     theme: { ...defaultTheme, ...(e.theme ?? {}) },
     form_schema: Array.isArray(e.form_schema) ? e.form_schema : [],

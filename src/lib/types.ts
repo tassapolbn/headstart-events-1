@@ -156,8 +156,21 @@ export interface Booth {
   allowed_types?: string[] | null;
 }
 
+export interface Campus {
+  id: string;
+  name: string;
+  school_name: string;
+  logo_url: string | null;
+  email_logo_url: string | null;
+  webhook_url: string | null;
+  notify_emails: string[];
+  accent: string;
+  sort_order: number;
+}
+
 export interface EventRecord {
   id: string;
+  campus_id: string;
   slug: string;
   name: string;
   description: string;
@@ -206,6 +219,7 @@ export interface EventTemplateRecord {
   name: string;
   description: string;
   snapshot: TemplateSnapshot;
+  campus_id: string | null;
   created_at: string;
 }
 
@@ -222,6 +236,10 @@ export interface AppSettings {
   email_logo_url: string | null;
   admin_email: string | null;
   webhook_url: string | null;
+}
+
+export interface EventTemplateRecordCampus {
+  campus_id?: string | null;
 }
 
 export interface SubmitResult {

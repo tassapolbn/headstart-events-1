@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { CalendarDays, LayoutDashboard, LogOut, Menu, Settings, Shapes, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useCampus } from '@/context/CampusContext';
+import { CampusSwitcher } from '@/components/CampusSwitcher';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -13,6 +15,7 @@ const navItems = [
 
 export default function AdminLayout() {
   const { session, signOut } = useAuth();
+  const { campus } = useCampus();
   const [open, setOpen] = useState(false);
 
   const nav = (
@@ -36,6 +39,9 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen bg-slate-100">
+      {campus && (
+        <div className="fixed inset-x-0 top-0 z-40 h-1" style={{ background: campus.accent }} aria-hidden="true" />
+      )}
       {/* Desktop sidebar */}
       <aside className="no-print sticky top-0 hidden h-screen w-60 flex-col bg-navy-800 lg:flex">
         <div className="flex items-center gap-3 px-5 py-5">
@@ -44,6 +50,10 @@ export default function AdminLayout() {
             <p className="font-display text-sm font-bold text-white">HeadStart Events</p>
             <p className="text-[11px] text-navy-200">Registration Platform</p>
           </div>
+        </div>
+        <div className="px-3 pb-2">
+          <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-navy-300">Campus</p>
+          <CampusSwitcher variant="sidebar" />
         </div>
         {nav}
         <div className="border-t border-white/10 p-3">
@@ -63,6 +73,11 @@ export default function AdminLayout() {
           <div className="flex items-center gap-2">
             <img src="/logo.svg" alt="" className="h-8 w-8" />
             <span className="font-display text-sm font-bold text-white">HeadStart Events</span>
+            {campus && (
+              <span className="rounded-full px-2 py-0.5 text-[11px] font-bold text-white" style={{ background: campus.accent }}>
+                {campus.name}
+              </span>
+            )}
           </div>
           <button
             onClick={() => setOpen(!open)} aria-label="Toggle navigation"
@@ -73,6 +88,10 @@ export default function AdminLayout() {
         </header>
         {open && (
           <div className="no-print z-20 bg-navy-800 pb-3 lg:hidden">
+            <div className="px-3 pt-3">
+              <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-navy-300">Campus</p>
+              <CampusSwitcher variant="sidebar" />
+            </div>
             {nav}
             <button
               onClick={() => void signOut()}

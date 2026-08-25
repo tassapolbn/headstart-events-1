@@ -8,6 +8,7 @@ import { boothList } from '@/lib/regBooths';
 import { useToast } from '@/context/ToastContext';
 import { Button } from '@/components/ui/basics';
 import { Field, Input, Select, Textarea } from '@/components/ui/inputs';
+import { AnswerEditor } from './AnswerEditor';
 import { Modal } from '@/components/ui/overlays';
 
 export function RegistrationModal({ event, registration, availableBooths, onClose, onSaved }: {
@@ -206,37 +207,15 @@ export function RegistrationModal({ event, registration, availableBooths, onClos
 
       <h3 className="mb-2 mt-6 text-sm font-semibold text-navy-800">Form answers</h3>
       <div className="space-y-3">
-        {questionFields.map((f) => {
-          const v = reg.data?.[f.id];
-          if (isStoredFileRef(v)) {
-            return (
-              <Field key={f.id} label={f.label}>
-                <Button size="sm" variant="outline" icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => void openFile(v.path)}>
-                  {v.name}
-                </Button>
-              </Field>
-            );
-          }
-          if (Array.isArray(v)) {
-            return (
-              <Field key={f.id} label={f.label}>
-                <Input value={v.join(', ')} onChange={(e) => setData(f.id, e.target.value.split(',').map((s) => s.trim()).filter(Boolean))} />
-              </Field>
-            );
-          }
-          if (f.type === 'paragraph') {
-            return (
-              <Field key={f.id} label={f.label}>
-                <Textarea rows={3} value={String(v ?? '')} onChange={(e) => setData(f.id, e.target.value)} />
-              </Field>
-            );
-          }
-          return (
-            <Field key={f.id} label={f.label}>
-              <Input value={String(v ?? '')} onChange={(e) => setData(f.id, e.target.value)} />
-            </Field>
-          );
-        })}
+        {questionFields.map((f) => (
+          <AnswerEditor
+            key={f.id}
+            field={f}
+            value={reg.data?.[f.id]}
+            onChange={(v) => setData(f.id, v)}
+            onOpenFile={(path) => void openFile(path)}
+          />
+        ))}
         {questionFields.length === 0 && <p className="text-sm text-slate-500">This event has no form questions.</p>}
       </div>
     </Modal>

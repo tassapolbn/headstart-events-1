@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase';
 import type { Booth, EventRecord, SubmitResult } from '@/lib/types';
 import { normalizeEvent } from '@/hooks/useEvent';
 import { useAppSettings } from '@/hooks/useAppSettings';
+import { fetchCampus } from '@/context/CampusContext';
+import type { Campus } from '@/lib/types';
 import { themeStyle } from '@/lib/theme';
 import { formatDate, formatTimeRange } from '@/lib/utils';
 import { friendlyError } from '@/lib/errors';
@@ -25,6 +27,7 @@ export default function EventPage() {
   const appSettings = useAppSettings();
 
   const [event, setEvent] = useState<EventRecord | null>(null);
+  const [campus, setCampus] = useState<Campus | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [boothIds, setBoothIds] = useState<string[]>([]);
@@ -40,7 +43,11 @@ export default function EventPage() {
     async function load() {
       const { data } = await supabase.from('events').select('*').eq('slug', slug).maybeSingle();
       if (!data) setNotFound(true);
-      else setEvent(normalizeEvent(data));
+      else {
+        const ev = normalizeEvent(data);
+        setEvent(ev);
+        void fetchCampus(ev.campus_id).then(setCampus);
+      }
       setLoading(false);
     }
     void load();
@@ -72,7 +79,7 @@ export default function EventPage() {
   const vendorTypeField = event.floor_plan.vendorTypeField ?? '';
   const vendorTypeValue = vendorTypeField ? String(liveValues[vendorTypeField] ?? '') : '';
   const activePolicies = event.policies.filter((p) => p.enabled && (p.title || p.content));
-  const logo = event.branding.logo_url ?? appSettings?.logo_url ?? '/logo.svg';
+  const logo = event.branding.logo_url ?? campus?.logo_url ?? appSettings?.logo_url ?? '/logo.svg';
   const anim = t.animations
     ? { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 } }
     : { initial: false as const, animate: undefined };
@@ -151,8 +158,9 @@ export default function EventPage() {
       const res = result as unknown as SubmitResult;
 
       // 3. Ask the email relay to send the confirmation (fire and forget).
-      if (event.email_template.enabled && appSettings?.webhook_url) {
-        void fetch(appSettings.webhook_url, {
+      const relayUrl = campus?.webhook_url ?? appSettings?.webhook_url;
+      if (event.email_template.enabled && relayUrl) {
+        void fetch(relayUrl, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -179,7 +187,7 @@ export default function EventPage() {
   }
 
   return (
-    <main className="event-theme min-h-screen pb-16" style={themeStyle(t)}>
+    <main className="event-theme event-theme-page min-h-screen pb-16" style={themeStyle(t)}>
       <a href="#registration-form" className="skip-link">Skip to the registration form</a>
 
       {t.animations && (
@@ -402,7 +410,7 @@ export default function EventPage() {
         )}
 
         <footer className="mt-10 text-center text-xs opacity-60">
-          {appSettings?.school_name ?? 'HeadStart International School Phuket'}
+          {campus?.school_name ?? appSettings?.school_name ?? 'HeadStart International School Phuket'}
         </footer>
       </motion.div>
     </main>

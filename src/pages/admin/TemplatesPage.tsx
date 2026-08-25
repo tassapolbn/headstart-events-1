@@ -4,6 +4,8 @@ import { CalendarPlus, Pencil, Shapes, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { EventTemplateRecord } from '@/lib/types';
 import { createFromTemplate } from '@/lib/eventOps';
+import { useCampus } from '@/context/CampusContext';
+import { CampusBadge } from '@/components/CampusSwitcher';
 import { formatDate } from '@/lib/utils';
 import { useToast } from '@/context/ToastContext';
 import { Button, Card, EmptyState, PageLoader } from '@/components/ui/basics';
@@ -13,6 +15,7 @@ import { ConfirmDialog, Modal } from '@/components/ui/overlays';
 export default function TemplatesPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { campusId, campus } = useCampus();
   const [templates, setTemplates] = useState<EventTemplateRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [useFor, setUseFor] = useState<EventTemplateRecord | null>(null);
@@ -24,17 +27,17 @@ export default function TemplatesPage() {
   const [deleteFor, setDeleteFor] = useState<EventTemplateRecord | null>(null);
 
   async function load() {
-    const { data } = await supabase.from('event_templates').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase.from('event_templates').select('*').eq('campus_id', campusId).order('created_at', { ascending: false });
     setTemplates((data ?? []) as EventTemplateRecord[]);
     setLoading(false);
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [campusId]);
 
   async function handleUse() {
     if (!useFor || !newName.trim()) return;
     setCreating(true);
     try {
-      const id = await createFromTemplate(useFor.snapshot, newName.trim());
+      const id = await createFromTemplate(useFor.snapshot, newName.trim(), campusId);
       toast('Event created from template.');
       navigate(`/admin/events/${id}`);
     } catch (err) {
@@ -73,7 +76,10 @@ export default function TemplatesPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-display text-2xl font-bold text-navy-800">Event templates</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="font-display text-2xl font-bold text-navy-800">Event templates</h1>
+          <CampusBadge />
+        </div>
         <p className="text-sm text-slate-500">
           Reusable blueprints. A template copies the form, theme, floor plan, policies, email design and settings.
         </p>
