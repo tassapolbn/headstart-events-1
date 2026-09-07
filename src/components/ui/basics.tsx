@@ -21,16 +21,17 @@ export function Button({
     ghost: 'text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-300',
     danger: 'bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-400',
   };
-  const sizes = { sm: 'px-2.5 py-1.5 text-xs', md: 'px-4 py-2 text-sm', lg: 'px-5 py-2.5 text-base' };
+  const sizes = { sm: 'min-h-9 px-3 py-1.5 text-sm', md: 'min-h-11 px-4 py-2 text-sm', lg: 'min-h-12 px-5 py-2.5 text-base' };
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition active:scale-[0.98]',
+        'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.98]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
         'disabled:cursor-not-allowed disabled:opacity-50',
         variants[variant], sizes[size], className
       )}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...rest}
     >
       {loading ? <Spinner size={16} /> : icon}

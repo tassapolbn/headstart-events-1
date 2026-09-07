@@ -38,7 +38,7 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
 .ev-card {
   background: var(--ev-card);
   border-radius: var(--ev-radius);
-  box-shadow: 0 12px 32px rgba(14, 33, 53, 0.14), 0 2px 8px rgba(14, 33, 53, 0.07);
+  box-shadow: 0 8px 28px rgba(14, 33, 53, 0.07), 0 1px 3px rgba(14, 33, 53, 0.05);
 }
 .ev-accent-top {
   position: relative;
@@ -131,6 +131,12 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
   outline: 3px solid var(--ev-primary);
   outline-offset: 2px;
   border-radius: 6px;
+}
+
+/* Visible focus across the admin and full page event layouts. */
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid var(--ev-primary, #1a3c5e);
+  outline-offset: 3px;
 }
 
 /* Skip link for keyboard and screen reader users */

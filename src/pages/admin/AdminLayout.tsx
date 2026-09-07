@@ -38,12 +38,13 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-screen bg-slate-50">
+      <a className="skip-link" href="#admin-content">Skip to main content</a>
       {campus && (
         <div className="fixed inset-x-0 top-0 z-40 h-1" style={{ background: campus.accent }} aria-hidden="true" />
       )}
       {/* Desktop sidebar */}
-      <aside className="no-print sticky top-0 hidden h-screen w-60 flex-col bg-navy-800 lg:flex">
+      <aside className="no-print sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto bg-navy-800 lg:flex">
         <div className="flex items-center gap-3 px-5 py-5">
           <img src="/logo.svg" alt="" className="h-9 w-9" />
           <div>
@@ -80,14 +81,14 @@ export default function AdminLayout() {
             )}
           </div>
           <button
-            onClick={() => setOpen(!open)} aria-label="Toggle navigation"
+            onClick={() => setOpen(!open)} aria-label="Toggle navigation" aria-expanded={open} aria-controls="mobile-navigation"
             className="rounded-lg p-2 text-white hover:bg-white/10"
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </header>
         {open && (
-          <div className="no-print z-20 bg-navy-800 pb-3 lg:hidden">
+          <div id="mobile-navigation" className="no-print z-20 bg-navy-800 pb-3 lg:hidden">
             <div className="px-3 pt-3">
               <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-navy-300">Campus</p>
               <CampusSwitcher variant="sidebar" />
@@ -102,7 +103,7 @@ export default function AdminLayout() {
           </div>
         )}
 
-        <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">
+        <main id="admin-content" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

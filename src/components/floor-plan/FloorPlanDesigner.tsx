@@ -575,7 +575,7 @@ export function FloorPlanDesigner({ eventId, plan, vendorTypes = [], onPlanChang
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
-          <Legend compact />
+          <Legend entries={plan.legend} compact />
           <p className="text-xs text-slate-400">
             {booths.length} booths - drag on empty space to select a whole area, Shift+click to add one
           </p>

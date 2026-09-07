@@ -176,7 +176,7 @@ export default function PlanPrintPage() {
             </Field>
             <Switch checked={showNumbers} onChange={setShowNumbers} label="Show booth numbers" />
             <Switch checked={showEmpty} onChange={setShowEmpty} label="Show empty booths" description="Turn off to print only booths that have been taken." />
-            <Switch checked={showLegend} onChange={setShowLegend} label="Show the status legend" />
+            <Switch checked={showLegend} onChange={setShowLegend} label="Show the custom colour key" />
           </div>
         </Card>
 
@@ -224,9 +224,9 @@ export default function PlanPrintPage() {
           nameSize={nameSize}
           className="block h-auto w-full"
         />
-        {showLegend && (
+        {showLegend && event.floor_plan.legend?.some((entry) => entry.label.trim() && /^#[0-9a-f]{6}$/i.test(entry.color)) && (
           <div className="mt-3 border-t border-slate-300 pt-2">
-            <Legend compact />
+            <Legend entries={event.floor_plan.legend} compact />
           </div>
         )}
       </div>

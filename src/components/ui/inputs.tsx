@@ -2,7 +2,7 @@ import { forwardRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAt
 import { cn } from '@/lib/utils';
 
 const baseInput =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm ' +
+  'w-full min-h-11 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base sm:text-sm text-slate-800 shadow-sm transition-colors ' +
   'placeholder:text-slate-400 focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-200 ' +
   'disabled:cursor-not-allowed disabled:bg-slate-50 aria-[invalid=true]:border-red-400';
 
@@ -54,6 +54,7 @@ export function Switch({ checked, onChange, label, disabled, description }: {
       <button
         type="button"
         role="switch"
+        aria-label={label ?? description ?? 'Toggle setting'}
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
@@ -64,8 +65,8 @@ export function Switch({ checked, onChange, label, disabled, description }: {
       >
         <span
           className={cn(
-            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all',
-            checked ? 'left-[22px]' : 'left-0.5'
+            'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+            checked ? 'translate-x-5' : 'translate-x-0'
           )}
         />
       </button>
