@@ -255,7 +255,7 @@ export function BoothPicker({ eventId, plan, value, onChange, maxBooths = 1, ven
           })}
         </svg>
       </div>
-      <Legend compact />
+      <Legend entries={plan.legend} compact />
     </div>
   );
 }

@@ -87,8 +87,8 @@ export default function EventEditorPage() {
     void reload();
   }
 
-  if (loading || !draft) return <PageLoader label="Loading event" />;
   if (error) return <p className="p-8 text-center text-sm text-red-600">{error}</p>;
+  if (loading || !draft) return <PageLoader label="Loading event" />;
 
   return (
     <div className="space-y-5">

@@ -1,6 +1,7 @@
 import { FloorPlanDesigner } from '@/components/floor-plan/FloorPlanDesigner';
-import { Card } from '@/components/ui/basics';
-import { Field, Select, Switch } from '@/components/ui/inputs';
+import { Button, Card } from '@/components/ui/basics';
+import { Field, Input, Select, Switch } from '@/components/ui/inputs';
+import { Legend } from '@/components/floor-plan/Legend';
 import { RichTextArea } from '@/components/ui/RichTextArea';
 import { isContentField } from '@/components/form-renderer/fieldZod';
 import type { TabProps } from '../EventEditorPage';
@@ -65,6 +66,38 @@ export default function FloorPlanTab({ draft, update }: TabProps) {
           onChange={(note) => update({ floor_plan: { ...draft.floor_plan, note } })}
           hint='Appears in the booth selection section on the registration page. Example: "Electrical points are available for booths 11 to 20 only." Supports bold, bullet points and links. Leave empty to hide.'
         />
+      </Card>
+
+      <Card title="Custom colour key">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Add your own colours and descriptions to explain the map. Leave this empty to hide the key.
+            These swatches do not change booth colours or booking availability.
+          </p>
+          {(draft.floor_plan.legend ?? []).map((entry, index) => (
+            <div key={entry.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <input
+                type="color"
+                aria-label={`Colour for key item ${index + 1}`}
+                value={/^#[0-9a-f]{6}$/i.test(entry.color) ? entry.color : '#1a3c5e'}
+                className="h-11 w-12 shrink-0 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
+                onChange={(e) => update({ floor_plan: { ...draft.floor_plan, legend: draft.floor_plan.legend!.map((item) => item.id === entry.id ? { ...item, color: e.target.value } : item) } })}
+              />
+              <Input
+                value={entry.label}
+                maxLength={80}
+                placeholder="Enter a description"
+                aria-label={`Description for key item ${index + 1}`}
+                className="min-w-0 flex-1 basis-40"
+                onChange={(e) => update({ floor_plan: { ...draft.floor_plan, legend: draft.floor_plan.legend!.map((item) => item.id === entry.id ? { ...item, label: e.target.value } : item) } })}
+              />
+              <Button type="button" variant="ghost" aria-label={`Remove key item ${index + 1}`} onClick={() => update({ floor_plan: { ...draft.floor_plan, legend: draft.floor_plan.legend!.filter((item) => item.id !== entry.id) } })}>Remove</Button>
+            </div>
+          ))}
+          <Button type="button" variant="outline" onClick={() => update({ floor_plan: { ...draft.floor_plan, legend: [...(draft.floor_plan.legend ?? []), { id: crypto.randomUUID(), label: '', color: '#1a3c5e' }] } })}>Add colour description</Button>
+          <Legend entries={draft.floor_plan.legend} />
+          <p className="text-sm text-slate-500">Press Save at the top of this page to apply the key to the designer, registration page and printed map.</p>
+        </div>
       </Card>
 
       <Card title="Vendor type restrictions (e.g. Outside Provider)">

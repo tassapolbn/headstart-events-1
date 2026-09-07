@@ -129,6 +129,8 @@ export interface EventSettings {
 }
 
 export interface FloorPlanSettings {
+  /** Optional, manually configured map key. Missing entries hide the legend. */
+  legend?: { id: string; label: string; color: string }[];
   enabled: boolean;
   width: number;
   height: number;

@@ -4,9 +4,8 @@ import { cn } from '@/lib/utils';
 // A 3px focus ring at 40% opacity is visible at a glance without the harsh
 // "selected" look a solid ring gives on a dense admin form.
 const baseInput =
-  'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm ' +
-  'transition-colors duration-150 hover:border-slate-400 ' +
-  'placeholder:text-slate-400 focus:border-navy-400 focus:outline-none focus:ring-[3px] focus:ring-navy-200/70 ' +
+  'w-full min-h-11 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-800 shadow-sm transition-colors duration-150 hover:border-slate-400 ' +
+  'placeholder:text-slate-400 focus:border-navy-400 focus:outline-none focus:ring-[3px] focus:ring-navy-200/70 sm:text-sm ' +
   'disabled:cursor-not-allowed disabled:bg-slate-50 aria-[invalid=true]:border-red-400';
 
 export function Field({ label, hint, error, required, htmlFor, children, className }: {
@@ -57,6 +56,7 @@ export function Switch({ checked, onChange, label, disabled, description }: {
       <button
         type="button"
         role="switch"
+        aria-label={label ?? description ?? 'Toggle setting'}
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
@@ -68,7 +68,7 @@ export function Switch({ checked, onChange, label, disabled, description }: {
         {/* A slight overshoot curve makes the knob feel physical rather than linear. */}
         <span
           className={cn(
-            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-[left] duration-200 ease-[cubic-bezier(0.34,1.4,0.64,1)]',
+            'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-[left,transform] duration-200 ease-[cubic-bezier(0.34,1.4,0.64,1)]',
             checked ? 'left-[22px]' : 'left-0.5'
           )}
         />

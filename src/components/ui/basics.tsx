@@ -23,18 +23,17 @@ export function Button({
     ghost: 'text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-300',
     danger: 'bg-red-600 text-white shadow-sm shadow-red-600/25 hover:bg-red-500 focus-visible:ring-red-400',
   };
-  const sizes = { sm: 'px-2.5 py-1.5 text-xs', md: 'px-4 py-2 text-sm', lg: 'px-5 py-2.5 text-base' };
+  const sizes = { sm: 'min-h-9 px-3 py-1.5 text-sm', md: 'min-h-11 px-4 py-2 text-sm', lg: 'min-h-12 px-5 py-2.5 text-base' };
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-xl font-semibold',
-        // 180ms is the sweet spot: fast enough to feel instant, long enough to read as motion.
-        'transition-all duration-200 ease-out active:scale-[0.97]',
+        'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.98]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
         'disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none',
         variants[variant], sizes[size], className
       )}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...rest}
     >
       {loading ? <Spinner size={16} /> : icon}
