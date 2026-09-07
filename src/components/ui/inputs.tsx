@@ -1,9 +1,12 @@
 import { forwardRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
+// A 3px focus ring at 40% opacity is visible at a glance without the harsh
+// "selected" look a solid ring gives on a dense admin form.
 const baseInput =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm ' +
-  'placeholder:text-slate-400 focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-200 ' +
+  'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm ' +
+  'transition-colors duration-150 hover:border-slate-400 ' +
+  'placeholder:text-slate-400 focus:border-navy-400 focus:outline-none focus:ring-[3px] focus:ring-navy-200/70 ' +
   'disabled:cursor-not-allowed disabled:bg-slate-50 aria-[invalid=true]:border-red-400';
 
 export function Field({ label, hint, error, required, htmlFor, children, className }: {
@@ -58,13 +61,14 @@ export function Switch({ checked, onChange, label, disabled, description }: {
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          'relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy-300',
-          checked ? 'bg-navy-700' : 'bg-slate-300'
+          'relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy-300 focus-visible:ring-offset-2',
+          checked ? 'bg-navy-700' : 'bg-slate-300 hover:bg-slate-400'
         )}
       >
+        {/* A slight overshoot curve makes the knob feel physical rather than linear. */}
         <span
           className={cn(
-            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all',
+            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-[left] duration-200 ease-[cubic-bezier(0.34,1.4,0.64,1)]',
             checked ? 'left-[22px]' : 'left-0.5'
           )}
         />

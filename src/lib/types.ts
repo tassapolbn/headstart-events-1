@@ -47,7 +47,25 @@ export interface PolicySection {
   enabled: boolean;
   /** Optional infographic shown with this section */
   image_url?: string;
+  /** The registrant must tick a separate agreement box for this section */
+  requireAck?: boolean;
+  /** Wording of this section's own agreement checkbox */
+  ackText?: string;
+  /** The agreement box unlocks only once the section has been read to the end */
+  requireRead?: boolean;
 }
+
+/** One agreement the registrant ticked, kept with the registration for the record. */
+export interface PolicyAck {
+  /** Policy section id, or 'overall' for the final blanket acknowledgment */
+  id: string;
+  title: string;
+  text: string;
+  accepted_at: string;
+}
+
+/** Reserved key inside Registration.data holding the accepted agreements. */
+export const POLICY_ACK_KEY = '__policy_acks';
 
 export interface EventBranding {
   /** Hide the floating logo (when the banner artwork already includes it) */

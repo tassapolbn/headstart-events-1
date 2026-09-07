@@ -234,7 +234,7 @@ export default function CheckInPage() {
 
         <Card title={`Attendee checklist (${visible.length})`}>
           <div className="relative mb-3">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, reference or booth" className="pl-9" aria-label="Search attendees" />
           </div>
           {visible.length === 0 ? (

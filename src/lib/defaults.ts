@@ -111,10 +111,25 @@ export const defaultEmailTemplate: EmailTemplate = {
   adminEmail: '',
 };
 
+/** Wording used whenever a section asks for its own tick but no text was written. */
+export const defaultSectionAckText = 'I have read and agree to this section.';
+
 export const defaultPolicies: PolicySection[] = [
-  { id: uid(), title: 'Rules', content: 'All participants must follow the instructions of school staff at all times.', enabled: true },
-  { id: uid(), title: 'Health and Safety', content: 'Please report any accident or hazard to the Information Desk immediately.', enabled: true },
-  { id: uid(), title: 'Safeguarding', content: 'All visitors must sign in at reception and wear a visitor badge while on campus.', enabled: true },
+  {
+    id: uid(), title: 'Rules', enabled: true,
+    content: 'All participants must follow the instructions of school staff at all times.',
+    requireAck: true, requireRead: true, ackText: 'I have read the rules and agree to follow them.',
+  },
+  {
+    id: uid(), title: 'Health and Safety', enabled: true,
+    content: 'Please report any accident or hazard to the Information Desk immediately.',
+    requireAck: true, requireRead: true, ackText: 'I accept the health and safety requirements.',
+  },
+  {
+    id: uid(), title: 'Safeguarding', enabled: true,
+    content: 'All visitors must sign in at reception and wear a visitor badge while on campus.',
+    requireAck: true, requireRead: true, ackText: 'I agree to the safeguarding rules for visitors on campus.',
+  },
 ];
 
 export function newEventDraft(name: string, slug: string, campusId = 'hsc'): Omit<EventRecord, 'id' | 'created_at' | 'updated_at'> {

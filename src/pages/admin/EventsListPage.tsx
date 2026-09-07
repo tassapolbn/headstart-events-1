@@ -155,7 +155,7 @@ export default function EventsListPage() {
           ))}
         </div>
         <div className="relative ml-auto w-full sm:w-64">
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search events" className="pl-9" aria-label="Search events" />
         </div>
       </div>

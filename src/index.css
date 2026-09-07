@@ -202,3 +202,238 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 .ev-pulse { animation: ev-pulse-ring 2.2s ease-out infinite; }
+
+/* ==================================================================
+   Policies & agreements (public registration page)
+
+   The previous design put every policy inside one tall scroll box. On a
+   phone that inner box swallows the scroll gesture, so vendors reached
+   the tick box without ever seeing the end of the text. These styles
+   support the replacement: each policy is its own card that grows in the
+   page flow, and a marker at the end of the text unlocks its agreement.
+   ================================================================== */
+
+.ev-policy {
+  overflow: hidden;
+  border-radius: calc(var(--ev-radius) * 0.85);
+  border: 1px solid color-mix(in srgb, var(--ev-text) 11%, transparent);
+  background: color-mix(in srgb, var(--ev-primary) 3%, var(--ev-card));
+  transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+}
+.ev-policy.is-done {
+  border-color: color-mix(in srgb, var(--ev-primary) 38%, transparent);
+  background: color-mix(in srgb, var(--ev-primary) 6%, var(--ev-card));
+}
+.ev-policy-head { transition: background-color 0.2s ease; }
+.ev-policy-head:hover { background: color-mix(in srgb, var(--ev-primary) 5%, transparent); }
+
+.ev-policy-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--ev-primary) 12%, transparent);
+  color: var(--ev-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+.ev-policy.is-done .ev-policy-index { background: var(--ev-primary); color: #fff; }
+
+.ev-policy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: none;
+  border-radius: 999px;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--ev-text) 8%, transparent);
+  color: color-mix(in srgb, var(--ev-text) 62%, transparent);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+.ev-policy-chip.is-done {
+  background: color-mix(in srgb, var(--ev-primary) 15%, transparent);
+  color: var(--ev-primary);
+}
+
+/* Clamp and expand. max-height is driven from JS with the measured height, so
+   a late-loading infographic can never end up clipped. */
+.ev-policy-body {
+  overflow: hidden;
+  transition: max-height 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ev-policy-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 76px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--ev-primary) 3%, var(--ev-card)) 86%);
+}
+.ev-policy.is-done .ev-policy-fade {
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--ev-primary) 6%, var(--ev-card)) 86%);
+}
+
+.ev-policy-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ev-primary) 25%, transparent);
+  padding: 0.3rem 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ev-primary);
+  background: color-mix(in srgb, var(--ev-primary) 6%, transparent);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.ev-policy-more:hover { background: color-mix(in srgb, var(--ev-primary) 14%, transparent); }
+
+.ev-policy-crest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border-radius: 0.85rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--ev-primary), var(--ev-accent));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--ev-primary) 28%, transparent);
+}
+
+.ev-policy-final {
+  border-top: 1px solid color-mix(in srgb, var(--ev-text) 10%, transparent);
+  background: color-mix(in srgb, var(--ev-secondary) 9%, transparent);
+}
+
+/* Progress meter: the vendor always knows how many agreements are left */
+.ev-progress {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ev-text) 10%, transparent);
+}
+.ev-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ev-primary), var(--ev-secondary));
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* One agreement row */
+.ev-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  cursor: pointer;
+  padding: 0.75rem 0.9rem;
+  border-radius: calc(var(--ev-radius) * 0.7);
+  border: 1px solid color-mix(in srgb, var(--ev-text) 13%, transparent);
+  background: var(--ev-card);
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.ev-ack:hover { border-color: color-mix(in srgb, var(--ev-primary) 40%, transparent); }
+.ev-ack.is-checked {
+  border-color: color-mix(in srgb, var(--ev-primary) 55%, transparent);
+  background: color-mix(in srgb, var(--ev-primary) 7%, var(--ev-card));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ev-primary) 10%, transparent);
+}
+.ev-ack.is-locked { cursor: not-allowed; opacity: 0.62; }
+.ev-ack.is-locked:hover { border-color: color-mix(in srgb, var(--ev-text) 13%, transparent); }
+.ev-ack-final { padding: 0.9rem 1rem; border-width: 2px; }
+
+.ev-ack-box {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.1rem;
+  flex: none;
+  cursor: inherit;
+  border: 2px solid color-mix(in srgb, var(--ev-text) 30%, transparent);
+  border-radius: 7px;
+  background-color: var(--ev-card);
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+}
+.ev-ack-box:checked {
+  background-color: var(--ev-primary);
+  border-color: var(--ev-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 72%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.ev-ack-box:active { transform: scale(0.92); }
+
+/* Pre-submit checklist: names what is missing instead of a dead button */
+.ev-gate {
+  border-radius: calc(var(--ev-radius) * 0.7);
+  border: 1px dashed color-mix(in srgb, var(--ev-primary) 35%, transparent);
+  background: color-mix(in srgb, var(--ev-primary) 5%, transparent);
+  padding: 0.85rem 1rem;
+}
+.ev-gate.is-done {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border-style: solid;
+  border-color: color-mix(in srgb, #10b981 45%, transparent);
+  background: color-mix(in srgb, #10b981 9%, transparent);
+}
+.ev-gate-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  flex: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ev-primary) 14%, transparent);
+  color: var(--ev-primary);
+}
+.ev-gate.is-done .ev-gate-icon { background: #10b981; color: #fff; }
+.ev-gate-link {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.6rem;
+  padding: 0.42rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  color: var(--ev-primary);
+  background: color-mix(in srgb, var(--ev-card) 72%, transparent);
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+.ev-gate-link:hover { background: var(--ev-card); transform: translateX(2px); }
+
+/* Attention cues */
+@keyframes ev-flash {
+  0%   { box-shadow: 0 0 0 0 transparent; }
+  18%  { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ev-secondary) 65%, transparent); }
+  72%  { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ev-secondary) 35%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.ev-flash { animation: ev-flash 1.5s ease-out 1; }
+
+@keyframes ev-nudge {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+.ev-policy-nudge { color: #b45309; animation: ev-nudge 0.45s ease-in-out 1; }

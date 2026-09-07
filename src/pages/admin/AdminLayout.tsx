@@ -25,8 +25,13 @@ export default function AdminLayout() {
           key={to} to={to} end={end} onClick={() => setOpen(false)}
           className={({ isActive }) =>
             cn(
-              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-              isActive ? 'bg-white/10 text-white shadow-[inset_3px_0_0_#F0B323]' : 'text-navy-100 hover:bg-white/5 hover:text-white'
+              // The gold rail marks the current page without adding a second
+              // colour to the sidebar; hover nudges right so the list feels alive.
+              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium',
+              'transition-all duration-200 ease-out',
+              isActive
+                ? 'bg-white/10 text-white shadow-[inset_3px_0_0_#F0B323]'
+                : 'text-navy-100 hover:translate-x-0.5 hover:bg-white/5 hover:text-white'
             )
           }
         >
@@ -43,7 +48,7 @@ export default function AdminLayout() {
         <div className="fixed inset-x-0 top-0 z-40 h-1" style={{ background: campus.accent }} aria-hidden="true" />
       )}
       {/* Desktop sidebar */}
-      <aside className="no-print sticky top-0 hidden h-screen w-60 flex-col bg-navy-800 lg:flex">
+      <aside className="no-print sticky top-0 hidden h-screen w-60 flex-col bg-gradient-to-b from-navy-800 to-navy-900 lg:flex">
         <div className="flex items-center gap-3 px-5 py-5">
           <img src="/logo.svg" alt="" className="h-9 w-9" />
           <div>

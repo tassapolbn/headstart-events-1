@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CalendarDays, ChevronDown, Clock, Info, MapPin, ShieldCheck } from 'lucide-react';
+import { CalendarDays, ChevronDown, Clock, Info, MapPin } from 'lucide-react';
 import type { FieldValues } from 'react-hook-form';
 import { supabase } from '@/lib/supabase';
 import type { Booth, EventRecord, SubmitResult } from '@/lib/types';
+import { POLICY_ACK_KEY } from '@/lib/types';
 import { normalizeEvent } from '@/hooks/useEvent';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { fetchCampus } from '@/context/CampusContext';
@@ -16,6 +17,9 @@ import { uploadVendorFile, dataUrlToBlob } from '@/lib/storage';
 import { isContentField, isVisible } from '@/components/form-renderer/fieldZod';
 import { FormRenderer } from '@/components/form-renderer/FormRenderer';
 import { BoothPicker } from '@/components/floor-plan/BoothPicker';
+import { PolicyConsent, revealFinalAck, revealPolicy } from '@/components/policies/PolicyConsent';
+import { PolicyGate } from '@/components/policies/PolicyGate';
+import { activePolicies, buildAckRecords } from '@/components/policies/policyAcks';
 import { useToast } from '@/context/ToastContext';
 import { PageLoader } from '@/components/ui/basics';
 import { richToHtml } from '@/components/ui/RichTextArea';
@@ -33,6 +37,7 @@ export default function EventPage() {
   const [boothIds, setBoothIds] = useState<string[]>([]);
   const [boothInfos, setBoothInfos] = useState<Booth[]>([]);
   const [ack, setAck] = useState(false);
+  const [sectionAcks, setSectionAcks] = useState<Record<string, boolean>>({});
   const [liveValues, setLiveValues] = useState<Record<string, unknown>>({});
   const handleValuesChange = useCallback((v: Record<string, unknown>) => setLiveValues(v), []);
   const [busy, setBusy] = useState(false);
@@ -78,7 +83,13 @@ export default function EventPage() {
   const boothsEnabled = event.floor_plan.enabled && event.settings.boothSelection === 'single';
   const vendorTypeField = event.floor_plan.vendorTypeField ?? '';
   const vendorTypeValue = vendorTypeField ? String(liveValues[vendorTypeField] ?? '') : '';
-  const activePolicies = event.policies.filter((p) => p.enabled && (p.title || p.content));
+  const policySections = activePolicies(event.policies);
+  // Every agreement the vendor must tick: one per flagged section, plus the
+  // single blanket acknowledgment when the event asks for one.
+  const requiredAcks = policySections.filter((p) => p.requireAck);
+  const needsOverall = event.settings.requirePolicyAck && policySections.length > 0;
+  const agreementsDone =
+    requiredAcks.every((p) => sectionAcks[p.id]) && (!needsOverall || ack);
   const logo = event.branding.logo_url ?? campus?.logo_url ?? appSettings?.logo_url ?? '/logo.svg';
   const anim = t.animations
     ? { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 } }
@@ -96,8 +107,10 @@ export default function EventPage() {
 
   async function handleSubmit(values: FieldValues) {
     if (!event) return;
-    if (event.settings.requirePolicyAck && activePolicies.length > 0 && !ack) {
-      toast('Please read and accept the event policies before submitting.', 'error');
+    if (!agreementsDone) {
+      toast('Please read and accept every event policy before submitting.', 'error');
+      const missing = requiredAcks.find((p) => !sectionAcks[p.id]);
+      if (missing) revealPolicy(missing.id); else revealFinalAck();
       return;
     }
     if (boothsEnabled && boothIds.length === 0 && event.status !== 'waitlist') {
@@ -141,6 +154,15 @@ export default function EventPage() {
         name = firstText ? String(values[firstText.id] ?? '') : '';
       }
 
+      // Keep a dated record of exactly which agreements were ticked. Stored
+      // under a reserved key, so it can never collide with a question id.
+      const ackRecords = buildAckRecords(
+        event.policies,
+        sectionAcks,
+        needsOverall ? { accepted: ack, text: event.settings.policyAckText } : undefined
+      );
+      if (ackRecords.length > 0) data[POLICY_ACK_KEY] = ackRecords;
+
       // 2. Submit through the guarded database function.
       const { data: result, error } = await supabase.rpc('submit_registration', {
         p_event_id: event.id,
@@ -150,7 +172,7 @@ export default function EventPage() {
         p_data: data,
         p_booth_id: boothsEnabled ? (boothIds[0] ?? null) : null,
         p_booth_ids: boothsEnabled && boothIds.length > 0 ? boothIds : null,
-        p_ack: ack || !event.settings.requirePolicyAck || activePolicies.length === 0,
+        p_ack: agreementsDone,
         p_hp: hpRef.current?.value ?? '',
         p_elapsed_seconds: Math.floor((Date.now() - startedAt.current) / 1000),
       });
@@ -308,32 +330,19 @@ export default function EventPage() {
           </div>
         ) : (
           <>
-            {/* Policies */}
-            {activePolicies.length > 0 && (
-              <motion.section {...reveal} className="ev-card ev-accent-top mt-6 space-y-4 p-5" aria-labelledby="policies-heading">
-                <h2 id="policies-heading" className="flex items-center gap-2 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
-                  <ShieldCheck className="h-5 w-5" /> Event policies
-                </h2>
-                <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-2">
-                  {activePolicies.map((p) => (
-                    <div key={p.id}>
-                      <h3 className="text-sm font-semibold">{p.title}</h3>
-                      <div
-                        className="ev-rich mt-1 text-sm opacity-80"
-                        dangerouslySetInnerHTML={{ __html: richToHtml(p.content) }}
-                      />
-                      {p.image_url && (
-                        <img
-                          src={p.image_url}
-                          alt={`${p.title} infographic`}
-                          className="mt-2 block h-auto w-full rounded-xl"
-                          loading="lazy"
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </motion.section>
+            {/* Policies and agreements */}
+            {policySections.length > 0 && (
+              <motion.div {...reveal}>
+                <PolicyConsent
+                  policies={event.policies}
+                  accepted={sectionAcks}
+                  onAcceptedChange={setSectionAcks}
+                  requireOverall={needsOverall}
+                  overallText={event.settings.policyAckText}
+                  overallAccepted={ack}
+                  onOverallChange={setAck}
+                />
+              </motion.div>
             )}
 
             {/* Booth picker */}
@@ -384,21 +393,16 @@ export default function EventPage() {
                 onSubmit={handleSubmit}
                 submitLabel={event.status === 'waitlist' ? 'Join the waitlist' : 'Submit registration'}
                 beforeSubmit={
-                  event.settings.requirePolicyAck && activePolicies.length > 0 ? (
-                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={ack}
-                        onChange={(e) => setAck(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded"
-                        style={{ accentColor: 'var(--ev-primary)' }}
-                        aria-required="true"
-                      />
-                      <span>{event.settings.policyAckText}</span>
-                    </label>
+                  policySections.length > 0 ? (
+                    <PolicyGate
+                      policies={event.policies}
+                      accepted={sectionAcks}
+                      requireOverall={needsOverall}
+                      overallAccepted={ack}
+                    />
                   ) : undefined
                 }
-                submitDisabled={event.settings.requirePolicyAck && activePolicies.length > 0 && !ack}
+                submitDisabled={!agreementsDone}
               />
               {boothsEnabled && boothInfos.length > 0 && (
                 <p className="mt-3 text-center text-xs opacity-70">

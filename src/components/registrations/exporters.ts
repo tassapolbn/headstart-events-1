@@ -4,6 +4,7 @@ import { isContentField } from '@/components/form-renderer/fieldZod';
 import { isStoredFileRef } from '@/lib/storage';
 import { download } from '@/lib/utils';
 import { boothText } from '@/lib/regBooths';
+import { storedAcks } from '@/components/policies/policyAcks';
 
 function cellValue(v: unknown): string {
   if (v === null || v === undefined) return '';
@@ -23,6 +24,7 @@ export function buildRows(event: EventRecord, regs: Registration[]): string[][] 
   const questionFields = event.form_schema.filter((f) => !isContentField(f));
   const header = [
     'Reference', 'Status', 'Name', 'Email', 'Phone', 'Booth', 'Checked in', 'Submitted',
+    'Agreements accepted',
     ...questionFields.map((f) => f.label),
   ];
   const rows = regs.map((r) => [
@@ -34,6 +36,8 @@ export function buildRows(event: EventRecord, regs: Registration[]): string[][] 
     boothText(r),
     r.checked_in_at ? new Date(r.checked_in_at).toLocaleString() : '',
     new Date(r.created_at).toLocaleString(),
+    // Which policies this vendor ticked, for the compliance record.
+    storedAcks(r.data).map((a) => a.title).join(' | '),
     ...questionFields.map((f) => cellValue(r.data?.[f.id])),
   ]);
   return [header, ...rows];
