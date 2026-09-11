@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { EventRecord } from '@/lib/types';
 import { defaultEmailTemplate, defaultFloorPlan, defaultSettings, defaultTheme } from '@/lib/defaults';
+import { notificationEmailEntries } from '@/lib/notificationEmails';
 
 /** Fill any missing JSON sections with defaults so older rows never break the UI. */
 export function normalizeEvent(row: Record<string, unknown>): EventRecord {
@@ -13,7 +14,10 @@ export function normalizeEvent(row: Record<string, unknown>): EventRecord {
     theme: { ...defaultTheme, ...(e.theme ?? {}) },
     form_schema: Array.isArray(e.form_schema) ? e.form_schema : [],
     policies: Array.isArray(e.policies) ? e.policies : [],
-    email_template: { ...defaultEmailTemplate, ...(e.email_template ?? {}) },
+    email_template: {
+      ...defaultEmailTemplate, ...(e.email_template ?? {}),
+      adminEmails: notificationEmailEntries(e.email_template),
+    },
     settings: { ...defaultSettings, ...(e.settings ?? {}) },
     floor_plan: { ...defaultFloorPlan, ...(e.floor_plan ?? {}) },
   };

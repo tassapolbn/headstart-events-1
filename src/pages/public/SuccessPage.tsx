@@ -165,7 +165,7 @@ export default function SuccessPage() {
             ) : (
               <p className="text-sm opacity-70">Please keep this reference. You can look up your registration any time.</p>
             )}
-            <p className="mt-2 text-xs opacity-60">A confirmation email is on its way to your inbox.</p>
+            {event?.email_template.enabled && <p className="mt-2 text-xs opacity-60">A confirmation email is on its way to your inbox.</p>}
           </div>
         </motion.div>
 

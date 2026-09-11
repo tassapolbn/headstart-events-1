@@ -44,13 +44,30 @@ Option B, drag and drop:
 
 Follow the step by step instructions at the top of `apps-script/EmailRelay.gs`. In short: create a new Apps Script project, paste the file, add the three Script Properties (including the Supabase `service_role` key, which stays safely inside Apps Script), deploy as a web app with access set to Anyone, then paste the web app URL into **HeadStart Events -> Settings -> Relay web app URL**.
 
-The relay also supports an optional daily summary email: add a time driven trigger for the `dailySummary` function.
+The relay also supports an optional daily summary email: add a time driven trigger for the `dailySummary` function. Each form's summary goes only to that form's notification recipients.
+
+### Choose notification recipients for each form
+
+1. Open **Events → select the event → Email**.
+2. Under **Registration notifications for this form**, turn on **Notify this form's admins about new registrations**.
+3. Enter the responsible admins in **Notification recipients**, one email per line (commas and semicolons also work), then **Save**. Duplicate addresses are removed and invalid addresses must be corrected before saving.
+4. Repeat for each form. An empty list sends no admin notifications. Turning notifications off keeps the list for later. Registrant confirmation emails have their own independent switch.
+
+Campus Settings contains **Email relay test recipients** for testing delivery only; it does not subscribe those addresses to registrations or daily summaries.
+
+### Updating an existing installation
+
+Deploy the frontend and replace the code in your existing Apps Script project with `apps-script/EmailRelay.gs`. In Apps Script choose **Deploy → Manage deployments → Edit → Version: New version → Deploy** to keep the same web app URL. Update each relay project if campuses use separate deployments. Updating the website alone will not change email routing.
+
+No database migration is needed: recipient lists are saved in the existing `events.email_template` JSON. Any existing form-specific `adminEmail` is retained until its recipient list is edited. Campus-wide recipients are no longer used automatically, so assign recipients to every form that needs notifications. Duplicating an event or using a template copies its recipient list; review that list for the new form.
+
+After both deployments, register once on each of two forms with different assigned admins and confirm that each admin receives only their own form's alert. The existing campus test button checks delivery, not form routing.
 
 ## 5. First steps in the app
 
 1. Open `https://your-site.netlify.app/admin` and sign in.
-2. Go to **Settings**, set the school name, upload the school logo, enter the admin notification email and the relay URL, then save.
-3. Create your first event, build the form (or press "Insert vendor questions"), design the floor plan, adjust the theme, review the email template, then set the status to **Open** and save.
+2. Go to **Settings**, set the school name, upload the school logo, enter the relay test recipients and the relay URL, then save.
+3. Create your first event, build the form (or press "Insert vendor questions"), design the floor plan, adjust the theme, review the email template and assign the form's notification recipients in **Email**, then set the status to **Open** and save.
 4. Share the public link (Copy link button on the Events page). No login is needed for parents or vendors.
 
 ## 6. How booth locking works
@@ -84,6 +101,8 @@ apps-script/     EmailRelay.gs and appsscript.json (email sending)
 The architecture is modular by design. New modules (volunteer registration, parent teacher booking, equipment booking, payments and so on) follow the same pattern: add a table plus Row Level Security in Supabase, a folder under `src/components`, and a route in `src/App.tsx`. The form builder, theming, QR and email systems are all reusable as is.
 
 ## 10. Troubleshooting
+
+Run `npm test` for notification routing regression tests and `npm run build` for TypeScript and production build validation.
 
 - Blank page after deploy: check the two environment variables on Netlify, then redeploy.
 - Sign in fails: confirm the user exists in Supabase Authentication and was auto confirmed.
