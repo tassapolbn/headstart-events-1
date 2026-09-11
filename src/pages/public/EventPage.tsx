@@ -179,9 +179,9 @@ export default function EventPage() {
       if (error) throw error;
       const res = result as unknown as SubmitResult;
 
-      // 3. Ask the email relay to send the confirmation (fire and forget).
+      // 3. Request confirmation and/or form admin notifications (fire and forget).
       const relayUrl = campus?.webhook_url ?? appSettings?.webhook_url;
-      if (event.email_template.enabled && relayUrl) {
+      if ((event.email_template.enabled || event.email_template.adminNotify) && relayUrl) {
         void fetch(relayUrl, {
           method: 'POST',
           mode: 'no-cors',

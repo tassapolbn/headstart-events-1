@@ -75,7 +75,7 @@ export default function SettingsPage() {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ test: true, campus: row.id }),
     }).catch(() => undefined);
-    toast('Test requested. Every address on the notification list should receive it shortly.');
+    toast('Test requested. Every saved test recipient should receive it shortly.');
   }
 
   if (!row) return <PageLoader label="Loading settings" />;
@@ -121,13 +121,13 @@ export default function SettingsPage() {
         </Card>
 
         <div className="space-y-5">
-          <Card title="New registration notifications">
+          <Card title="Email relay test recipients">
             <div className="space-y-4">
               <p className="text-sm text-slate-600">
-                Everyone on this list receives an email whenever a new registration is submitted to a {row.name} event.
+                This list receives relay test emails only. Choose registration notification recipients separately in each event’s Email tab.
               </p>
               <div>
-                <span className="mb-1.5 block text-sm font-medium text-slate-700">Notification recipients</span>
+                <span className="mb-1.5 block text-sm font-medium text-slate-700">Test recipients</span>
                 {row.notify_emails.length === 0 ? (
                   <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">No recipients yet. Add at least one address below.</p>
                 ) : (
@@ -156,7 +156,7 @@ export default function SettingsPage() {
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="name@headstartphuket.com"
-                  aria-label="Add a notification email"
+                  aria-label="Add a test recipient email"
                 />
                 <Button type="submit" variant="outline" icon={<Plus className="h-4 w-4" />}>Add</Button>
               </form>

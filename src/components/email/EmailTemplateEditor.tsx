@@ -3,6 +3,7 @@ import type { EmailTemplate, EventRecord } from '@/lib/types';
 import { MERGE_FIELDS, buildMergeMap, renderMergeFields } from '@/lib/merge';
 import { buildEmailHtml } from '@/lib/emailHtml';
 import { useAppSettings } from '@/hooks/useAppSettings';
+import { invalidNotificationEmails, notificationEmailEntries } from '@/lib/notificationEmails';
 import { Card } from '@/components/ui/basics';
 import { Field, Input, Switch, Textarea } from '@/components/ui/inputs';
 
@@ -12,6 +13,8 @@ export function EmailTemplateEditor({ event, template, onChange }: {
   onChange: (t: EmailTemplate) => void;
 }) {
   const appSettings = useAppSettings();
+  const recipients = notificationEmailEntries(template);
+  const invalidEmails = invalidNotificationEmails(recipients);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const set = (patch: Partial<EmailTemplate>) => onChange({ ...template, ...patch });
 
@@ -52,6 +55,34 @@ export function EmailTemplateEditor({ event, template, onChange }: {
   return (
     <div className="grid gap-5 xl:grid-cols-2">
       <div className="space-y-5">
+        <Card title="Registration notifications for this form">
+          <div className="space-y-4">
+            <Switch
+              checked={template.adminNotify}
+              onChange={(adminNotify) => set({ adminNotify })}
+              label="Notify this form's admins about new registrations"
+              description="Only the addresses below receive this form's registration alerts and optional daily summary."
+            />
+            <Field
+              label="Notification recipients"
+              htmlFor="em-admin-emails"
+              hint="Enter one email per line, or separate addresses with commas or semicolons. Leave empty to send no admin notifications. Save the event to apply changes."
+              error={invalidEmails.length ? `Check these email addresses: ${invalidEmails.join(', ')}` : undefined}
+            >
+              <Textarea
+                id="em-admin-emails"
+                rows={4}
+                value={recipients.join('\n')}
+                onChange={(e) => set({ adminEmails: e.target.value.split(/[,;\n]/), adminEmail: undefined })}
+                placeholder={'form.admin@headstartphuket.com\nbackup.admin@headstartphuket.com'}
+                aria-invalid={invalidEmails.length > 0}
+                spellCheck={false}
+              />
+            </Field>
+            {!template.adminNotify && <p className="text-xs text-slate-500">Notifications are off. The recipient list will be kept for when you turn them on.</p>}
+          </div>
+        </Card>
+
         <Card title="Confirmation email">
           <div className="space-y-4">
             <Switch
@@ -109,16 +140,6 @@ export function EmailTemplateEditor({ event, template, onChange }: {
                 <Input value={template.buttonUrl ?? ''} onChange={(e) => set({ buttonUrl: e.target.value || undefined })} placeholder="https://…" />
               </Field>
             </div>
-            <Switch
-              checked={template.adminNotify}
-              onChange={(adminNotify) => set({ adminNotify })}
-              label="Notify the administrator about each registration"
-            />
-            {template.adminNotify && (
-              <Field label="Notification email" hint="Leave empty to use the address from Settings.">
-                <Input type="email" value={template.adminEmail ?? ''} onChange={(e) => set({ adminEmail: e.target.value || undefined })} placeholder="events.city@headstartphuket.com" />
-              </Field>
-            )}
           </div>
         </Card>
       </div>

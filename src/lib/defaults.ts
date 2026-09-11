@@ -108,7 +108,7 @@ export const defaultEmailTemplate: EmailTemplate = {
   showQr: true,
   attachCalendar: true,
   adminNotify: true,
-  adminEmail: '',
+  adminEmails: [],
 };
 
 /** Wording used whenever a section asks for its own tick but no text was written. */
