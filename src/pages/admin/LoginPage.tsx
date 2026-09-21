@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock } from 'lucide-react';
+import { loginIdentifierToEmail } from '@/lib/accounts';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/basics';
 import { Field, Input } from '@/components/ui/inputs';
@@ -11,7 +12,7 @@ export default function LoginPage() {
   const { session, signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,10 +23,10 @@ export default function LoginPage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const result = await signIn(email.trim(), password);
+    const result = await signIn(loginIdentifierToEmail(identifier), password);
     setBusy(false);
     if (result.error) {
-      setError('Sign in failed. Please check your email and password.');
+      setError('Sign in failed. Please check your username and password.');
     } else {
       const from = (location.state as { from?: string } | null)?.from ?? '/admin';
       navigate(from, { replace: true });
@@ -53,11 +54,12 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Field label="Email address" htmlFor="login-email" required>
+          <Field label="Username" htmlFor="login-user" required hint="Staff sign in with the username the owner gave them. An email address also works.">
             <Input
-              id="login-email" type="email" autoComplete="email" required
-              value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="events@headstartphuket.com"
+              id="login-user" type="text" autoComplete="username" required
+              autoCapitalize="none" spellCheck={false}
+              value={identifier} onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="e.g. somchai"
             />
           </Field>
           <Field label="Password" htmlFor="login-password" required error={error ?? undefined}>
@@ -72,7 +74,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          Accounts are created by the administrator in the Supabase dashboard. Public visitors do not need an account.
+          Accounts are created by the system owner under Accounts. Public visitors never need an account.
         </p>
       </motion.div>
     </main>

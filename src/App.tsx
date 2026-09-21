@@ -14,6 +14,7 @@ import SignsPage from './pages/admin/SignsPage';
 import PlanPrintPage from './pages/admin/PlanPrintPage';
 import TemplatesPage from './pages/admin/TemplatesPage';
 import SettingsPage from './pages/admin/SettingsPage';
+import AccountsPage from './pages/admin/AccountsPage';
 
 import PublicHome from './pages/public/PublicHome';
 import EventPage from './pages/public/EventPage';
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="events/:id/plan" element={<PlanPrintPage />} />
         <Route path="templates" element={<TemplatesPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="accounts" element={<AccountsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

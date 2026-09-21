@@ -5,7 +5,6 @@ import {
   Link2, Mail, Map, Palette, QrCode, Save, Settings2, ShieldCheck, Tag,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { invalidNotificationEmails, normalizeNotificationEmails, notificationEmailEntries } from '@/lib/notificationEmails';
 import type { EventRecord } from '@/lib/types';
 import { useEvent } from '@/hooks/useEvent';
 import { publicEventUrl } from '@/lib/eventOps';
@@ -71,19 +70,8 @@ export default function EventEditorPage() {
 
   async function save() {
     if (!draft || !id) return;
-    const entries = notificationEmailEntries(draft.email_template);
-    if (invalidNotificationEmails(entries).length) {
-      setTab('email');
-      toast('Please correct the notification email addresses before saving.', 'error');
-      return;
-    }
     setSaving(true);
     const { id: _id, created_at, updated_at, ...fields } = draft;
-    fields.email_template = {
-      ...fields.email_template,
-      adminEmails: normalizeNotificationEmails(entries),
-      adminEmail: '',
-    };
     const { error: err } = await supabase.from('events').update(fields).eq('id', id);
     setSaving(false);
     if (err) {
@@ -99,8 +87,8 @@ export default function EventEditorPage() {
     void reload();
   }
 
-  if (error) return <p className="p-8 text-center text-sm text-red-600">{error}</p>;
   if (loading || !draft) return <PageLoader label="Loading event" />;
+  if (error) return <p className="p-8 text-center text-sm text-red-600">{error}</p>;
 
   return (
     <div className="space-y-5">
