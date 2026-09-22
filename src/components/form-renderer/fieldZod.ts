@@ -5,8 +5,54 @@ import { gridError, isGridField } from '@/lib/grid';
 
 const CONTENT_TYPES = ['heading', 'rich_text', 'divider'];
 
+/** Stored in the answer while "Other" is picked; swapped for the typed text on submit. */
+export const OTHER_VALUE = '__other__';
+
+/** Question types that can offer a free text "Other" choice. */
+const OTHER_TYPES = ['multiple_choice', 'checkboxes'];
+
 export function isContentField(f: FormField): boolean {
   return CONTENT_TYPES.includes(f.type);
+}
+
+export function canAllowOther(f: Pick<FormField, 'type'>): boolean {
+  return OTHER_TYPES.includes(f.type);
+}
+
+/** The wording shown on the extra choice, e.g. "Other" or "อื่น ๆ". */
+export function otherLabelOf(f: Pick<FormField, 'otherLabel'>): string {
+  return f.otherLabel?.trim() || 'Other';
+}
+
+/** Is the "Other" choice currently picked for this question? */
+export function isOtherPicked(f: FormField, value: unknown): boolean {
+  if (!f.allowOther || !canAllowOther(f)) return false;
+  return Array.isArray(value) ? value.includes(OTHER_VALUE) : value === OTHER_VALUE;
+}
+
+/**
+ * "Other" is only a real answer once something is typed next to it, so an
+ * empty box is reported the same way a missing required answer would be.
+ */
+export function otherError(f: FormField, values: FieldValues): string | null {
+  if (!isOtherPicked(f, values[f.id])) return null;
+  const typed = String(values[`${f.id}__other`] ?? '').trim();
+  return typed === '' ? `Please fill in your "${otherLabelOf(f)}" answer.` : null;
+}
+
+/**
+ * Replace the placeholder with what the registrant typed, so stored answers,
+ * exports and emails read "Other: Vegetarian" rather than "__other__".
+ */
+export function applyOtherAnswer(f: FormField, value: unknown, typedRaw: unknown): unknown {
+  if (!f.allowOther || !canAllowOther(f)) return value;
+  const typed = String(typedRaw ?? '').trim();
+  const label = `${otherLabelOf(f)}: ${typed}`;
+  if (Array.isArray(value)) {
+    if (!value.includes(OTHER_VALUE)) return value;
+    return value.map((v) => (v === OTHER_VALUE ? label : v));
+  }
+  return value === OTHER_VALUE ? label : value;
 }
 
 /** Evaluate a conditional question against the current answers. */
@@ -136,7 +182,10 @@ export function buildResolver(fields: FormField[]): Resolver<FieldValues> {
       const result = schemaForField(f).safeParse(values[f.id] ?? (f.type === 'checkboxes' ? [] : f.type === 'menu_quantity' || isGridField(f) ? {} : ''));
       if (!result.success) {
         errors[f.id] = { type: 'validation', message: result.error.issues[0]?.message ?? 'Invalid value.' };
+        continue;
       }
+      const other = otherError(f, values);
+      if (other) errors[f.id] = { type: 'validation', message: other };
     }
     return { values, errors };
   };

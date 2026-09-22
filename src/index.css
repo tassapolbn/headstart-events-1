@@ -4,6 +4,7 @@
 
 :root {
   --ev-primary: #1a3c5e;
+  --ev-primary-rgb: 26, 60, 94;
   --ev-secondary: #f0b323;
   --ev-accent: #2f5d8a;
   --ev-bg: #f4f6fa;
@@ -12,6 +13,10 @@
   --ev-radius: 14px;
   --ev-font: 'Inter', system-ui, sans-serif;
   --ev-heading-font: 'Poppins', 'Inter', sans-serif;
+  --ev-q-gap: 20px;
+  --ev-q-size: 14px;
+  --ev-q-weight: 600;
+  --ev-q-font: var(--ev-font);
 }
 
 html { scroll-behavior: smooth; }
@@ -74,6 +79,161 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
   border-color: var(--ev-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ev-primary) 18%, transparent);
 }
+
+/* ---- Public form layout -------------------------------------- */
+
+/* Spacing between questions is set per event in the Theme tab. */
+.ev-form-stack { display: flex; flex-direction: column; gap: var(--ev-q-gap); }
+
+/* Question labels follow their own size, weight and font. */
+.ev-q-label {
+  font-family: var(--ev-q-font);
+  font-size: var(--ev-q-size);
+  font-weight: var(--ev-q-weight);
+  line-height: 1.45;
+}
+
+/* "Each question in its own box" layout. */
+.ev-q-card {
+  background: var(--ev-card);
+  border: 1px solid rgba(var(--ev-primary-rgb), 0.12);
+  border-radius: calc(var(--ev-radius) * 0.85);
+  box-shadow: 0 1px 2px rgba(14, 33, 53, 0.05), 0 6px 18px rgba(14, 33, 53, 0.05);
+  padding: 1.1rem 1.15rem;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.ev-q-card:focus-within {
+  border-color: rgba(var(--ev-primary-rgb), 0.4);
+  box-shadow: 0 1px 2px rgba(14, 33, 53, 0.05), 0 10px 26px rgba(var(--ev-primary-rgb), 0.12);
+}
+
+/* ---- Answer choices ------------------------------------------ */
+
+/* One selectable answer: radio, checkbox or multiple choice. */
+.ev-choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  cursor: pointer;
+  border: 1.5px solid #e4e9f0;
+  border-radius: calc(var(--ev-radius) * 0.72);
+  background: #fff;
+  padding: 0.68rem 0.9rem;
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+.ev-choice:hover {
+  border-color: rgba(var(--ev-primary-rgb), 0.45);
+  background: rgba(var(--ev-primary-rgb), 0.035);
+  transform: translateY(-1px);
+}
+.ev-choice:active { transform: translateY(0); }
+.ev-choice:focus-within {
+  outline: 2px solid rgba(var(--ev-primary-rgb), 0.45);
+  outline-offset: 2px;
+}
+/* Both selectors so it works whether the state is in the DOM or tracked in React. */
+.ev-choice:has(input:checked),
+.ev-choice.is-on {
+  border-color: var(--ev-primary);
+  background: rgba(var(--ev-primary-rgb), 0.08);
+  box-shadow: 0 2px 10px rgba(var(--ev-primary-rgb), 0.15);
+  font-weight: 600;
+}
+.ev-choice input[type='radio'],
+.ev-choice input[type='checkbox'] {
+  accent-color: var(--ev-primary);
+  flex: none;
+}
+/* The free text box inside an "Other" choice must not inherit the row border. */
+.ev-choice .ev-other-input {
+  flex: 1 1 auto;
+  min-width: 6rem;
+  border: none;
+  border-bottom: 1.5px dashed rgba(var(--ev-primary-rgb), 0.4);
+  border-radius: 0;
+  background: transparent;
+  padding: 0.15rem 0.1rem;
+  font: inherit;
+  font-weight: 400;
+}
+.ev-choice .ev-other-input:focus {
+  outline: none;
+  border-bottom-color: var(--ev-primary);
+  border-bottom-style: solid;
+}
+
+/* A row that is not itself selectable, e.g. a menu item with a quantity
+   stepper. Kept separate from .ev-choice so it never picks up the pointer
+   cursor or the hover lift of something you can click. */
+.ev-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1.5px solid #e4e9f0;
+  border-radius: calc(var(--ev-radius) * 0.72);
+  background: #fff;
+  padding: 0.55rem 0.9rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.ev-row.is-on {
+  border-color: var(--ev-primary);
+  background: rgba(var(--ev-primary-rgb), 0.07);
+}
+
+/* Compact pill choice, used inside grids on phones. */
+.ev-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  border: 1.5px solid #e4e9f0;
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ev-chip:hover { border-color: rgba(var(--ev-primary-rgb), 0.45); background: rgba(var(--ev-primary-rgb), 0.04); }
+.ev-chip:has(input:checked) {
+  border-color: var(--ev-primary);
+  background: rgba(var(--ev-primary-rgb), 0.1);
+  box-shadow: 0 1px 6px rgba(var(--ev-primary-rgb), 0.16);
+  font-weight: 600;
+}
+.ev-chip:focus-within { outline: 2px solid rgba(var(--ev-primary-rgb), 0.4); outline-offset: 2px; }
+
+/* Grid questions choose their shape from the width of their own box, not the
+   window: inside a narrow question card there is no room for the table, so the
+   one-card-per-row view is used even on a wide screen. Browsers without
+   container queries fall back to that same readable card view. */
+.ev-grid { container-type: inline-size; }
+.ev-grid-table { display: none; }
+.ev-grid-cards { display: grid; gap: 0.75rem; }
+@container (min-width: 520px) {
+  .ev-grid-table { display: block; }
+  .ev-grid-cards { display: none; }
+}
+/* Seven or more columns, e.g. ranking a long list, need more room before the
+   table beats one card per row. */
+.ev-grid-wide .ev-grid-table { display: none; }
+.ev-grid-wide .ev-grid-cards { display: grid; }
+@container (min-width: 820px) {
+  .ev-grid-wide .ev-grid-table { display: block; }
+  .ev-grid-wide .ev-grid-cards { display: none; }
+}
+
+/* Rating scale: equal columns across the full width. */
+.ev-scale {
+  display: grid;
+  width: 100%;
+  align-items: end;
+  justify-items: center;
+  gap: 0.25rem;
+}
+@media (min-width: 640px) { .ev-scale { gap: 0.5rem; } }
 
 /* Scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }

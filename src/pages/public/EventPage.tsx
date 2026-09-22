@@ -14,7 +14,7 @@ import { formatDate, formatTimeRange } from '@/lib/utils';
 import { friendlyError } from '@/lib/errors';
 import { formCopy } from '@/lib/formCopy';
 import { uploadVendorFile, dataUrlToBlob } from '@/lib/storage';
-import { isContentField, isVisible } from '@/components/form-renderer/fieldZod';
+import { applyOtherAnswer, canAllowOther, isContentField, isVisible } from '@/components/form-renderer/fieldZod';
 import { FormRenderer } from '@/components/form-renderer/FormRenderer';
 import { BoothPicker } from '@/components/floor-plan/BoothPicker';
 import { useToast } from '@/context/ToastContext';
@@ -122,8 +122,8 @@ export default function EventPage() {
           v = await uploadVendorFile(v, event.id);
         } else if (f.type === 'signature' && typeof v === 'string' && v.startsWith('data:')) {
           v = await uploadVendorFile(dataUrlToBlob(v), event.id, 'signature.png');
-        } else if (f.type === 'multiple_choice' && v === '__other__') {
-          v = `Other: ${values[`${f.id}__other`] ?? ''}`;
+        } else if (f.allowOther && canAllowOther(f)) {
+          v = applyOtherAnswer(f, v, values[`${f.id}__other`]);
         } else if (f.type === 'number' && f.collectNames) {
           const names = String(values[`${f.id}__names`] ?? '')
             .split('\n').map((x) => x.trim()).filter(Boolean).join(', ');

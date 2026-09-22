@@ -11,6 +11,7 @@ const fontUrls: Record<string, string> = {
 
 /** Load a Google Font once, on demand, for themed public pages. */
 export function ensureFont(family: string) {
+  if (typeof document === 'undefined') return;
   if (loaded.has(family) || !fontUrls[family]) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';

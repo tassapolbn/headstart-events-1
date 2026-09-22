@@ -1,6 +1,7 @@
 import type { EventTheme } from '@/lib/types';
+import { QUESTION_LAYOUT_DEFAULTS } from '@/lib/types';
 import { fontOptions, themePresets } from '@/lib/defaults';
-import { themeStyle, buttonClass } from '@/lib/theme';
+import { themeStyle, buttonClass, usesQuestionCards } from '@/lib/theme';
 import { Card } from '@/components/ui/basics';
 import { ColorInput, Field, Select, Switch } from '@/components/ui/inputs';
 import { cn } from '@/lib/utils';
@@ -11,6 +12,10 @@ export function ThemeEditor({ theme, onChange, eventName }: {
   eventName: string;
 }) {
   const set = (patch: Partial<EventTheme>) => onChange({ ...theme, ...patch, preset: patch.preset ?? 'custom' });
+  const q = { ...QUESTION_LAYOUT_DEFAULTS, ...theme };
+  const gap = q.questionGap ?? QUESTION_LAYOUT_DEFAULTS.questionGap;
+  const size = q.questionSize ?? QUESTION_LAYOUT_DEFAULTS.questionSize;
+  const boxed = usesQuestionCards(theme);
 
   return (
     <div className="space-y-5">
@@ -104,19 +109,91 @@ export function ThemeEditor({ theme, onChange, eventName }: {
         </div>
       </Card>
 
+      <Card title="Form layout">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Question boxes" hint="How each question sits on the public page.">
+            <Select
+              value={q.questionLayout ?? 'flat'}
+              onChange={(e) => set({ questionLayout: e.target.value as EventTheme['questionLayout'] })}
+              aria-label="Question boxes"
+            >
+              <option value="flat">All questions in one box</option>
+              <option value="card">Each question in its own box</option>
+            </Select>
+          </Field>
+          <Field label="Question label font" hint="Follows the body font unless you pick another.">
+            <Select
+              value={q.questionFont ?? ''}
+              onChange={(e) => set({ questionFont: e.target.value })}
+              aria-label="Question label font"
+            >
+              <option value="">Same as body font</option>
+              {fontOptions.map((f) => <option key={f} value={f}>{f}</option>)}
+            </Select>
+          </Field>
+          <Field label={`Space between questions: ${gap}px`}>
+            <input
+              type="range" min={8} max={56} step={2} value={gap}
+              onChange={(e) => set({ questionGap: Number(e.target.value) })}
+              className="w-full accent-navy-700"
+              aria-label="Space between questions"
+            />
+          </Field>
+          <Field label={`Question label size: ${size}px`}>
+            <input
+              type="range" min={12} max={24} value={size}
+              onChange={(e) => set({ questionSize: Number(e.target.value) })}
+              className="w-full accent-navy-700"
+              aria-label="Question label size"
+            />
+          </Field>
+          <Field label="Question label weight">
+            <Select
+              value={String(q.questionWeight ?? 600)}
+              onChange={(e) => set({ questionWeight: Number(e.target.value) as EventTheme['questionWeight'] })}
+              aria-label="Question label weight"
+            >
+              <option value="500">Medium</option>
+              <option value="600">Semi bold</option>
+              <option value="700">Bold</option>
+            </Select>
+          </Field>
+        </div>
+      </Card>
+
       <Card title="Live preview" padded={false}>
         <div className="event-theme rounded-b-2xl p-6" style={themeStyle(theme)}>
-          <div className="ev-card mx-auto max-w-sm space-y-3 p-5 shadow-lg">
+          <div className="ev-card mx-auto max-w-sm p-5 shadow-lg">
             <span
               className="inline-block rounded-full px-3 py-1 text-xs font-semibold"
               style={{ background: 'var(--ev-secondary)', color: 'var(--ev-text)' }}
             >
               HeadStart Event
             </span>
-            <h3 className="text-xl font-bold" style={{ color: 'var(--ev-primary)' }}>{eventName || 'Event name'}</h3>
-            <p className="text-sm opacity-80">This is how cards, text and buttons will look on the public registration page.</p>
-            <input className="ev-input w-full border border-slate-200 px-3 py-2 text-sm" placeholder="Sample input" readOnly />
-            <button className={cn(buttonClass(theme), 'w-full px-4 py-2.5 text-sm font-semibold')}>Register now</button>
+            <h3 className="mt-3 text-xl font-bold" style={{ color: 'var(--ev-primary)' }}>{eventName || 'Event name'}</h3>
+            <p className="mb-4 mt-1 text-sm opacity-80">This is how questions, choices and buttons will look on the public page.</p>
+
+            <div className="ev-form-stack">
+              <div className={cn(boxed && 'ev-q-card')}>
+                <label className="ev-q-label mb-1.5 block" htmlFor="tp-name">Full name</label>
+                <input id="tp-name" className="ev-input w-full border border-slate-200 px-3 py-2 text-sm" placeholder="Sample answer" readOnly />
+              </div>
+              <div className={cn(boxed && 'ev-q-card')}>
+                <span className="ev-q-label mb-1.5 block">Which session will you attend?</span>
+                <div className="grid gap-2">
+                  <label className="ev-choice">
+                    <input type="radio" name="tp-choice" defaultChecked className="h-4 w-4" />
+                    <span>Morning session</span>
+                  </label>
+                  <label className="ev-choice">
+                    <input type="radio" name="tp-choice" className="h-4 w-4" />
+                    <span>Afternoon session</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <button className={cn(buttonClass(theme), 'mt-5 w-full px-4 py-2.5 text-sm font-semibold')}>Register now</button>
           </div>
         </div>
       </Card>

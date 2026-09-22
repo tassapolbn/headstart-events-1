@@ -28,7 +28,11 @@ try {
   `, resolveDir: process.cwd(), loader:'tsx' }, bundle:true, platform:'node',format:'esm',banner:{js:"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);"},outfile:`${dir}/render.mjs`, define:{'import.meta.env':'{}'} });
   const {html,rows} = await import(pathToFileURL(`${dir}/render.mjs`));
   assert.equal((html.match(/type="radio"/g) || []).length,12);
-  assert.ok(html.includes('grid-cols-5'));
+  // A 10 point numbered scale still lays out as 5 equal columns over two rows.
+  // The columns moved from a Tailwind class to an explicit grid template when
+  // the scale was made to spread evenly across the full width.
+  assert.ok(html.includes('ev-scale'));
+  assert.ok(html.includes('repeat(5, minmax(0, 1fr))'));
   assert.ok(html.includes('ดีมาก'));
   assert.deepEqual(rows[1].slice(-2),['10','ดีมาก']);
   let users = [], updates = [], deletes = [];

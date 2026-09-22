@@ -2,10 +2,10 @@ import { useEffect, useMemo, type ReactNode } from 'react';
 import { Controller, useForm, type FieldValues } from 'react-hook-form';
 import { Paperclip } from 'lucide-react';
 import type { EventTheme, FormField } from '@/lib/types';
-import { buildResolver, isContentField, isVisible } from './fieldZod';
+import { buildResolver, isContentField, isVisible, OTHER_VALUE, otherLabelOf } from './fieldZod';
 import { SignaturePad } from './SignaturePad';
 import { GridInput, RatingInput } from './ScaleAndGrid';
-import { buttonClass } from '@/lib/theme';
+import { buttonClass, usesQuestionCards } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { Spinner } from '@/components/ui/basics';
 import { richToHtml } from '@/components/ui/RichTextArea';
@@ -16,7 +16,7 @@ const inputCls =
 function FieldShell({ field, error, children }: { field: FormField; error?: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={field.id} className="block text-sm font-semibold">
+      <label htmlFor={field.id} className="ev-q-label block">
         {field.label}
         {field.required && <span className="ml-0.5" style={{ color: 'var(--ev-primary)' }} aria-hidden="true">*</span>}
       </label>
@@ -43,8 +43,9 @@ export function FormRenderer({
   onValuesChange?: (values: FieldValues) => void;
 }) {
   const resolver = useMemo(() => buildResolver(fields), [fields]);
-  const { register, control, handleSubmit, watch, formState: { errors } } = useForm({ resolver, mode: 'onBlur' });
+  const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm({ resolver, mode: 'onBlur' });
   const values = watch();
+  const questionCards = usesQuestionCards(theme);
 
   useEffect(() => {
     if (!onValuesChange) return;
@@ -52,28 +53,24 @@ export function FormRenderer({
     return () => sub.unsubscribe();
   }, [watch, onValuesChange]);
 
-  function renderField(f: FormField) {
-    if (!isVisible(f, values)) return null;
-    const err = errors[f.id]?.message as string | undefined;
-
+  function renderControl(f: FormField, err?: string): ReactNode {
     switch (f.type) {
       case 'heading':
         return (
-          <h3 key={f.id} className="pt-2 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
+          <h3 className="pt-2 text-lg font-bold" style={{ color: 'var(--ev-heading)', fontFamily: 'var(--ev-heading-font)' }}>
             {f.content || f.label}
           </h3>
         );
       case 'rich_text':
         return (
           <div
-            key={f.id}
             className="ev-rich max-w-none text-sm opacity-90"
             dangerouslySetInnerHTML={{ __html: richToHtml(f.content ?? '') }}
           />
         );
       case 'divider':
         return (
-          <div key={f.id} className="flex items-center gap-3 py-2" role="separator" aria-label="Section divider">
+          <div className="flex items-center gap-3 py-2" role="separator" aria-label="Section divider">
             <span className="h-px flex-1" style={{ background: 'linear-gradient(to right, transparent, var(--ev-primary))', opacity: 0.35 }} />
             {f.content ? (
               <span className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: 'var(--ev-heading)' }}>{f.content}</span>
@@ -89,13 +86,13 @@ export function FormRenderer({
         );
       case 'paragraph':
         return (
-          <FieldShell key={f.id} field={f} error={err}>
+          <FieldShell field={f} error={err}>
             <textarea id={f.id} rows={4} placeholder={f.placeholder} className={inputCls} aria-invalid={!!err} {...register(f.id)} />
           </FieldShell>
         );
       case 'dropdown':
         return (
-          <FieldShell key={f.id} field={f} error={err}>
+          <FieldShell field={f} error={err}>
             <select id={f.id} className={inputCls} aria-invalid={!!err} defaultValue="" {...register(f.id)}>
               <option value="" disabled>{f.placeholder || 'Please select'}</option>
               {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
@@ -104,7 +101,7 @@ export function FormRenderer({
         );
       case 'rating':
         return (
-          <FieldShell key={f.id} field={f} error={err}>
+          <FieldShell field={f} error={err}>
             <Controller
               control={control}
               name={f.id}
@@ -119,7 +116,7 @@ export function FormRenderer({
       case 'checkbox_grid':
       case 'ranking':
         return (
-          <FieldShell key={f.id} field={f} error={err}>
+          <FieldShell field={f} error={err}>
             <Controller
               control={control}
               name={f.id}
@@ -132,35 +129,41 @@ export function FormRenderer({
         );
       case 'evaluation':
       case 'radio':
-      case 'multiple_choice':
+      case 'multiple_choice': {
+        const otherOn = values[f.id] === OTHER_VALUE;
         return (
-          <FieldShell key={f.id} field={f} error={err}>
-            <div role="radiogroup" aria-label={f.label} aria-required={!!f.required} aria-invalid={!!err} className="space-y-2">
+          <FieldShell field={f} error={err}>
+            <div role="radiogroup" aria-label={f.label} aria-required={!!f.required} aria-invalid={!!err} className="grid gap-2">
               {(f.options ?? []).map((o) => (
-                <label
-                  key={o}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition hover:border-slate-300 has-[:checked]:border-[var(--ev-primary)] has-[:checked]:bg-[var(--ev-bg)] has-[:checked]:font-semibold"
-                >
-                  <input type="radio" value={o} className="h-4 w-4" style={{ accentColor: 'var(--ev-primary)' }} {...register(f.id)} />
-                  {o}
+                <label key={o} className="ev-choice">
+                  <input type="radio" value={o} className="h-4 w-4" {...register(f.id)} />
+                  <span>{o}</span>
                 </label>
               ))}
               {f.type === 'multiple_choice' && f.allowOther && (
-                <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition hover:border-slate-300 has-[:checked]:border-[var(--ev-primary)] has-[:checked]:font-semibold">
-                  <input type="radio" value="__other__" className="h-4 w-4" style={{ accentColor: 'var(--ev-primary)' }} {...register(f.id)} />
-                  Other:
+                /* A div, not a label: a label would toggle the radio whenever the
+                   free text box is clicked. */
+                <div className={cn('ev-choice', otherOn && 'is-on')}>
                   <input
-                    type="text" className={cn(inputCls, 'flex-1 py-1.5')} aria-label={`${f.label}: other answer`}
-                    {...register(`${f.id}__other`)}
+                    id={`${f.id}__other_pick`} type="radio" value={OTHER_VALUE} className="h-4 w-4"
+                    {...register(f.id)}
                   />
-                </label>
+                  <label htmlFor={`${f.id}__other_pick`} className="shrink-0 cursor-pointer">{otherLabelOf(f)}:</label>
+                  <input
+                    type="text" className="ev-other-input" placeholder="Your answer"
+                    aria-label={`${f.label}: ${otherLabelOf(f)}`}
+                    {...register(`${f.id}__other`)}
+                    onFocus={() => setValue(f.id, OTHER_VALUE, { shouldValidate: false })}
+                  />
+                </div>
               )}
             </div>
           </FieldShell>
         );
+      }
       case 'menu_quantity':
         return (
-          <FieldShell key={f.id} field={f} error={err}>
+          <FieldShell field={f} error={err}>
             <Controller
               control={control}
               name={f.id}
@@ -177,7 +180,7 @@ export function FormRenderer({
                     {(f.options ?? []).map((o) => {
                       const n = counts[o] ?? 0;
                       return (
-                        <div key={o} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+                        <div key={o} className={cn('ev-row', n > 0 && 'is-on')}>
                           <span className="min-w-0 flex-1 text-sm">{o}</span>
                           <div className="flex items-center gap-2">
                             <button
@@ -214,41 +217,59 @@ export function FormRenderer({
         );
       case 'checkboxes':
         return (
-          <FieldShell key={f.id} field={f} error={err}>
+          <FieldShell field={f} error={err}>
             <Controller
               control={control}
               name={f.id}
               defaultValue={[]}
-              render={({ field: rhf }) => (
-                <div className="space-y-2" role="group" aria-label={f.label}>
-                  {(f.options ?? []).map((o) => {
-                    const list: string[] = rhf.value ?? [];
-                    const checked = list.includes(o);
-                    return (
-                      <label
-                        key={o}
-                        className={`flex cursor-pointer items-center gap-2.5 rounded-xl border bg-white px-3.5 py-2.5 text-sm transition hover:border-slate-300 ${checked ? 'border-[var(--ev-primary)] font-semibold' : 'border-slate-200'}`}
-                      >
+              render={({ field: rhf }) => {
+                const list: string[] = Array.isArray(rhf.value) ? rhf.value : [];
+                const setOn = (o: string, on: boolean) =>
+                  rhf.onChange(on ? [...list.filter((x) => x !== o), o] : list.filter((x) => x !== o));
+                const otherOn = list.includes(OTHER_VALUE);
+                return (
+                  <div className="grid gap-2" role="group" aria-label={f.label}>
+                    {(f.options ?? []).map((o) => {
+                      const checked = list.includes(o);
+                      return (
+                        <label key={o} className={cn('ev-choice', checked && 'is-on')}>
+                          <input
+                            type="checkbox" checked={checked} className="h-4 w-4 rounded"
+                            onChange={(e) => setOn(o, e.target.checked)}
+                            onBlur={rhf.onBlur}
+                          />
+                          <span>{o}</span>
+                        </label>
+                      );
+                    })}
+                    {f.allowOther && (
+                      /* A div, not a label: a label would tick the box whenever the
+                         free text box is clicked. */
+                      <div className={cn('ev-choice', otherOn && 'is-on')}>
                         <input
-                          type="checkbox" checked={checked} className="h-4 w-4 rounded"
-                          style={{ accentColor: 'var(--ev-primary)' }}
-                          onChange={(e) =>
-                            rhf.onChange(e.target.checked ? [...list, o] : list.filter((x) => x !== o))
-                          }
+                          id={`${f.id}__other_pick`} type="checkbox" checked={otherOn} className="h-4 w-4 rounded"
+                          onChange={(e) => setOn(OTHER_VALUE, e.target.checked)}
+                          onBlur={rhf.onBlur}
                         />
-                        {o}
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
+                        <label htmlFor={`${f.id}__other_pick`} className="shrink-0 cursor-pointer">{otherLabelOf(f)}:</label>
+                        <input
+                          type="text" className="ev-other-input" placeholder="Your answer"
+                          aria-label={`${f.label}: ${otherLabelOf(f)}`}
+                          {...register(`${f.id}__other`)}
+                          onFocus={() => { if (!otherOn) setOn(OTHER_VALUE, true); }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              }}
             />
           </FieldShell>
         );
       case 'file':
       case 'photo':
         return (
-          <FieldShell key={f.id} field={f} error={err}>
+          <FieldShell field={f} error={err}>
             <Controller
               control={control}
               name={f.id}
@@ -273,7 +294,7 @@ export function FormRenderer({
         );
       case 'signature':
         return (
-          <FieldShell key={f.id} field={f} error={err}>
+          <FieldShell field={f} error={err}>
             <Controller
               control={control}
               name={f.id}
@@ -287,7 +308,7 @@ export function FormRenderer({
       case 'number': {
         const numValue = Number(values[f.id] ?? 0);
         return (
-          <div key={f.id} className="space-y-3">
+          <div className="space-y-3">
             <FieldShell field={f} error={err}>
               <input
                 id={f.id} type="number" placeholder={f.placeholder} className={inputCls}
@@ -298,7 +319,7 @@ export function FormRenderer({
             </FieldShell>
             {f.collectNames && numValue >= 1 && (
               <div className="space-y-1.5 rounded-lg bg-slate-50/70 p-3">
-                <label htmlFor={`${f.id}__names`} className="block text-sm font-semibold">
+                <label htmlFor={`${f.id}__names`} className="ev-q-label block">
                   Please list the {numValue > 1 ? `${numValue} names` : 'name'} (one per line)
                 </label>
                 <textarea
@@ -321,7 +342,7 @@ export function FormRenderer({
           date: 'date', time: 'time', email: 'email', phone: 'tel', short_text: 'text',
         };
         return (
-          <FieldShell key={f.id} field={f} error={err}>
+          <FieldShell field={f} error={err}>
             <input
               id={f.id}
               type={typeMap[f.type] ?? 'text'}
@@ -337,20 +358,29 @@ export function FormRenderer({
     }
   }
 
+  function renderField(f: FormField) {
+    if (!isVisible(f, values)) return null;
+    const err = errors[f.id]?.message as string | undefined;
+    const control = renderControl(f, err);
+    // Headings, dividers and rich text mark out sections, so they are never boxed.
+    const boxed = questionCards && !isContentField(f);
+    return (
+      <div key={f.id} className={boxed ? 'ev-q-card' : undefined}>
+        {control}
+      </div>
+    );
+  }
+
   return (
-    <form
-      onSubmit={handleSubmit((v) => onSubmit(v))}
-      className="space-y-5"
-      noValidate
-    >
-      {fields.map(renderField)}
-      {beforeSubmit}
+    <form onSubmit={handleSubmit((v) => onSubmit(v))} noValidate>
+      <div className="ev-form-stack">{fields.map(renderField)}</div>
+      {beforeSubmit && <div className="mt-5">{beforeSubmit}</div>}
       <button
         type="submit"
         disabled={busy || submitDisabled || preview}
         className={cn(
           buttonClass(theme),
-          'flex w-full items-center justify-center gap-2 px-5 py-3.5 text-base font-bold shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0'
+          'mt-5 flex w-full items-center justify-center gap-2 px-5 py-3.5 text-base font-bold shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0'
         )}
       >
         {busy && <Spinner size={16} />}
