@@ -94,6 +94,10 @@ export function AnswerEditor({ field, value, onChange, onOpenFile }: {
 
     case 'checkboxes': {
       const arr: string[] = Array.isArray(value) ? (value as string[]) : [];
+      // Answers that are no longer one of the choices: an "Other" answer the
+      // registrant typed, or a choice renamed since they replied. Shown so the
+      // admin can see and clear them rather than editing around them blindly.
+      const extras = arr.filter((x) => !(field.options ?? []).includes(x));
       return (
         <Field label={label}>
           <div className="space-y-1.5 rounded-lg border border-slate-200 p-2.5">
@@ -106,6 +110,17 @@ export function AnswerEditor({ field, value, onChange, onOpenFile }: {
                   className="h-4 w-4 rounded accent-navy-700"
                 />
                 {o}
+              </label>
+            ))}
+            {extras.map((o) => (
+              <label key={o} className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-500">
+                <input
+                  type="checkbox"
+                  checked
+                  onChange={() => onChange(arr.filter((x) => x !== o))}
+                  className="h-4 w-4 rounded accent-navy-700"
+                />
+                <span className="italic">{o}</span>
               </label>
             ))}
           </div>

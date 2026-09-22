@@ -46,6 +46,8 @@ export interface FormField {
   /** Rating: optional words under the lowest and highest point */
   lowLabel?: string;
   highLabel?: string;
+  /** Checkboxes / multiple choice: the wording of the extra "Other" choice */
+  otherLabel?: string;
   /** Copies this answer into the registration columns used for search and email */
   mapTo?: 'name' | 'email' | 'phone' | null;
 }
@@ -99,7 +101,30 @@ export interface EventTheme {
   buttonStyle: 'solid' | 'outline' | 'pill';
   animations: boolean;
   preset?: string;
+  /**
+   * Public form layout.
+   * 'flat'  = every question shares the one form card (the original look).
+   * 'card'  = each question sits in its own box, like Google Forms.
+   */
+  questionLayout?: 'flat' | 'card';
+  /** Space between questions, in px */
+  questionGap?: number;
+  /** Question label size, in px */
+  questionSize?: number;
+  /** Question label weight */
+  questionWeight?: 500 | 600 | 700;
+  /** Question label font. Empty or missing follows the body font. */
+  questionFont?: string;
 }
+
+/** Layout defaults, kept in one place so the renderer and the editor agree. */
+export const QUESTION_LAYOUT_DEFAULTS = {
+  questionLayout: 'flat' as const,
+  questionGap: 20,
+  questionSize: 14,
+  questionWeight: 600 as const,
+  questionFont: '',
+};
 
 export interface EmailTemplate {
   enabled: boolean;

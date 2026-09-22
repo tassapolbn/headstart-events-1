@@ -2,6 +2,7 @@ import type {
   EmailTemplate, EventRecord, EventSettings, EventTheme,
   FloorPlanSettings, FormField, FormType, PolicySection,
 } from './types';
+import { QUESTION_LAYOUT_DEFAULTS } from './types';
 import { uid } from './utils';
 
 // ------------------------------------------------------------------
@@ -27,6 +28,7 @@ export const defaultTheme: EventTheme = {
   buttonStyle: 'solid',
   animations: true,
   preset: 'headstart',
+  ...QUESTION_LAYOUT_DEFAULTS,
 };
 
 export interface ThemePreset {

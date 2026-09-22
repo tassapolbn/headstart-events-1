@@ -2,7 +2,7 @@ import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import type { FieldCondition, FormField } from '@/lib/types';
 import { fieldTypeMeta } from '@/lib/defaults';
 import { ordinal } from '@/lib/grid';
-import { isContentField } from '@/components/form-renderer/fieldZod';
+import { canAllowOther, isContentField } from '@/components/form-renderer/fieldZod';
 import { Card } from '@/components/ui/basics';
 import { Field, Input, Select, Switch, Textarea } from '@/components/ui/inputs';
 import { RichTextArea } from '@/components/ui/RichTextArea';
@@ -153,8 +153,24 @@ export function FieldSettings({ field, allFields, onChange }: {
               options={field.options ?? []}
               onChange={(options) => onChange({ options })}
             />
-            {field.type === 'multiple_choice' && (
-              <Switch checked={!!field.allowOther} onChange={(allowOther) => onChange({ allowOther })} label="Allow an 'Other' answer" />
+            {canAllowOther(field) && (
+              <>
+                <Switch
+                  checked={!!field.allowOther}
+                  onChange={(allowOther) => onChange({ allowOther })}
+                  label="Allow an 'Other' answer"
+                  description="Adds one more choice with a box the registrant fills in themselves. The typed words are saved and exported with the other answers."
+                />
+                {field.allowOther && (
+                  <Field label="Wording of the 'Other' choice" hint="Leave empty to use 'Other'.">
+                    <Input
+                      value={field.otherLabel ?? ''}
+                      placeholder="Other"
+                      onChange={(e) => onChange({ otherLabel: e.target.value || undefined })}
+                    />
+                  </Field>
+                )}
+              </>
             )}
             {field.type === 'menu_quantity' && (
               <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">

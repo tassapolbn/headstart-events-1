@@ -24,7 +24,12 @@ export function RatingInput({ field, value, onChange, onBlur, invalid }: {
   const selectedIdx = options.indexOf(value);
   const activeIdx = hover ?? selectedIdx;
   const Icon = icon === 'number' ? null : ICONS[icon];
-  const cols = Math.min(options.length, 10);
+  const n = options.length;
+  /* Icons keep to a single row filling the whole width, so the points are
+     always evenly spaced. They shrink as the scale grows so ten still fit on
+     a phone. Numbered boxes stay readable by wrapping to two rows past six. */
+  const cols = Icon ? n : n <= 6 ? n : Math.ceil(n / 2);
+  const iconSize = n <= 5 ? 'h-8 w-8 sm:h-10 sm:w-10' : n <= 7 ? 'h-7 w-7 sm:h-9 sm:w-9' : 'h-6 w-6 sm:h-8 sm:w-8';
 
   return (
     <div>
@@ -33,8 +38,8 @@ export function RatingInput({ field, value, onChange, onBlur, invalid }: {
         aria-label={field.label}
         aria-required={!!field.required}
         aria-invalid={invalid}
-        className={cn(Icon ? 'flex flex-wrap items-end gap-1 sm:gap-2' : 'grid gap-2', !Icon && cols % 5 === 0 && 'grid-cols-5')}
-        style={Icon || cols % 5 === 0 ? undefined : { gridTemplateColumns: `repeat(${cols > 5 ? Math.ceil(cols / 2) : cols}, minmax(0, 1fr))` }}
+        className="ev-scale"
+        style={{ gridTemplateColumns: `repeat(${Math.max(1, cols)}, minmax(0, 1fr))` }}
         onMouseLeave={() => setHover(null)}
       >
         {options.map((o, i) => {
@@ -43,30 +48,26 @@ export function RatingInput({ field, value, onChange, onBlur, invalid }: {
           return Icon ? (
             <label
               key={o}
-              className="group flex cursor-pointer flex-col items-center gap-1 rounded-lg px-1.5 py-1 focus-within:ring-2 focus-within:ring-[var(--ev-primary)]"
+              className="group flex w-full cursor-pointer flex-col items-center gap-1 rounded-lg py-1 focus-within:ring-2 focus-within:ring-[var(--ev-primary)]"
               onMouseEnter={() => setHover(i)}
             >
               <span className="text-xs opacity-60">{o}</span>
               <input
                 type="radio" name={field.id} value={o} checked={checked} className="sr-only"
                 onChange={() => onChange(o)} onBlur={onBlur}
-                aria-label={`${o} of ${options.length}`}
+                aria-label={`${o} of ${n}`}
               />
               <Icon
-                className={cn('h-8 w-8 transition-transform group-hover:scale-110 sm:h-9 sm:w-9', filled ? '' : 'opacity-40')}
+                className={cn('transition-transform group-hover:scale-110', iconSize, filled ? '' : 'opacity-40')}
                 style={filled ? { color: icon === 'heart' ? '#e11d48' : icon === 'star' ? '#F0B323' : 'var(--ev-primary)', fill: 'currentColor' } : undefined}
                 strokeWidth={1.6}
                 aria-hidden="true"
               />
             </label>
           ) : (
-            <label
-              key={o}
-              className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-sm transition hover:border-slate-300 has-[:checked]:border-[var(--ev-primary)] has-[:checked]:bg-[var(--ev-bg)] has-[:checked]:font-semibold"
-            >
+            <label key={o} className="ev-choice w-full justify-center">
               <input
                 type="radio" name={field.id} value={o} checked={checked} className="h-4 w-4"
-                style={{ accentColor: 'var(--ev-primary)' }}
                 onChange={() => onChange(o)} onBlur={onBlur}
               />
               {o}
@@ -75,7 +76,7 @@ export function RatingInput({ field, value, onChange, onBlur, invalid }: {
         })}
       </div>
       {(field.lowLabel || field.highLabel) && (
-        <div className="mt-1.5 flex justify-between gap-4 text-xs opacity-70" style={Icon ? { maxWidth: `${options.length * 3.25}rem` } : undefined}>
+        <div className="mt-1.5 flex w-full justify-between gap-4 text-xs opacity-70">
           <span>{field.lowLabel}</span>
           <span className="text-right">{field.highLabel}</span>
         </div>
@@ -142,10 +143,10 @@ export function GridInput({ field, value, onChange, onBlur, invalid }: {
   }
 
   return (
-    <div role="group" aria-label={field.label} aria-invalid={invalid}>
-      {/* Wide screens: table */}
-      <div className="hidden overflow-x-auto sm:block">
-        <table className="w-full min-w-[480px] table-fixed border-separate border-spacing-0 text-sm">
+    <div className={cn('ev-grid', cols.length > 6 && 'ev-grid-wide')} role="group" aria-label={field.label} aria-invalid={invalid}>
+      {/* Enough room: a table */}
+      <div className="ev-grid-table overflow-x-auto">
+        <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
               <th className="w-[34%]" />
@@ -169,17 +170,14 @@ export function GridInput({ field, value, onChange, onBlur, invalid }: {
         </table>
       </div>
 
-      {/* Phones: one card per row */}
-      <div className="space-y-3 sm:hidden">
+      {/* Tight space: one card per row */}
+      <div className="ev-grid-cards">
         {rows.map((r) => (
           <fieldset key={r} className="rounded-xl border border-slate-200 bg-white p-3">
             <legend className="px-1 text-sm font-medium">{r}</legend>
             <div className="flex flex-wrap gap-2">
               {cols.map((c) => (
-                <label
-                  key={c}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs transition has-[:checked]:border-[var(--ev-primary)] has-[:checked]:bg-[var(--ev-bg)] has-[:checked]:font-semibold"
-                >
+                <label key={c} className="ev-chip">
                   <input {...inputProps(r, c, 'm')} className={cn('h-4 w-4', multi && 'rounded')} />
                   {c}
                 </label>
