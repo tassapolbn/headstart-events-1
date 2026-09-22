@@ -10,7 +10,7 @@ vm.runInNewContext(ts.transpileModule(
   readFileSync(new URL('../src/lib/notificationEmails.ts', import.meta.url), 'utf8'),
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }
 ).outputText, helpers);
-const { notificationEmailEntries, normalizeNotificationEmails, invalidNotificationEmails } = helpers.exports;
+const { notificationEmailEntries, normalizeNotificationEmails, invalidNotificationEmails, wantsRelayEmail } = helpers.exports;
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
 function registration(id, template = {}) {
@@ -28,6 +28,13 @@ function relay(rows) {
     PropertiesService: { getScriptProperties: () => ({ getProperty: () => '' }) },
     MailApp: { sendEmail: (options) => mail.push(options) },
     CacheService: { getScriptCache: () => ({ get: (key) => cache.get(key), put: (key, value) => cache.set(key, value) }) },
+    // Needed once a form carries a date: the merge map formats it, and a
+    // registration attaches a calendar file built from it.
+    Utilities: {
+      formatDate: (date) => new Date(date).toISOString().slice(0, 10),
+      newBlob: (content, type, name) => ({ content, type, name }),
+    },
+    Session: { getScriptTimeZone: () => 'UTC' },
   });
   vm.runInContext(source, ctx);
   ctx.jsonOut = (value) => plain(value);
@@ -133,4 +140,84 @@ test('campus test emails continue to work without including registration data', 
   assert.equal(r.post({ test: true, campus: 'hsc' }).ok, true);
   assert.deepEqual(r.mail.map((m) => m.to), ['all-admins@example.com']);
   assert.match(r.mail[0].subject, /test email/);
+});
+
+// ---------------------------------------------------------------------------
+// Survey, questionnaire and feedback forms.
+// The relay treats these differently from event registrations, and that
+// behaviour had no coverage, so a rewrite of the recipient logic could have
+// quietly undone it.
+// ---------------------------------------------------------------------------
+
+function surveyRegistration(id, template = {}, patch = {}) {
+  const row = registration(id, template);
+  row.events.settings = { formType: 'survey' };
+  return { ...row, ...patch, events: { ...row.events, ...(patch.events ?? {}) } };
+}
+
+test('an anonymous survey response still reaches the form owners', () => {
+  const r = relay([surveyRegistration('A', { adminEmails: ['owner@example.com'] }, { email: null, name: null })]);
+  assert.equal(r.post({ reference: 'HS-A' }).ok, true);
+  // Nothing to confirm to, but the owners are told.
+  assert.deepEqual(r.mail.map((m) => m.to), ['owner@example.com']);
+  assert.match(r.mail[0].subject, /^New response: /);
+  assert.match(r.mail[0].htmlBody, /Anonymous/);
+  // Response notices never carry registration-only fields.
+  assert.doesNotMatch(r.mail[0].htmlBody, /Phone|Booth|Status|registered for/);
+  assert.deepEqual(r.marked, ['A']);
+});
+
+test('a survey response with an email gets a thank you and no calendar file', () => {
+  const r = relay([surveyRegistration('A', { adminEmails: ['owner@example.com'], attachCalendar: true }, {
+    events: { id: 'A', name: 'Parent Feedback', campus_id: 'hsc', settings: { formType: 'survey' }, event_date: '2026-10-02', email_template: { adminEmails: ['owner@example.com'], attachCalendar: true } },
+  })]);
+  r.post({ reference: 'HS-A' });
+  assert.deepEqual(r.mail.map((m) => m.to), ['guestA@example.com', 'owner@example.com']);
+  // A survey is not an event, so no .ics rides along even with a date set.
+  assert.equal(r.mail[0].attachments, undefined);
+});
+
+test('surveys route by form too, never to the campus list', () => {
+  const r = relay([surveyRegistration('A', { adminEmails: [] }, { email: null })]);
+  assert.equal(r.post({ reference: 'HS-A' }).skipped, 'no recipients');
+  assert.equal(r.mail.length, 0);
+  assert.equal(r.marked.length, 0);
+});
+
+test('registration notices keep their own wording and fields', () => {
+  const r = relay([registration('A', { adminEmails: ['owner@example.com'] })]);
+  r.post({ reference: 'HS-A' });
+  assert.match(r.mail[1].subject, /^New registration: /);
+  assert.match(r.mail[1].htmlBody, /registered for/);
+  for (const field of ['Phone', 'Booth', 'Status']) assert.match(r.mail[1].htmlBody, new RegExp(field));
+});
+
+test('a dated registration still attaches its calendar file', () => {
+  // The contrast that makes the survey assertion above meaningful: the
+  // mechanism works, surveys simply switch it off.
+  const row = registration('A', { adminEmails: ['owner@example.com'], attachCalendar: true });
+  row.events.event_date = '2026-10-02';
+  row.events.slug = 'friday-market';
+  row.events.email_template = { adminEmails: ['owner@example.com'], attachCalendar: true };
+  const r = relay([row]);
+  r.post({ reference: 'HS-A' });
+  assert.equal(r.mail[0].attachments.length, 1);
+  assert.equal(r.mail[0].attachments[0].name, 'friday-market.ics');
+  assert.equal(r.mail[0].attachments[0].type, 'text/calendar');
+});
+
+test('the public page calls the relay whenever either email is wanted', () => {
+  // The gate that decides whether the relay is called at all. It used to be
+  // "confirmation enabled" for registrations, so turning the confirmation off
+  // silently stopped the staff notice too and the relay was never reached.
+  assert.equal(wantsRelayEmail({ enabled: true, adminNotify: true }), true);
+  assert.equal(wantsRelayEmail({ enabled: true, adminNotify: false }), true);
+  assert.equal(wantsRelayEmail({ enabled: false, adminNotify: true }), true);
+  assert.equal(wantsRelayEmail({ enabled: false, adminNotify: false }), false);
+  assert.equal(wantsRelayEmail(undefined), false);
+
+  // And the relay agrees: notice only, with the confirmation switched off.
+  const r = relay([registration('A', { enabled: false, adminEmails: ['owner@example.com'] })]);
+  r.post({ reference: 'HS-A' });
+  assert.deepEqual(r.mail.map((m) => m.to), ['owner@example.com']);
 });
