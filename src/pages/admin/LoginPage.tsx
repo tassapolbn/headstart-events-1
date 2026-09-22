@@ -43,7 +43,7 @@ export default function LoginPage() {
           <img src="/logo.svg" alt="HeadStart logo" className="h-14 w-14" />
           <div>
             <h1 className="font-display text-xl font-bold text-navy-800">HeadStart Events</h1>
-            <p className="text-sm text-slate-500">Administrator sign in</p>
+            <p className="text-sm text-slate-500">Admin and Staff sign in</p>
           </div>
         </div>
 
@@ -54,7 +54,7 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Field label="Username" htmlFor="login-user" required hint="Staff sign in with the username the owner gave them. An email address also works.">
+          <Field label="Username" htmlFor="login-user" required hint="Staff sign in with the username their Admin gave them. An email address also works.">
             <Input
               id="login-user" type="text" autoComplete="username" required
               autoCapitalize="none" spellCheck={false}
@@ -74,7 +74,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          Accounts are created by the system owner under Accounts. Public visitors never need an account.
+          Accounts are created by an Admin under Settings &gt; Account. Public visitors never need an account.
         </p>
       </motion.div>
     </main>

@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/basics';
 import { Field, Input, Select, Switch, Textarea } from '@/components/ui/inputs';
 import { RichTextArea } from '@/components/ui/RichTextArea';
 
-const selectionTypes = ['dropdown', 'radio', 'checkboxes', 'multiple_choice', 'menu_quantity'];
+const selectionTypes = ['evaluation', 'dropdown', 'radio', 'checkboxes', 'multiple_choice', 'menu_quantity'];
 const textTypes = ['short_text', 'paragraph'];
 
 export function FieldSettings({ field, allFields, onChange }: {
@@ -63,6 +63,26 @@ export function FieldSettings({ field, allFields, onChange }: {
           </>
         )}
 
+        {field.type === 'rating' && (
+          <Field label="Rating scale" hint="One answer per question. Add help text to explain the lowest and highest scores.">
+            <Select value={field.options?.length === 10 ? '10' : '5'} onChange={(e) => onChange({ options: Array.from({ length: Number(e.target.value) }, (_, i) => String(i + 1)) })}>
+              <option value="5">1 to 5</option>
+              <option value="10">1 to 10</option>
+            </Select>
+          </Field>
+        )}
+        {field.type === 'evaluation' && (
+          <Field label="Apply a preset" hint="You can edit, add and reorder the labels below.">
+            <Select value="" onChange={(e) => {
+              if (e.target.value === 'th') onChange({ options: ['ควรปรับปรุง', 'พอใช้', 'ดี', 'ดีมาก', 'อื่น ๆ'] });
+              if (e.target.value === 'en') onChange({ options: ['Needs improvement', 'Fair', 'Good', 'Very good', 'Other'] });
+            }}>
+              <option value="">Choose a preset</option>
+              <option value="th">Thai satisfaction labels</option>
+              <option value="en">English satisfaction labels</option>
+            </Select>
+          </Field>
+        )}
         {selectionTypes.includes(field.type) && (
           <>
             <OptionsEditor

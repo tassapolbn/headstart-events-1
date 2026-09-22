@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Mail, Plus, Save, Send, Trash2, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +15,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { isOwner } = useAuth();
   const { campusId, campus, reload } = useCampus();
   const [row, setRow] = useState<Campus | null>(null);
   const [saving, setSaving] = useState(false);
@@ -92,6 +95,14 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {isOwner && (
+        <Card title="Account">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-600">Create username accounts, reset passwords and assign Admin or Staff access. No email address is needed.</p>
+            <Link to="/admin/settings/accounts" className="rounded-xl bg-navy-800 px-4 py-2.5 text-sm font-semibold text-white">Manage accounts</Link>
+          </div>
+        </Card>
+      )}
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title={`${row.name} identity`}>
           <div className="space-y-4">

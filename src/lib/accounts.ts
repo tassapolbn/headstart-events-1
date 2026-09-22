@@ -31,12 +31,12 @@ export interface AccountUser {
 
 const messages: Record<string, string> = {
   NOT_AUTHENTICATED: 'Your session has expired. Please sign in again.',
-  NOT_OWNER: 'Only an owner account can manage staff accounts.',
+  NOT_OWNER: 'Only an Admin account can manage staff accounts.',
   INVALID_USERNAME: 'Usernames must be 3 to 32 characters: lowercase letters, numbers, dots, dashes or underscores.',
   WEAK_PASSWORD: `Passwords must be at least ${MIN_PASSWORD} characters.`,
   USERNAME_TAKEN: 'That username is already in use.',
   CANNOT_DELETE_SELF: 'You cannot delete the account you are signed in with.',
-  LAST_OWNER: 'This is the only owner account, so it cannot be removed or demoted.',
+  LAST_OWNER: 'This is the only Admin account, so it cannot be removed or demoted.',
   NOT_FOUND: 'That account no longer exists.',
 };
 
@@ -81,7 +81,7 @@ export function setAccountUsername(id: string, username: string) {
   return call<{ ok: true }>({ action: 'set_username', id, username });
 }
 
-export function updateAccountProfile(id: string, input: { display_name?: string; role?: 'owner' | 'staff' }) {
+export function updateAccountProfile(id: string, input: { display_name?: string; role?: 'owner' | 'staff'; username?: string }) {
   return call<{ ok: true }>({ action: 'update_profile', id, ...input });
 }
 
@@ -91,8 +91,7 @@ export function deleteAccount(id: string) {
 
 /** Suggest a readable temporary password the owner can hand over. */
 export function suggestPassword(): string {
-  const words = ['Market', 'Sunrise', 'Harbour', 'Lantern', 'Coral', 'Summit', 'Garden', 'Compass'];
-  const word = words[Math.floor(Math.random() * words.length)];
-  const digits = String(Math.floor(1000 + Math.random() * 9000));
-  return `${word}${digits}`;
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(20));
+  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
 }

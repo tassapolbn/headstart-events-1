@@ -29,6 +29,11 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   return children;
 }
 
+function RequireOwner({ children }: { children: JSX.Element }) {
+  const { isOwner } = useAuth();
+  return isOwner ? children : <Navigate to="/admin/events" replace />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -58,7 +63,8 @@ export default function App() {
         <Route path="events/:id/plan" element={<PlanPrintPage />} />
         <Route path="templates" element={<TemplatesPage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="accounts" element={<AccountsPage />} />
+        <Route path="settings/accounts" element={<RequireOwner><AccountsPage /></RequireOwner>} />
+        <Route path="accounts" element={<Navigate to="/admin/settings/accounts" replace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

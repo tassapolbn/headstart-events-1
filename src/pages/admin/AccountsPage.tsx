@@ -1,10 +1,11 @@
+import { Link } from 'react-router-dom';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   Copy, KeyRound, Pencil, RefreshCw, ShieldCheck, Trash2, UserPlus, Users,
 } from 'lucide-react';
 import {
   accountError, createAccount, deleteAccount, listAccounts, setAccountPassword,
-  setAccountUsername, suggestPassword, updateAccountProfile, USERNAME_RE, MIN_PASSWORD,
+  suggestPassword, updateAccountProfile, USERNAME_RE, MIN_PASSWORD,
   type AccountUser,
 } from '@/lib/accounts';
 import { useAuth } from '@/context/AuthContext';
@@ -75,43 +76,53 @@ export default function AccountsPage() {
 
   async function handleSaveEdit() {
     if (!editUser) return;
+    if (busy) return;
+    const nextUsername = editUsername.trim().toLowerCase();
+    if (editUser.is_username_account && !USERNAME_RE.test(nextUsername)) {
+      toast(accountError('INVALID_USERNAME'), 'error'); return;
+    }
+    setBusy(true);
     try {
-      if (editName !== editUser.display_name || editRole !== editUser.role) {
-        await updateAccountProfile(editUser.id, { display_name: editName.trim(), role: editRole });
-      }
-      const nextUsername = editUsername.trim().toLowerCase();
-      if (nextUsername && nextUsername !== editUser.username) {
-        if (!USERNAME_RE.test(nextUsername)) { toast(accountError('INVALID_USERNAME'), 'error'); return; }
-        await setAccountUsername(editUser.id, nextUsername);
-      }
+      await updateAccountProfile(editUser.id, {
+        display_name: editName.trim(), role: editRole,
+        ...(editUser.is_username_account ? { username: nextUsername } : {}),
+      });
       toast('Account updated.');
       setEditUser(null);
       void load();
     } catch (err) {
       toast(accountError(err instanceof Error ? err.message : ''), 'error');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function handleSetPassword() {
-    if (!pwUser) return;
+    if (!pwUser || busy) return;
     if (newPassword.length < MIN_PASSWORD) { toast(accountError('WEAK_PASSWORD'), 'error'); return; }
+    setBusy(true);
     try {
       await setAccountPassword(pwUser.id, newPassword);
       toast(`New password set for "${pwUser.username}". Share it with them directly.`);
       setPwUser(null);
     } catch (err) {
       toast(accountError(err instanceof Error ? err.message : ''), 'error');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function handleDelete() {
-    if (!deleteUser) return;
+    if (!deleteUser || busy) return;
+    setBusy(true);
     try {
       await deleteAccount(deleteUser.id);
       toast(`Account "${deleteUser.username}" removed.`);
       void load();
     } catch (err) {
       toast(accountError(err instanceof Error ? err.message : ''), 'error');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -138,6 +149,7 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-5">
+      <Link to="/admin/settings" className="text-sm font-medium text-navy-700 hover:underline">Settings / Account</Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold text-navy-800">Accounts</h1>
@@ -167,7 +179,7 @@ export default function AccountsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">
                     {u.display_name || u.username}
-                    {u.role === 'owner' && <Badge color="navy">Owner</Badge>}
+                    <Badge color={u.role === 'owner' ? 'navy' : 'gray'}>{u.role === 'owner' ? 'Admin' : 'Staff'}</Badge>
                     {u.id === callerId && <Badge color="green">You</Badge>}
                     {!u.is_username_account && <Badge color="gray">Email login</Badge>}
                   </p>
@@ -207,7 +219,7 @@ export default function AccountsPage() {
       )}
 
       <p className="text-xs text-slate-400">
-        Signed in as {session?.user?.email}. Owners can manage accounts; staff accounts cannot see this page.
+        Signed in as {session?.user?.email}. Admins can manage accounts; staff accounts cannot see this page.
       </p>
 
       {/* Create */}
@@ -240,10 +252,10 @@ export default function AccountsPage() {
               <Button type="button" variant="outline" icon={<Copy className="h-4 w-4" />} onClick={() => copy(password, 'Password')} aria-label="Copy password" />
             </div>
           </Field>
-          <Field label="Permission" htmlFor="ac-role" hint="Owners can manage accounts. Staff can run events but cannot add or remove people.">
+          <Field label="Permission" htmlFor="ac-role" hint="Admins can manage accounts. Staff can create forms but cannot manage accounts.">
             <Select id="ac-role" value={role} onChange={(e) => setRole(e.target.value as 'owner' | 'staff')}>
               <option value="staff">Staff</option>
-              <option value="owner">Owner</option>
+              <option value="owner">Admin</option>
             </Select>
           </Field>
         </form>
@@ -257,7 +269,7 @@ export default function AccountsPage() {
         footer={
           <>
             <Button variant="outline" onClick={() => setEditUser(null)}>Cancel</Button>
-            <Button onClick={() => void handleSaveEdit()}>Save changes</Button>
+            <Button onClick={() => void handleSaveEdit()} loading={busy}>Save changes</Button>
           </>
         }
       >
@@ -277,7 +289,7 @@ export default function AccountsPage() {
           <Field label="Permission">
             <Select value={editRole} onChange={(e) => setEditRole(e.target.value as 'owner' | 'staff')}>
               <option value="staff">Staff</option>
-              <option value="owner">Owner</option>
+              <option value="owner">Admin</option>
             </Select>
           </Field>
         </div>
@@ -291,7 +303,7 @@ export default function AccountsPage() {
         footer={
           <>
             <Button variant="outline" onClick={() => setPwUser(null)}>Cancel</Button>
-            <Button onClick={() => void handleSetPassword()}>Set password</Button>
+            <Button onClick={() => void handleSetPassword()} loading={busy}>Set password</Button>
           </>
         }
       >

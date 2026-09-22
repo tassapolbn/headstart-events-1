@@ -101,11 +101,13 @@ export function FormRenderer({
             </select>
           </FieldShell>
         );
+      case 'rating':
+      case 'evaluation':
       case 'radio':
       case 'multiple_choice':
         return (
           <FieldShell key={f.id} field={f} error={err}>
-            <div role="radiogroup" aria-label={f.label} className="space-y-2">
+            <div role="radiogroup" aria-label={f.label} aria-required={!!f.required} aria-invalid={!!err} className={f.type === 'rating' ? 'grid grid-cols-5 gap-2' : 'space-y-2'}>
               {(f.options ?? []).map((o) => (
                 <label
                   key={o}
