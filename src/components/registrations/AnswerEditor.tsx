@@ -3,6 +3,7 @@ import { isStoredFileRef } from '@/lib/storage';
 import { Field, Input, Select, Textarea } from '@/components/ui/inputs';
 import { Button } from '@/components/ui/basics';
 import { ExternalLink } from 'lucide-react';
+import { gridColumns, gridRows, limitOnePerColumn } from '@/lib/grid';
 
 /**
  * Edit one registration answer using the same control type as the original
@@ -32,6 +33,61 @@ export function AnswerEditor({ field, value, onChange, onOpenFile }: {
             {(field.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
             {current && !known && <option value="__custom__">{current} (custom)</option>}
           </Select>
+        </Field>
+      );
+    }
+
+    case 'grid':
+    case 'checkbox_grid':
+    case 'ranking': {
+      const current: Record<string, string | string[]> = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, string | string[]>) : {};
+      const cols = gridColumns(field);
+      const multi = field.type === 'checkbox_grid';
+      return (
+        <Field label={label} hint={limitOnePerColumn(field) ? 'Each column can be used once. Choosing it again moves it to this row.' : undefined}>
+          <div className="space-y-1.5 rounded-lg border border-slate-200 p-2.5">
+            {gridRows(field).map((row) => (
+              <div key={row} className="flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0 flex-1">{row}</span>
+                {multi ? (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {cols.map((c) => {
+                      const list = Array.isArray(current[row]) ? (current[row] as string[]) : [];
+                      return (
+                        <label key={c} className="flex items-center gap-1 text-xs">
+                          <input
+                            type="checkbox" className="h-3.5 w-3.5 rounded accent-navy-700" checked={list.includes(c)}
+                            onChange={(e) => {
+                              const nextList = e.target.checked ? [...list, c] : list.filter((x) => x !== c);
+                              const next = { ...current, [row]: nextList };
+                              if (nextList.length === 0) delete next[row];
+                              onChange(next);
+                            }}
+                          />
+                          {c}
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Select
+                    className="w-40"
+                    value={typeof current[row] === 'string' ? (current[row] as string) : ''}
+                    aria-label={`${label}: ${row}`}
+                    onChange={(e) => {
+                      const next = { ...current };
+                      if (limitOnePerColumn(field)) for (const r of Object.keys(next)) if (next[r] === e.target.value) delete next[r];
+                      if (e.target.value) next[row] = e.target.value; else delete next[row];
+                      onChange(next);
+                    }}
+                  >
+                    <option value="">Not answered</option>
+                    {cols.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </Select>
+                )}
+              </div>
+            ))}
+          </div>
         </Field>
       );
     }

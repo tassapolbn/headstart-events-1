@@ -4,6 +4,7 @@ import { Paperclip } from 'lucide-react';
 import type { EventTheme, FormField } from '@/lib/types';
 import { buildResolver, isContentField, isVisible } from './fieldZod';
 import { SignaturePad } from './SignaturePad';
+import { GridInput, RatingInput } from './ScaleAndGrid';
 import { buttonClass } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { Spinner } from '@/components/ui/basics';
@@ -102,12 +103,39 @@ export function FormRenderer({
           </FieldShell>
         );
       case 'rating':
+        return (
+          <FieldShell key={f.id} field={f} error={err}>
+            <Controller
+              control={control}
+              name={f.id}
+              defaultValue=""
+              render={({ field: rhf }) => (
+                <RatingInput field={f} value={rhf.value ?? ''} onChange={rhf.onChange} onBlur={rhf.onBlur} invalid={!!err} />
+              )}
+            />
+          </FieldShell>
+        );
+      case 'grid':
+      case 'checkbox_grid':
+      case 'ranking':
+        return (
+          <FieldShell key={f.id} field={f} error={err}>
+            <Controller
+              control={control}
+              name={f.id}
+              defaultValue={{}}
+              render={({ field: rhf }) => (
+                <GridInput field={f} value={rhf.value} onChange={rhf.onChange} onBlur={rhf.onBlur} invalid={!!err} />
+              )}
+            />
+          </FieldShell>
+        );
       case 'evaluation':
       case 'radio':
       case 'multiple_choice':
         return (
           <FieldShell key={f.id} field={f} error={err}>
-            <div role="radiogroup" aria-label={f.label} aria-required={!!f.required} aria-invalid={!!err} className={f.type === 'rating' ? 'grid grid-cols-5 gap-2' : 'space-y-2'}>
+            <div role="radiogroup" aria-label={f.label} aria-required={!!f.required} aria-invalid={!!err} className="space-y-2">
               {(f.options ?? []).map((o) => (
                 <label
                   key={o}

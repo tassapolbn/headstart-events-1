@@ -116,6 +116,7 @@ export default function EventPage() {
         if (isContentField(f) || !isVisible(f, values)) continue;
         let v = values[f.id];
         if (v === undefined || v === null || v === '') continue;
+        if (typeof v === 'object' && !(v instanceof File) && !Array.isArray(v) && Object.keys(v as object).length === 0) continue;
 
         if ((f.type === 'file' || f.type === 'photo') && v instanceof File) {
           v = await uploadVendorFile(v, event.id);

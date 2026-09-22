@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { FieldValues, Resolver } from 'react-hook-form';
 import type { FormField } from '@/lib/types';
+import { gridError, isGridField } from '@/lib/grid';
 
 const CONTENT_TYPES = ['heading', 'rich_text', 'divider'];
 
@@ -13,7 +14,11 @@ export function isVisible(field: FormField, values: FieldValues): boolean {
   const c = field.condition;
   if (!c || !c.fieldId) return true;
   const raw = values[c.fieldId];
-  const answered = Array.isArray(raw) ? raw.length > 0 : raw !== undefined && raw !== null && raw !== '';
+  const answered = Array.isArray(raw)
+    ? raw.length > 0
+    : raw && typeof raw === 'object'
+      ? Object.keys(raw).length > 0
+      : raw !== undefined && raw !== null && raw !== '';
   switch (c.operator) {
     case 'answered':
       return answered;
@@ -58,6 +63,13 @@ function schemaForField(f: FormField): z.ZodTypeAny {
         }
       });
     }
+    case 'grid':
+    case 'checkbox_grid':
+    case 'ranking':
+      return z.any().superRefine((val, ctx) => {
+        const msg = gridError(f, val);
+        if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
+      });
     case 'menu_quantity': {
       return z.record(z.number()).superRefine((val, ctx) => {
         const total = Object.values(val ?? {}).reduce((a, b) => a + (b || 0), 0);
@@ -121,7 +133,7 @@ export function buildResolver(fields: FormField[]): Resolver<FieldValues> {
     for (const f of fields) {
       if (isContentField(f)) continue;
       if (!isVisible(f, values)) continue;
-      const result = schemaForField(f).safeParse(values[f.id] ?? (f.type === 'checkboxes' ? [] : f.type === 'menu_quantity' ? {} : ''));
+      const result = schemaForField(f).safeParse(values[f.id] ?? (f.type === 'checkboxes' ? [] : f.type === 'menu_quantity' || isGridField(f) ? {} : ''));
       if (!result.success) {
         errors[f.id] = { type: 'validation', message: result.error.issues[0]?.message ?? 'Invalid value.' };
       }

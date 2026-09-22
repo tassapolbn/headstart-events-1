@@ -4,6 +4,22 @@ import { isContentField } from '@/components/form-renderer/fieldZod';
 import { isStoredFileRef } from '@/lib/storage';
 import { download } from '@/lib/utils';
 import { boothText } from '@/lib/regBooths';
+import { gridRows, isGridField } from '@/lib/grid';
+import type { FormField } from '@/lib/types';
+
+/** One export column per question, or per row for grid and ranking questions. */
+function exportColumns(fields: FormField[]): Array<{ header: string; get: (data: Record<string, unknown>) => string }> {
+  return fields.flatMap((f) => {
+    if (!isGridField(f)) return [{ header: f.label, get: (d: Record<string, unknown>) => cellValue(d?.[f.id]) }];
+    return gridRows(f).map((row) => ({
+      header: `${f.label} [${row}]`,
+      get: (d: Record<string, unknown>) => {
+        const v = d?.[f.id] as Record<string, unknown> | undefined;
+        return v && typeof v === 'object' ? cellValue(v[row]) : '';
+      },
+    }));
+  });
+}
 
 function cellValue(v: unknown): string {
   if (v === null || v === undefined) return '';
@@ -20,10 +36,10 @@ function cellValue(v: unknown): string {
 }
 
 export function buildRows(event: EventRecord, regs: Registration[]): string[][] {
-  const questionFields = event.form_schema.filter((f) => !isContentField(f));
+  const questionFields = exportColumns(event.form_schema.filter((f) => !isContentField(f)));
   const header = [
     'Reference', 'Status', 'Name', 'Email', 'Phone', 'Booth', 'Checked in', 'Submitted',
-    ...questionFields.map((f) => f.label),
+    ...questionFields.map((c) => c.header),
   ];
   const rows = regs.map((r) => [
     r.reference,
@@ -34,7 +50,7 @@ export function buildRows(event: EventRecord, regs: Registration[]): string[][] 
     boothText(r),
     r.checked_in_at ? new Date(r.checked_in_at).toLocaleString() : '',
     new Date(r.created_at).toLocaleString(),
-    ...questionFields.map((f) => cellValue(r.data?.[f.id])),
+    ...questionFields.map((c) => c.get(r.data ?? {})),
   ]);
   return [header, ...rows];
 }
