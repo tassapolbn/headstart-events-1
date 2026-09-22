@@ -32,6 +32,9 @@ export function isVisible(field: FormField, values: FieldValues): boolean {
 function schemaForField(f: FormField): z.ZodTypeAny {
   const v = f.validation ?? {};
   switch (f.type) {
+    case 'rating':
+    case 'evaluation':
+      return z.string().refine((value) => (!f.required && value === '') || (f.options ?? []).includes(value), 'Please select one of the available answers.');
     case 'email': {
       let s = z.string().trim();
       if (f.required) s = s.min(1, 'This field is required.');

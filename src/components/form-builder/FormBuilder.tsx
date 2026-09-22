@@ -26,6 +26,14 @@ function newField(type: FieldType): FormField {
   if (['dropdown', 'radio', 'checkboxes', 'multiple_choice'].includes(type)) {
     base.options = ['Option 1', 'Option 2'];
   }
+  if (type === 'rating') {
+    base.label = 'How satisfied are you?';
+    base.options = ['1', '2', '3', '4', '5'];
+  }
+  if (type === 'evaluation') {
+    base.label = 'Please evaluate your experience';
+    base.options = ['ควรปรับปรุง', 'พอใช้', 'ดี', 'ดีมาก', 'อื่น ๆ'];
+  }
   if (type === 'menu_quantity') {
     base.label = 'Choose your menu';
     base.options = ['Menu A', 'Menu B'];

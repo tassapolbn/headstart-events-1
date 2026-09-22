@@ -4,7 +4,7 @@ export type EventStatus = 'draft' | 'published' | 'open' | 'closed' | 'waitlist'
 
 export type FieldType =
   | 'short_text' | 'paragraph' | 'email' | 'phone' | 'number' | 'date' | 'time'
-  | 'dropdown' | 'radio' | 'checkboxes' | 'multiple_choice' | 'menu_quantity'
+  | 'rating' | 'evaluation' | 'dropdown' | 'radio' | 'checkboxes' | 'multiple_choice' | 'menu_quantity'
   | 'file' | 'photo' | 'signature' | 'rich_text' | 'divider' | 'heading';
 
 export interface FieldCondition {
@@ -40,7 +40,18 @@ export interface FormField {
   mapTo?: 'name' | 'email' | 'phone' | null;
 }
 
+export const POLICY_ACK_KEY = '__policy_acks';
+export interface PolicyAck {
+  id: string;
+  title: string;
+  text: string;
+  accepted_at: string;
+}
+
 export interface PolicySection {
+  requireAck?: boolean;
+  requireRead?: boolean;
+  ackText?: string;
   id: string;
   title: string;
   content: string;
@@ -92,6 +103,7 @@ export interface EmailTemplate {
   buttonUrl?: string;
   adminNotify: boolean;
   adminEmail?: string;
+  adminEmails?: string[];
 }
 
 export interface EventSettings {

@@ -202,6 +202,8 @@ export const fieldTypeMeta: Record<string, { label: string; group: 'Basic' | 'Se
   date: { label: 'Date', group: 'Basic' },
   time: { label: 'Time', group: 'Basic' },
   dropdown: { label: 'Dropdown', group: 'Selection' },
+  rating: { label: 'Rating scale', group: 'Selection' },
+  evaluation: { label: 'Evaluation / Survey', group: 'Selection' },
   radio: { label: 'Radio Buttons', group: 'Selection' },
   checkboxes: { label: 'Checkboxes', group: 'Selection' },
   multiple_choice: { label: 'Multiple Choice', group: 'Selection' },
@@ -213,3 +215,5 @@ export const fieldTypeMeta: Record<string, { label: string; group: 'Basic' | 'Se
   divider: { label: 'Section Divider', group: 'Advanced' },
   heading: { label: 'Heading', group: 'Advanced' },
 };
+
+export const defaultSectionAckText = 'I have read and agree to this policy.';

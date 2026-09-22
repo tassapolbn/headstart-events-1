@@ -18,6 +18,8 @@ export function AnswerEditor({ field, value, onChange, onOpenFile }: {
   const label = field.label;
 
   switch (field.type) {
+    case 'rating':
+    case 'evaluation':
     case 'dropdown':
     case 'radio':
     case 'multiple_choice': {

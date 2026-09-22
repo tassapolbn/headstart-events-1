@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { CalendarDays, LayoutDashboard, LogOut, Menu, Settings, Shapes, Users, X } from 'lucide-react';
+import { CalendarDays, LayoutDashboard, LogOut, Menu, Settings, Shapes, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useCampus } from '@/context/CampusContext';
 import { CampusSwitcher } from '@/components/CampusSwitcher';
@@ -11,17 +11,17 @@ const navItems = [
   { to: '/admin/events', label: 'Events', icon: CalendarDays },
   { to: '/admin/templates', label: 'Templates', icon: Shapes },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
-  { to: '/admin/accounts', label: 'Accounts', icon: Users, ownerOnly: true },
+
 ];
 
 export default function AdminLayout() {
-  const { session, signOut, isOwner, displayName } = useAuth();
+  const { session, signOut, displayName } = useAuth();
   const { campus } = useCampus();
   const [open, setOpen] = useState(false);
 
   const nav = (
     <nav className="flex flex-1 flex-col gap-1 p-3" aria-label="Admin navigation">
-      {navItems.filter((item) => !item.ownerOnly || isOwner).map(({ to, label, icon: Icon, end }) => (
+      {navItems.map(({ to, label, icon: Icon, end }) => (
         <NavLink
           key={to} to={to} end={end} onClick={() => setOpen(false)}
           className={({ isActive }) =>

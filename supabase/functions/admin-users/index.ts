@@ -13,8 +13,7 @@
 // Security notes:
 //  - The role lives in app_metadata, which a user cannot change
 //    themselves, so staff cannot promote themselves to owner.
-//  - The very first caller becomes the owner (bootstrap), after
-//    that only owners may manage accounts.
+//  - Only explicitly provisioned owners may manage accounts.
 // ============================================================
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -86,22 +85,18 @@ Deno.serve(async (req: Request) => {
 
   // ---- gather every account (also used for the owner check) ----
   const all: unknown[] = [];
-  for (let page = 1; page <= 10; page++) {
+  for (let page = 1; page <= 100; page++) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
     if (error) return json({ error: error.message }, 500);
     all.push(...data.users);
     if (data.users.length < 200) break;
+    if (page === 100) return json({ error: 'ACCOUNT_LIMIT_EXCEEDED' }, 503);
   }
   // deno-lint-ignore no-explicit-any
   const users = all as any[];
   const owners = users.filter((u) => u.app_metadata?.role === 'owner');
-  let callerIsOwner = owners.some((u) => u.id === callerId);
+  const callerIsOwner = owners.some((u) => u.id === callerId);
 
-  // Bootstrap: the first person to open Accounts becomes the owner.
-  if (owners.length === 0) {
-    await admin.auth.admin.updateUserById(callerId, { app_metadata: { role: 'owner' } });
-    callerIsOwner = true;
-  }
   if (!callerIsOwner) return json({ error: 'NOT_OWNER' }, 403);
 
   let body: Record<string, string> = {};
@@ -177,6 +172,13 @@ Deno.serve(async (req: Request) => {
       const target = users.find((u) => u.id === id);
       if (!target) return json({ error: 'NOT_FOUND' }, 404);
 
+      const username = body.username === undefined ? undefined : String(body.username).trim().toLowerCase();
+      if (username !== undefined) {
+        if (!USERNAME_RE.test(username)) return json({ error: 'INVALID_USERNAME' }, 400);
+        if (users.some((u) => u.id !== id && u.email === emailFor(username))) {
+          return json({ error: 'USERNAME_TAKEN' }, 409);
+        }
+      }
       const displayName = String(body.display_name ?? target.user_metadata?.display_name ?? '');
       const role = body.role === 'owner' ? 'owner' : body.role === 'staff' ? 'staff' : undefined;
 
@@ -186,7 +188,8 @@ Deno.serve(async (req: Request) => {
       }
 
       const { error } = await admin.auth.admin.updateUserById(id, {
-        user_metadata: { ...(target.user_metadata ?? {}), display_name: displayName },
+        ...(username !== undefined ? { email: emailFor(username), email_confirm: true } : {}),
+        user_metadata: { ...(target.user_metadata ?? {}), display_name: displayName, ...(username !== undefined ? { username } : {}) },
         ...(role ? { app_metadata: { ...(target.app_metadata ?? {}), role } } : {}),
       });
       if (error) return json({ error: error.message }, 400);

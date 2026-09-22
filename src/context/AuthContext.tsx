@@ -51,9 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const meta = session?.user?.user_metadata ?? {};
   const rawRole = (session?.user?.app_metadata as { role?: string } | undefined)?.role;
   const role = rawRole === 'owner' ? 'owner' : rawRole === 'staff' ? 'staff' : null;
-  // Accounts created before roles existed have no role: they keep owner access
-  // until the first owner is confirmed, so nobody is ever locked out.
-  const isOwner = role === 'owner' || role === null;
+  const isOwner = role === 'owner';
   const displayName = String(meta.display_name || meta.username || session?.user?.email || '');
 
   return (
