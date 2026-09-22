@@ -106,7 +106,16 @@ export interface EmailTemplate {
   adminEmails?: string[];
 }
 
+/** What the public page is for. Stored inside events.settings (JSON), so no column change is needed. */
+export type FormType = 'registration' | 'survey';
+
 export interface EventSettings {
+  /** 'registration' = event sign up (reference, QR, booths). 'survey' = survey, questionnaire or feedback form. */
+  formType: FormType;
+  /** Optional custom heading above the form (falls back to the wording for the form type) */
+  formHeading?: string;
+  /** Optional custom submit button label (falls back to the wording for the form type) */
+  submitLabel?: string;
   /** How many booths one registration may hold (1 to 3) */
   maxBooths: number;
   allowDuplicateEmail: boolean;

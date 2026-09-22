@@ -6,12 +6,14 @@ import { useToast } from '@/context/ToastContext';
 import { Button, Card } from '@/components/ui/basics';
 import { Input } from '@/components/ui/inputs';
 import type { TabProps } from '../EventEditorPage';
+import { formCopy } from '@/lib/formCopy';
 
 export default function ShareTab({ draft }: TabProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const url = publicEventUrl(draft.slug);
-  const shareText = `${draft.name} - register here: ${url}`;
+  const fc = formCopy(draft);
+  const shareText = fc.shareText(draft.name, url);
 
   async function copy() {
     try {
@@ -26,15 +28,15 @@ export default function ShareTab({ draft }: TabProps) {
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      <Card title="Share this registration link">
+      <Card title={fc.isSurvey ? 'Share this form link' : 'Share this registration link'}>
         <div className="space-y-4">
           {draft.status === 'draft' && (
             <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              This event is still a draft. Set the status to Published or Open (top of this page) and save, otherwise visitors will see "Event not found".
+              This event is still a draft. Set the status to Published or Open (top of this page) and save, otherwise visitors will see "Page not found".
             </p>
           )}
           <div className="flex gap-2">
-            <Input readOnly value={url} onFocus={(e) => e.target.select()} aria-label="Public registration link" className="font-mono text-xs" />
+            <Input readOnly value={url} onFocus={(e) => e.target.select()} aria-label="Public link" className="font-mono text-xs" />
             <Button onClick={() => void copy()} icon={copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}>
               {copied ? 'Copied' : 'Copy'}
             </Button>
@@ -62,14 +64,14 @@ export default function ShareTab({ draft }: TabProps) {
             </a>
           </div>
           <p className="text-xs text-slate-500">
-            Vendors and parents only need this link. No account or login is required for them.
+            {fc.isSurvey ? 'Parents, students and guests' : 'Vendors and parents'} only need this link. No account or login is required for them.
           </p>
         </div>
       </Card>
 
       <Card title="QR code for posters and notices">
         <div className="flex flex-col items-center gap-3 py-2 print-page">
-          <QRCodeSVG value={url} size={190} level="M" includeMargin aria-label={`QR code linking to ${draft.name} registration`} />
+          <QRCodeSVG value={url} size={190} level="M" includeMargin aria-label={`QR code linking to ${draft.name}`} />
           <p className="text-center text-sm font-semibold text-navy-800">{draft.name}</p>
           <p className="text-center font-mono text-xs text-slate-400">{url}</p>
           <Button variant="outline" size="sm" icon={<Printer className="h-3.5 w-3.5" />} onClick={() => window.print()} className="no-print">

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarPlus, ClipboardList, Copy, ExternalLink, Link2, Pencil, Search, Shapes, Trash2 } from 'lucide-react';
+import { CalendarPlus, ClipboardList, Copy, ExternalLink, Link2, MessageSquareText, Pencil, Search, Shapes, Ticket, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { EventRecord, EventTemplateRecord } from '@/lib/types';
+import type { EventRecord, EventTemplateRecord, FormType } from '@/lib/types';
+import { copyForType, formCopy, formTypeOf } from '@/lib/formCopy';
 import { formatDate } from '@/lib/utils';
 import { createBlankEvent, createFromTemplate, deleteEvent, duplicateEvent, publicEventUrl, saveAsTemplate } from '@/lib/eventOps';
 import { useCampus } from '@/context/CampusContext';
@@ -18,6 +19,11 @@ const statusColor: Record<string, 'gray' | 'green' | 'blue' | 'amber' | 'red'> =
   draft: 'gray', published: 'blue', open: 'green', closed: 'red', waitlist: 'amber',
 };
 const filters = ['all', 'draft', 'published', 'open', 'closed', 'waitlist', 'past'] as const;
+const typeFilters: Array<{ id: 'all' | FormType; label: string }> = [
+  { id: 'all', label: 'All types' },
+  { id: 'registration', label: 'Event registration' },
+  { id: 'survey', label: 'Survey / Feedback' },
+];
 
 export default function EventsListPage() {
   const navigate = useNavigate();
@@ -29,12 +35,14 @@ export default function EventsListPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<(typeof filters)[number]>('all');
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | FormType>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // Create modal
   const [createOpen, setCreateOpen] = useState(params.get('new') === '1');
   const [newName, setNewName] = useState('');
   const [newFrom, setNewFrom] = useState('blank');
+  const [newType, setNewType] = useState<FormType>(params.get('type') === 'survey' ? 'survey' : 'registration');
   const [creating, setCreating] = useState(false);
 
   // Save as template modal
@@ -60,10 +68,11 @@ export default function EventsListPage() {
     let list = rows;
     if (filter === 'past') list = list.filter((e) => e.event_date && e.event_date < today);
     else if (filter !== 'all') list = list.filter((e) => e.status === filter);
+    if (typeFilter !== 'all') list = list.filter((e) => formTypeOf(e) === typeFilter);
     const q = search.trim().toLowerCase();
     if (q) list = list.filter((e) => e.name.toLowerCase().includes(q) || e.location.toLowerCase().includes(q));
     return list;
-  }, [rows, filter, search, today]);
+  }, [rows, filter, typeFilter, search, today]);
 
   async function handleCreate() {
     if (!newName.trim()) return;
@@ -71,13 +80,13 @@ export default function EventsListPage() {
     try {
       let id: string;
       if (newFrom === 'blank') {
-        id = await createBlankEvent(newName.trim(), campusId);
+        id = await createBlankEvent(newName.trim(), campusId, newType);
       } else {
         const tpl = templates.find((t) => t.id === newFrom);
         if (!tpl) throw new Error('Template not found');
         id = await createFromTemplate(tpl.snapshot, newName.trim(), campusId);
       }
-      toast('Event created.');
+      toast(newType === 'survey' && newFrom === 'blank' ? 'Survey created.' : 'Event created.');
       navigate(`/admin/events/${id}`);
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Could not create the event.', 'error');
@@ -124,7 +133,7 @@ export default function EventsListPage() {
 
   function copyLink(row: EventRow) {
     void navigator.clipboard.writeText(publicEventUrl(row.slug));
-    toast('Public registration link copied.');
+    toast('Public link copied.');
   }
 
   if (loading) return <PageLoader label="Loading events" />;
@@ -137,9 +146,12 @@ export default function EventsListPage() {
             <h1 className="font-display text-2xl font-bold text-navy-800">Events</h1>
             <CampusBadge />
           </div>
-          <p className="text-sm text-slate-500">Create, publish and manage events for {campus?.name ?? 'this campus'}.</p>
+          <p className="text-sm text-slate-500">Create, publish and manage event registrations and surveys for {campus?.name ?? 'this campus'}.</p>
         </div>
-        <Button icon={<CalendarPlus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>Create New Event</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" icon={<MessageSquareText className="h-4 w-4" />} onClick={() => { setNewType('survey'); setCreateOpen(true); }}>New Survey / Feedback</Button>
+          <Button icon={<CalendarPlus className="h-4 w-4" />} onClick={() => { setNewType('registration'); setCreateOpen(true); }}>Create New Event</Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -151,6 +163,17 @@ export default function EventsListPage() {
               className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition ${filter === f ? 'bg-white text-navy-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
               {f}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-1 rounded-xl bg-slate-200/70 p-1">
+          {typeFilters.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setTypeFilter(f.id)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${typeFilter === f.id ? 'bg-white text-navy-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              {f.label}
             </button>
           ))}
         </div>
@@ -170,6 +193,7 @@ export default function EventsListPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {visible.map((e) => {
             const count = e.registrations?.[0]?.count ?? 0;
+            const copy = formCopy(e);
             return (
               <Card key={e.id} padded={false} className="overflow-hidden">
                 <div
@@ -177,21 +201,24 @@ export default function EventsListPage() {
                   style={e.branding?.banner_url || e.branding?.poster_url ? { backgroundImage: `url(${e.branding.banner_url ?? e.branding.poster_url})` } : undefined}
                 >
                   <div className="flex h-full items-start justify-between p-3">
-                    <Badge color={statusColor[e.status]} className="capitalize">{e.status}</Badge>
-                    <span className="rounded-full bg-white/90 px-2.5 py-0.5 text-xs font-semibold text-navy-800">{count} registered</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge color={statusColor[e.status]} className="capitalize">{e.status}</Badge>
+                      <Badge color={copy.isSurvey ? 'amber' : 'blue'}>{copy.typeLabel}</Badge>
+                    </div>
+                    <span className="rounded-full bg-white/90 px-2.5 py-0.5 text-xs font-semibold text-navy-800">{copy.countLabel(count)}</span>
                   </div>
                 </div>
                 <div className="space-y-3 p-4">
                   <div>
                     <Link to={`/admin/events/${e.id}`} className="font-display text-base font-semibold text-navy-800 hover:underline">{e.name}</Link>
                     <p className="text-xs text-slate-500">
-                      {e.event_date ? formatDate(e.event_date, 'EEE d MMM yyyy') : 'Date not set'}
+                      {e.event_date ? formatDate(e.event_date, 'EEE d MMM yyyy') : copy.isSurvey ? 'No date' : 'Date not set'}
                       {e.location ? ` - ${e.location}` : ''}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <Button size="sm" variant="outline" icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => navigate(`/admin/events/${e.id}`)}>Edit</Button>
-                    <Button size="sm" variant="outline" icon={<ClipboardList className="h-3.5 w-3.5" />} onClick={() => navigate(`/admin/events/${e.id}/registrations`)}>Registrations</Button>
+                    <Button size="sm" variant="outline" icon={<ClipboardList className="h-3.5 w-3.5" />} onClick={() => navigate(`/admin/events/${e.id}/registrations`)}>{copy.entries}</Button>
                     <Button size="sm" variant="outline" icon={<Copy className="h-3.5 w-3.5" />} loading={busyId === e.id} onClick={() => void handleDuplicate(e)}>Duplicate</Button>
                     <Button size="sm" variant="outline" icon={<Shapes className="h-3.5 w-3.5" />} onClick={() => { setTplFor(e); setTplName(e.name); setTplDesc(''); }}>Save as template</Button>
                     <Button size="sm" variant="outline" icon={<Link2 className="h-3.5 w-3.5" />} onClick={() => copyLink(e)}>Copy link</Button>
@@ -211,21 +238,54 @@ export default function EventsListPage() {
       <Modal
         open={createOpen}
         onClose={() => { setCreateOpen(false); if (params.get('new')) setParams({}); }}
-        title="Create a new event"
+        title={newType === 'survey' ? 'Create a new survey or feedback form' : 'Create a new event'}
         footer={
           <>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={() => void handleCreate()} loading={creating} disabled={!newName.trim()}>Create event</Button>
+            <Button onClick={() => void handleCreate()} loading={creating} disabled={!newName.trim()}>
+              {newType === 'survey' ? 'Create form' : 'Create event'}
+            </Button>
           </>
         }
       >
         <div className="space-y-4">
-          <Field label="Event name" htmlFor="new-event-name" required>
-            <Input id="new-event-name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Christmas Fair 2026" autoFocus />
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-slate-700">What are you creating?</p>
+            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Form type">
+              {([
+                { id: 'registration', icon: Ticket, title: '1. Event registration form', text: 'Sign ups with reference number, QR check in, booths and a confirmation email.' },
+                { id: 'survey', icon: MessageSquareText, title: '2. Survey, questionnaire or feedback', text: 'Neutral wording, optional name and email, and a simple thank you email.' },
+              ] as const).map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={newType === o.id}
+                  onClick={() => setNewType(o.id)}
+                  className={`rounded-xl border-2 p-3 text-left transition ${newType === o.id ? 'border-navy-600 bg-navy-50' : 'border-slate-200 hover:border-slate-300'}`}
+                >
+                  <span className="flex items-center gap-2 text-sm font-semibold text-navy-800">
+                    <o.icon className="h-4 w-4" /> {o.title}
+                  </span>
+                  <span className="mt-1 block text-xs text-slate-500">{o.text}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <Field label={newType === 'survey' ? 'Form name' : 'Event name'} htmlFor="new-event-name" required>
+            <Input
+              id="new-event-name" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
+              placeholder={newType === 'survey' ? 'e.g. Christmas Fair 2026 Parent Feedback' : 'e.g. Christmas Fair 2026'}
+            />
           </Field>
-          <Field label="Start from" hint="Templates copy the form, theme, floor plan, policies and email design.">
+          <Field
+            label="Start from"
+            hint={newFrom === 'blank'
+              ? `A blank ${copyForType(newType).typeLabel.toLowerCase()} with starter questions you can edit.`
+              : 'Templates copy the form, theme, floor plan, policies and email design, including the form type.'}
+          >
             <Select value={newFrom} onChange={(e) => setNewFrom(e.target.value)} aria-label="Start from template">
-              <option value="blank">Blank event</option>
+              <option value="blank">{newType === 'survey' ? 'Blank survey / feedback form' : 'Blank event'}</option>
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>Template: {t.name}</option>
               ))}

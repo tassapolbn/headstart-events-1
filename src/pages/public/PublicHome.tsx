@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import type { Campus, EventRecord } from '@/lib/types';
 import { formatDate, formatTimeRange } from '@/lib/utils';
 import { useAppSettings } from '@/hooks/useAppSettings';
+import { formCopy } from '@/lib/formCopy';
 import { PageLoader } from '@/components/ui/basics';
 
 export default function PublicHome() {
@@ -39,8 +40,8 @@ export default function PublicHome() {
     <main className="min-h-screen bg-slate-100">
       <header className="bg-navy-800 pb-16 pt-10 text-center text-white">
         <img src={settings?.email_logo_url ?? settings?.logo_url ?? '/logo.svg'} alt="School logo" className="mx-auto h-20 w-auto max-w-[82vw] object-contain sm:h-24" />
-        <h1 className="mt-5 font-display text-3xl font-bold sm:text-4xl">Event Registration</h1>
-        <p className="mt-1.5 text-navy-100">Register for our upcoming school events</p>
+        <h1 className="mt-5 font-display text-3xl font-bold sm:text-4xl">Events and Forms</h1>
+        <p className="mt-1.5 text-navy-100">Upcoming school events, surveys and feedback forms</p>
         <Link to="/lookup" className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-navy-100 hover:bg-white/20">
           <Search className="h-4 w-4" /> Find my registration
         </Link>
@@ -51,7 +52,7 @@ export default function PublicHome() {
           <PageLoader label="Loading events" />
         ) : events.length === 0 ? (
           <div className="rounded-2xl bg-white p-10 text-center shadow-card">
-            <p className="font-medium text-slate-700">No events are open for registration right now.</p>
+            <p className="font-medium text-slate-700">No events or forms are open right now.</p>
             <p className="mt-1 text-sm text-slate-500">Please check back soon.</p>
           </div>
         ) : (
@@ -88,18 +89,20 @@ export default function PublicHome() {
                       />
                       <div className="space-y-2 p-4">
                         <h3 className="font-display text-lg font-semibold text-navy-800">{e.name}</h3>
-                        <p className="flex items-center gap-1.5 text-sm text-slate-500">
-                          <CalendarDays className="h-4 w-4 shrink-0" />
-                          {e.event_date ? formatDate(e.event_date, 'EEE d MMM yyyy') : 'Date to be announced'}
-                          {formatTimeRange(e.start_time, e.end_time) && `, ${formatTimeRange(e.start_time, e.end_time)}`}
-                        </p>
+                        {(!formCopy(e).isSurvey || e.event_date) && (
+                          <p className="flex items-center gap-1.5 text-sm text-slate-500">
+                            <CalendarDays className="h-4 w-4 shrink-0" />
+                            {e.event_date ? formatDate(e.event_date, 'EEE d MMM yyyy') : 'Date to be announced'}
+                            {formatTimeRange(e.start_time, e.end_time) && `, ${formatTimeRange(e.start_time, e.end_time)}`}
+                          </p>
+                        )}
                         {e.location && (
                           <p className="flex items-center gap-1.5 text-sm text-slate-500">
                             <MapPin className="h-4 w-4 shrink-0" /> {e.location}
                           </p>
                         )}
                         <span className="inline-block rounded-full bg-gold-100 px-3 py-1 text-xs font-semibold text-gold-800">
-                          {e.status === 'waitlist' ? 'Waitlist open' : 'Register now'}
+                          {formCopy(e).isSurvey ? formCopy(e).homeBadge : e.status === 'waitlist' ? 'Waitlist open' : 'Register now'}
                         </span>
                       </div>
                     </Link>

@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { newEventDraft } from './defaults';
-import type { Booth, EventRecord, TemplateSnapshot } from './types';
+import type { Booth, EventRecord, FormType, TemplateSnapshot } from './types';
 import { normalizeEvent } from '@/hooks/useEvent';
 import { slugify } from './utils';
 
@@ -97,9 +97,9 @@ export async function createFromTemplate(snapshot: TemplateSnapshot, name: strin
   return insertEventWithBooths(snapshot.event ?? {}, snapshot.booths ?? [], name, campusId);
 }
 
-export async function createBlankEvent(name: string, campusId = 'hsc'): Promise<string> {
+export async function createBlankEvent(name: string, campusId = 'hsc', formType: FormType = 'registration'): Promise<string> {
   const slug = await uniqueSlug(name);
-  const { data, error } = await supabase.from('events').insert(newEventDraft(name, slug, campusId)).select('id').single();
+  const { data, error } = await supabase.from('events').insert(newEventDraft(name, slug, campusId, formType)).select('id').single();
   if (error) throw error;
   return data.id as string;
 }

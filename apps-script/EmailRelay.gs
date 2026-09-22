@@ -73,8 +73,15 @@ function doPost(e) {
 
     var event = reg.events;
     var template = defaults(event.email_template);
-    if (!template.enabled) return jsonOut({ ok: true, skipped: 'disabled' });
-    if (!reg.email) return jsonOut({ ok: false, error: 'registration has no email' });
+    // Survey, questionnaire or feedback form: a plain thank you email, never a
+    // registration confirmation (no QR code, calendar file or booth details).
+    var isSurvey = !!(event.settings && event.settings.formType === 'survey');
+    if (isSurvey) {
+      template.showQr = false;
+      template.attachCalendar = false;
+    }
+    if (!template.enabled && !(isSurvey && template.adminNotify)) return jsonOut({ ok: true, skipped: 'disabled' });
+    if (!reg.email && !isSurvey) return jsonOut({ ok: false, error: 'registration has no email' });
 
     var campus = fetchCampus(event.campus_id || 'hsc');
     var settings2 = mergeSettings(fetchAppSettings(), campus);
@@ -82,21 +89,25 @@ function doPost(e) {
     var subject = renderMerge(template.subject, mergeMap);
     var htmlBody = buildEmailHtml(template, mergeMap, event, reg, settings2);
 
-    var mailOptions = {
-      to: reg.email,
-      subject: subject,
-      htmlBody: htmlBody,
-      name: FROM_NAME,
-    };
+    var sentToPerson = false;
+    if (template.enabled && reg.email) {
+      var mailOptions = {
+        to: reg.email,
+        subject: subject,
+        htmlBody: htmlBody,
+        name: FROM_NAME,
+      };
 
-    if (template.attachCalendar && event.event_date) {
-      var ics = buildIcs(event, reference);
-      if (ics) {
-        mailOptions.attachments = [Utilities.newBlob(ics, 'text/calendar', event.slug + '.ics')];
+      if (template.attachCalendar && event.event_date) {
+        var ics = buildIcs(event, reference);
+        if (ics) {
+          mailOptions.attachments = [Utilities.newBlob(ics, 'text/calendar', event.slug + '.ics')];
+        }
       }
-    }
 
-    MailApp.sendEmail(mailOptions);
+      MailApp.sendEmail(mailOptions);
+      sentToPerson = true;
+    }
     cache.put('sent_' + reference, '1', 300);
 
     // Notify the administrator, if enabled.
@@ -109,20 +120,23 @@ function doPost(e) {
       if (adminTo.length) {
         MailApp.sendEmail({
           to: adminTo.join(','),
-          subject: 'New registration: ' + event.name + ' (' + reference + ')',
-          htmlBody:
-            '<p><strong>' + esc(reg.name || 'Unnamed') + '</strong> registered for <strong>' + esc(event.name) + '</strong>.</p>' +
-            '<p>Reference: ' + reference +
-            '<br/>Email: ' + esc(reg.email || '-') +
-            '<br/>Phone: ' + esc(reg.phone || '-') +
-            '<br/>Booth: ' + esc(buildMergeMap(event, reg).booth) +
-            '<br/>Status: ' + reg.status + '</p>',
+          subject: (isSurvey ? 'New response: ' : 'New registration: ') + event.name + ' (' + reference + ')',
+          htmlBody: isSurvey
+            ? '<p><strong>' + esc(reg.name || 'Anonymous') + '</strong> submitted a response to <strong>' + esc(event.name) + '</strong>.</p>' +
+              '<p>Reference: ' + reference +
+              '<br/>Email: ' + esc(reg.email || '-') + '</p>'
+            : '<p><strong>' + esc(reg.name || 'Unnamed') + '</strong> registered for <strong>' + esc(event.name) + '</strong>.</p>' +
+              '<p>Reference: ' + reference +
+              '<br/>Email: ' + esc(reg.email || '-') +
+              '<br/>Phone: ' + esc(reg.phone || '-') +
+              '<br/>Booth: ' + esc(buildMergeMap(event, reg).booth) +
+              '<br/>Status: ' + reg.status + '</p>',
           name: FROM_NAME,
         });
       }
     }
 
-    markEmailSent(reg.id);
+    if (sentToPerson) markEmailSent(reg.id);
     return jsonOut({ ok: true });
   } catch (err) {
     return jsonOut({ ok: false, error: String(err) });

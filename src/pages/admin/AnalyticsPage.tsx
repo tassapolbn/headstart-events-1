@@ -9,6 +9,7 @@ import { format, parseISO } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import type { Booth, Registration } from '@/lib/types';
 import { useEvent } from '@/hooks/useEvent';
+import { formCopy } from '@/lib/formCopy';
 import { boothStatusMeta } from '@/lib/boothColors';
 import { download } from '@/lib/utils';
 import { Button, Card, EmptyState, PageLoader, StatCard } from '@/components/ui/basics';
@@ -125,7 +126,7 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-        <StatCard label="Registrations" value={regs.length} tone="navy" hint={capacityPct !== null ? `${capacityPct}% of capacity` : undefined} />
+        <StatCard label={formCopy(event).entries} value={regs.length} tone="navy" hint={capacityPct !== null ? `${capacityPct}% of capacity` : undefined} />
         <StatCard label="Active" value={active.length} tone="green" />
         <StatCard label="Waitlist" value={regs.filter((r) => r.status === 'waitlist').length} tone="gold" />
         <StatCard label="Booth occupancy" value={`${occupancy}%`} tone="navy" hint={`${boothStats.booked} of ${boothStats.sellable} booked`} />
@@ -133,9 +134,9 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Card title="Registration trend">
+        <Card title={`${formCopy(event).entry} trend`}>
           {daily.length === 0 ? (
-            <EmptyState title="No registrations yet" />
+            <EmptyState title={`No ${formCopy(event).entries.toLowerCase()} yet`} />
           ) : (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">

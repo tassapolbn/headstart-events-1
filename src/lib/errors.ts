@@ -14,6 +14,18 @@ const messages: Record<string, string> = {
   NOT_FOUND: 'No registration was found for that reference.',
 };
 
+/** Neutral wording for surveys, questionnaires and feedback forms. */
+const surveyMessages: Record<string, string> = {
+  EVENT_FULL: 'This form has reached its maximum number of responses. Thank you for your interest.',
+  REGISTRATION_CLOSED: 'This form is now closed. Thank you for your interest.',
+  REGISTRATION_NOT_OPEN: 'This form is not open yet. Please try again later.',
+  DUPLICATE_EMAIL: 'A response has already been submitted with this email address.',
+  INVALID_EMAIL: 'Please enter a valid email address.',
+  POLICY_NOT_ACKNOWLEDGED: 'Please read and accept the policies before submitting.',
+  EVENT_NOT_FOUND: 'This form could not be found or is not accepting responses.',
+  NOT_FOUND: 'No response was found for that reference.',
+};
+
 /** Extract a readable message from any error shape Supabase can produce. */
 function messageOf(error: unknown): string {
   if (!error) return '';
@@ -34,8 +46,13 @@ function messageOf(error: unknown): string {
   return String(error);
 }
 
-export function friendlyError(error: unknown): string {
+export function friendlyError(error: unknown, kind: 'registration' | 'survey' = 'registration'): string {
   const raw = messageOf(error);
+  if (kind === 'survey') {
+    for (const code of Object.keys(surveyMessages)) {
+      if (raw.includes(code)) return surveyMessages[code];
+    }
+  }
   for (const code of Object.keys(messages)) {
     if (raw.includes(code)) return messages[code];
   }

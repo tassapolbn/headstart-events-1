@@ -3,6 +3,7 @@ import { Field, Input } from '@/components/ui/inputs';
 import { RichTextArea } from '@/components/ui/RichTextArea';
 import { slugify } from '@/lib/utils';
 import type { TabProps } from '../EventEditorPage';
+import { formCopy } from '@/lib/formCopy';
 
 function isoToLocalInput(iso: string | null): string {
   if (!iso) return '';
@@ -15,11 +16,12 @@ function localInputToIso(value: string): string | null {
 }
 
 export default function DetailsTab({ draft, update }: TabProps) {
+  const copy = formCopy(draft);
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <Card title="Basic information">
         <div className="space-y-4">
-          <Field label="Event name" htmlFor="ev-name" required>
+          <Field label={copy.isSurvey ? 'Form name' : 'Event name'} htmlFor="ev-name" required>
             <Input id="ev-name" value={draft.name} onChange={(e) => update({ name: e.target.value })} />
           </Field>
           <Field label="Custom URL" htmlFor="ev-slug" hint={`Public link: ${window.location.origin}/e/${draft.slug}`}>
@@ -37,7 +39,7 @@ export default function DetailsTab({ draft, update }: TabProps) {
             rows={7}
             value={draft.description}
             onChange={(description) => update({ description })}
-            hint="Shown at the top of the registration page. Supports bold, bullet points and different fonts."
+            hint={`Shown at the top of the ${copy.isSurvey ? 'form' : 'registration'} page. Supports bold, bullet points and different fonts.`}
           />
           <Field label="Location" htmlFor="ev-loc">
             <Input id="ev-loc" value={draft.location} onChange={(e) => update({ location: e.target.value })} placeholder="e.g. School Atrium" />
@@ -46,7 +48,10 @@ export default function DetailsTab({ draft, update }: TabProps) {
       </Card>
 
       <div className="space-y-5">
-        <Card title="Date and time">
+        <Card title={copy.isSurvey ? 'Related event date and time (optional)' : 'Date and time'}>
+          {copy.isSurvey && (
+            <p className="mb-3 text-xs text-slate-500">Leave empty if this form is not linked to a specific event date. The date is only shown on the public page when set.</p>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Event date" htmlFor="ev-date">
               <Input id="ev-date" type="date" value={draft.event_date ?? ''} onChange={(e) => update({ event_date: e.target.value || null })} />
@@ -63,15 +68,15 @@ export default function DetailsTab({ draft, update }: TabProps) {
           </div>
         </Card>
 
-        <Card title="Registration window and capacity">
+        <Card title={copy.windowCard}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Registration opens" htmlFor="ev-open" hint="Leave empty to open immediately.">
+            <Field label={copy.opensLabel} htmlFor="ev-open" hint="Leave empty to open immediately.">
               <Input id="ev-open" type="datetime-local" value={isoToLocalInput(draft.reg_opens_at)} onChange={(e) => update({ reg_opens_at: localInputToIso(e.target.value) })} />
             </Field>
-            <Field label="Registration closes" htmlFor="ev-close" hint="Leave empty for no deadline.">
+            <Field label={copy.closesLabel} htmlFor="ev-close" hint="Leave empty for no deadline.">
               <Input id="ev-close" type="datetime-local" value={isoToLocalInput(draft.reg_closes_at)} onChange={(e) => update({ reg_closes_at: localInputToIso(e.target.value) })} />
             </Field>
-            <Field label="Maximum registrations" htmlFor="ev-max" hint="Leave empty for unlimited.">
+            <Field label={copy.maxLabel} htmlFor="ev-max" hint="Leave empty for unlimited.">
               <Input
                 id="ev-max" type="number" min={1}
                 value={draft.max_registrations ?? ''}

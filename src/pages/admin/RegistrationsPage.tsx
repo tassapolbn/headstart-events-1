@@ -6,6 +6,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import type { Booth, Registration, RegistrationStatus } from '@/lib/types';
 import { useEvent } from '@/hooks/useEvent';
+import { formCopy } from '@/lib/formCopy';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { fetchCampus } from '@/context/CampusContext';
 import { formatDateTime } from '@/lib/utils';
@@ -200,7 +201,7 @@ export default function RegistrationsPage() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-xl font-bold text-navy-800">Registrations</h1>
+          <h1 className="truncate font-display text-xl font-bold text-navy-800">{formCopy(event).entries}</h1>
           <p className="text-sm text-slate-500">{event.name}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -407,7 +408,7 @@ export default function RegistrationsPage() {
           </div>
         ) : (
           <>
-            <h1 className="mb-1 text-xl font-bold">{event.name}: registrations</h1>
+            <h1 className="mb-1 text-xl font-bold">{event.name}: {formCopy(event).entries.toLowerCase()}</h1>
             <p className="mb-4 text-sm">Printed {new Date().toLocaleString()} - {visible.length} item(s)</p>
             <table className="w-full border-collapse text-sm">
               <thead>
