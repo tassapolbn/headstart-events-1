@@ -13,6 +13,7 @@ import { Badge, Button, PageLoader } from '@/components/ui/basics';
 import { Select } from '@/components/ui/inputs';
 import { Tabs } from '@/components/ui/overlays';
 import { useCampus } from '@/context/CampusContext';
+import { formCopy } from '@/lib/formCopy';
 import DetailsTab from './tabs/DetailsTab';
 import BrandingTab from './tabs/BrandingTab';
 import FormTab from './tabs/FormTab';
@@ -90,6 +91,11 @@ export default function EventEditorPage() {
   if (loading || !draft) return <PageLoader label="Loading event" />;
   if (error) return <p className="p-8 text-center text-sm text-red-600">{error}</p>;
 
+  const copy = formCopy(draft);
+  // Surveys have no floor plan, check in, vendor signs or printed plan.
+  const visibleTabs = copy.isSurvey ? tabList.filter((t) => t.id !== 'floorplan') : tabList;
+  const activeTab = copy.isSurvey && tab === 'floorplan' ? 'details' : tab;
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -104,6 +110,7 @@ export default function EventEditorPage() {
                 {campusTag.name}
               </span>
             )}
+            <Badge color={copy.isSurvey ? 'amber' : 'blue'}>{copy.typeLabel}</Badge>
             {dirty && <Badge color="amber">Unsaved changes</Badge>}
           </div>
           <p className="truncate text-xs text-slate-500">/e/{draft.slug}</p>
@@ -135,11 +142,12 @@ export default function EventEditorPage() {
 
       <div className="flex flex-wrap gap-2">
         <Link to={`/admin/events/${id}/registrations`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
-          <ClipboardList className="h-3.5 w-3.5" /> Registrations
+          <ClipboardList className="h-3.5 w-3.5" /> {copy.entries}
         </Link>
         <Link to={`/admin/events/${id}/analytics`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
           <BarChart3 className="h-3.5 w-3.5" /> Analytics
         </Link>
+        {!copy.isSurvey && (<>
         <Link to={`/admin/events/${id}/checkin`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
           <QrCode className="h-3.5 w-3.5" /> Check in
         </Link>
@@ -149,18 +157,19 @@ export default function EventEditorPage() {
         <Link to={`/admin/events/${id}/plan`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
           <Map className="h-3.5 w-3.5" /> Print floor plan
         </Link>
+        </>)}
       </div>
 
-      <Tabs tabs={tabList} active={tab} onChange={setTab} />
+      <Tabs tabs={visibleTabs} active={activeTab} onChange={setTab} />
 
-      {tab === 'details' && <DetailsTab draft={draft} update={update} />}
-      {tab === 'branding' && <BrandingTab draft={draft} update={update} />}
-      {tab === 'form' && <FormTab draft={draft} update={update} />}
-      {tab === 'floorplan' && <FloorPlanTab draft={draft} update={update} />}
-      {tab === 'policies' && <PoliciesTab draft={draft} update={update} />}
-      {tab === 'email' && <EmailTab draft={draft} update={update} />}
-      {tab === 'settings' && <SettingsTab draft={draft} update={update} />}
-      {tab === 'share' && <ShareTab draft={draft} update={update} />}
+      {activeTab === 'details' && <DetailsTab draft={draft} update={update} />}
+      {activeTab === 'branding' && <BrandingTab draft={draft} update={update} />}
+      {activeTab === 'form' && <FormTab draft={draft} update={update} />}
+      {activeTab === 'floorplan' && <FloorPlanTab draft={draft} update={update} />}
+      {activeTab === 'policies' && <PoliciesTab draft={draft} update={update} />}
+      {activeTab === 'email' && <EmailTab draft={draft} update={update} />}
+      {activeTab === 'settings' && <SettingsTab draft={draft} update={update} />}
+      {activeTab === 'share' && <ShareTab draft={draft} update={update} />}
 
       {dirty && (
         <div className="no-print sticky bottom-3 z-20 flex justify-center">

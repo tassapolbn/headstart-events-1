@@ -1,10 +1,11 @@
 import { ExternalLink } from 'lucide-react';
 import type { FormField } from '@/lib/types';
 import { isStoredFileRef } from '@/lib/storage';
+import { gridAnswerLines, isGridField } from '@/lib/grid';
 
 /** Answers that read better across the full width of the panel. */
 export function isWideAnswer(field: FormField, value: unknown): boolean {
-  if (['paragraph', 'checkboxes', 'menu_quantity', 'file', 'photo', 'signature'].includes(field.type)) return true;
+  if (['paragraph', 'checkboxes', 'menu_quantity', 'file', 'photo', 'signature', 'grid', 'checkbox_grid', 'ranking'].includes(field.type)) return true;
   return typeof value === 'string' && value.length > 64;
 }
 
@@ -49,6 +50,32 @@ export function AnswerView({ field, value, onOpenFile }: {
             </span>
           ))}
         </div>
+      );
+    }
+
+    if (isGridField(field)) {
+      const lines = gridAnswerLines(field, value);
+      if (lines.length === 0) return <Empty />;
+      return (
+        <ul className="space-y-1">
+          {lines.map(({ row, answer }) => (
+            <li key={row} className="flex items-baseline justify-between gap-3 border-b border-dashed border-slate-100 pb-1 text-sm last:border-0">
+              <span className="min-w-0 text-slate-700">{row}</span>
+              <span className="shrink-0 font-semibold text-navy-700">{answer}</span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (field.type === 'rating' && typeof value === 'string' && field.ratingIcon && field.ratingIcon !== 'number') {
+      const n = Number(value), max = field.options?.length ?? 5;
+      const glyph = field.ratingIcon === 'heart' ? '\u2665' : field.ratingIcon === 'thumb' ? '\u{1F44D}' : '\u2605';
+      return (
+        <p className="text-sm text-slate-800">
+          <span className="tracking-wider text-gold-500" aria-hidden="true">{glyph.repeat(Math.max(0, Math.min(n, max)))}</span>
+          <span className="ml-2 font-semibold">{value} / {max}</span>
+        </p>
       );
     }
 

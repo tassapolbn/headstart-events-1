@@ -3,7 +3,9 @@ import type { EmailTemplate, EventRecord } from '@/lib/types';
 import { MERGE_FIELDS, buildMergeMap, renderMergeFields } from '@/lib/merge';
 import { buildEmailHtml } from '@/lib/emailHtml';
 import { useAppSettings } from '@/hooks/useAppSettings';
-import { Card } from '@/components/ui/basics';
+import { Button, Card } from '@/components/ui/basics';
+import { formCopy } from '@/lib/formCopy';
+import { defaultEmailFor } from '@/lib/defaults';
 import { Field, Input, Switch, Textarea } from '@/components/ui/inputs';
 
 export function EmailTemplateEditor({ event, template, onChange }: {
@@ -14,6 +16,17 @@ export function EmailTemplateEditor({ event, template, onChange }: {
   const appSettings = useAppSettings();
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const set = (patch: Partial<EmailTemplate>) => onChange({ ...template, ...patch });
+  const copy = formCopy(event);
+  const isSurvey = copy.isSurvey;
+  // Survey emails have no reference, booth, QR code or calendar, so only offer relevant merge fields.
+  const mergeFields = isSurvey
+    ? MERGE_FIELDS.filter((m) => !['{{Booth}}', '{{ReferenceNumber}}'].includes(m))
+    : MERGE_FIELDS;
+
+  function resetToDefault() {
+    const base = defaultEmailFor(isSurvey ? 'survey' : 'registration');
+    onChange({ ...template, subject: base.subject, body: base.body, showQr: base.showQr, attachCalendar: base.attachCalendar });
+  }
 
   function insertMergeField(token: string) {
     const el = bodyRef.current;
@@ -39,7 +52,7 @@ export function EmailTemplateEditor({ event, template, onChange }: {
   const previewHtml = useMemo(
     () =>
       buildEmailHtml({
-        template,
+        template: isSurvey ? { ...template, showQr: false } : template,
         mergeMap: sampleMap,
         logoUrl: appSettings?.email_logo_url ?? event.branding.logo_url ?? appSettings?.logo_url ?? `${window.location.origin}/logo.svg`,
         bannerUrl: event.branding.banner_url,
@@ -52,13 +65,22 @@ export function EmailTemplateEditor({ event, template, onChange }: {
   return (
     <div className="grid gap-5 xl:grid-cols-2">
       <div className="space-y-5">
-        <Card title="Confirmation email">
+        <Card
+          title={copy.emailCard}
+          actions={
+            <Button size="sm" variant="outline" onClick={resetToDefault}>
+              {isSurvey ? 'Use thank you template' : 'Use registration template'}
+            </Button>
+          }
+        >
           <div className="space-y-4">
             <Switch
               checked={template.enabled}
               onChange={(enabled) => set({ enabled })}
-              label="Send a confirmation email after each registration"
-              description="Requires the email relay URL to be set in Settings."
+              label={copy.emailSwitch}
+              description={isSurvey
+                ? 'A simple thank you, sent only when the person gives an email address. No reference number, QR code or calendar file. Requires the email relay URL in Settings.'
+                : 'Requires the email relay URL to be set in Settings.'}
             />
             <Field label="Subject" htmlFor="em-subject">
               <Input id="em-subject" value={template.subject} onChange={(e) => set({ subject: e.target.value })} />
@@ -66,7 +88,7 @@ export function EmailTemplateEditor({ event, template, onChange }: {
             <div>
               <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
                 <span className="text-sm font-medium text-slate-700">Body (HTML allowed)</span>
-                {MERGE_FIELDS.map((m) => (
+                {mergeFields.map((m) => (
                   <button
                     key={m}
                     type="button"
@@ -99,8 +121,12 @@ export function EmailTemplateEditor({ event, template, onChange }: {
               description="Uses the white email logo from Settings, made for the dark blue header. The school name text is hidden when the logo is shown."
             />
             <Switch checked={template.showBanner} onChange={(showBanner) => set({ showBanner })} label="Show the event banner image" />
-            <Switch checked={template.showQr} onChange={(showQr) => set({ showQr })} label="Include the check in QR code" />
-            <Switch checked={template.attachCalendar} onChange={(attachCalendar) => set({ attachCalendar })} label="Attach a calendar invitation (.ics)" />
+            {!isSurvey && (
+              <>
+                <Switch checked={template.showQr} onChange={(showQr) => set({ showQr })} label="Include the check in QR code" />
+                <Switch checked={template.attachCalendar} onChange={(attachCalendar) => set({ attachCalendar })} label="Attach a calendar invitation (.ics)" />
+              </>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Action button label" hint="Optional">
                 <Input value={template.buttonLabel ?? ''} onChange={(e) => set({ buttonLabel: e.target.value || undefined })} placeholder="View event details" />
@@ -112,7 +138,7 @@ export function EmailTemplateEditor({ event, template, onChange }: {
             <Switch
               checked={template.adminNotify}
               onChange={(adminNotify) => set({ adminNotify })}
-              label="Notify the administrator about each registration"
+              label={copy.notifySwitch}
             />
             {template.adminNotify && (
               <Field label="Notification email" hint="Leave empty to use the address from Settings.">

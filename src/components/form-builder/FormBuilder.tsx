@@ -27,8 +27,23 @@ function newField(type: FieldType): FormField {
     base.options = ['Option 1', 'Option 2'];
   }
   if (type === 'rating') {
-    base.label = 'How satisfied are you?';
+    base.label = 'How would you rate your experience?';
     base.options = ['1', '2', '3', '4', '5'];
+    base.ratingIcon = 'star';
+  }
+  if (type === 'grid') {
+    base.label = 'Please rate each of the following';
+    base.rows = ['Row 1', 'Row 2'];
+    base.options = ['Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
+  }
+  if (type === 'checkbox_grid') {
+    base.label = 'Select all that apply for each row';
+    base.rows = ['Row 1', 'Row 2'];
+    base.options = ['Column 1', 'Column 2', 'Column 3'];
+  }
+  if (type === 'ranking') {
+    base.label = 'Please rank the following in order of importance';
+    base.options = ['Item 1', 'Item 2', 'Item 3'];
   }
   if (type === 'evaluation') {
     base.label = 'Please evaluate your experience';

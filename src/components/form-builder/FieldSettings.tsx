@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import type { FieldCondition, FormField } from '@/lib/types';
 import { fieldTypeMeta } from '@/lib/defaults';
+import { ordinal } from '@/lib/grid';
 import { isContentField } from '@/components/form-renderer/fieldZod';
 import { Card } from '@/components/ui/basics';
 import { Field, Input, Select, Switch, Textarea } from '@/components/ui/inputs';
@@ -64,12 +65,75 @@ export function FieldSettings({ field, allFields, onChange }: {
         )}
 
         {field.type === 'rating' && (
-          <Field label="Rating scale" hint="One answer per question. Add help text to explain the lowest and highest scores.">
-            <Select value={field.options?.length === 10 ? '10' : '5'} onChange={(e) => onChange({ options: Array.from({ length: Number(e.target.value) }, (_, i) => String(i + 1)) })}>
-              <option value="5">1 to 5</option>
-              <option value="10">1 to 10</option>
-            </Select>
-          </Field>
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Scale" hint="Number of points.">
+                <Select
+                  value={String(field.options?.length ?? 5)}
+                  onChange={(e) => onChange({ options: Array.from({ length: Number(e.target.value) }, (_, i) => String(i + 1)) })}
+                  aria-label="Rating scale"
+                >
+                  {[3, 4, 5, 6, 7, 8, 9, 10].map((n) => <option key={n} value={n}>1 to {n}</option>)}
+                </Select>
+              </Field>
+              <Field label="Shown as">
+                <Select value={field.ratingIcon ?? 'number'} onChange={(e) => onChange({ ratingIcon: e.target.value as FormField['ratingIcon'] })} aria-label="Rating icon">
+                  <option value="star">Stars</option>
+                  <option value="heart">Hearts</option>
+                  <option value="thumb">Thumbs up</option>
+                  <option value="number">Numbered boxes</option>
+                </Select>
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Lowest label" hint="Optional, e.g. Poor">
+                <Input value={field.lowLabel ?? ''} onChange={(e) => onChange({ lowLabel: e.target.value || undefined })} />
+              </Field>
+              <Field label="Highest label" hint="Optional, e.g. Excellent">
+                <Input value={field.highLabel ?? ''} onChange={(e) => onChange({ highLabel: e.target.value || undefined })} />
+              </Field>
+            </div>
+          </>
+        )}
+
+        {(field.type === 'grid' || field.type === 'checkbox_grid') && (
+          <>
+            <OptionsEditor title="Rows" itemLabel="Row" options={field.rows ?? []} onChange={(rows) => onChange({ rows })} />
+            <OptionsEditor title="Columns" itemLabel="Column" options={field.options ?? []} onChange={(options) => onChange({ options })} />
+            {field.type === 'grid' && (
+              <>
+                <Switch
+                  checked={!!field.onePerColumn}
+                  onChange={(onePerColumn) => onChange({ onePerColumn })}
+                  label="Limit to one response per column"
+                  description="Each column can be chosen in one row only. Use this for rankings such as 1st, 2nd, 3rd."
+                />
+                <button
+                  type="button"
+                  onClick={() => onChange({
+                    options: (field.rows ?? []).map((_, i) => ordinal(i + 1)),
+                    onePerColumn: true,
+                  })}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-navy-300 hover:text-navy-600"
+                >
+                  Make columns 1st, 2nd, 3rd... (one per row)
+                </button>
+              </>
+            )}
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              When Required is on, every row must be answered.
+            </p>
+          </>
+        )}
+
+        {field.type === 'ranking' && (
+          <>
+            <OptionsEditor title="Items to rank" itemLabel="Item" options={field.options ?? []} onChange={(options) => onChange({ options })} />
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              Columns are created automatically: 1st to {ordinal(Math.max(1, field.options?.length ?? 1))}. Each rank can be used once.
+              When Required is on, every item must be ranked.
+            </p>
+          </>
         )}
         {field.type === 'evaluation' && (
           <Field label="Apply a preset" hint="You can edit, add and reorder the labels below.">
@@ -197,9 +261,11 @@ export function FieldSettings({ field, allFields, onChange }: {
 }
 
 
-function OptionsEditor({ options, onChange }: {
+function OptionsEditor({ options, onChange, title = 'Options', itemLabel = 'Option' }: {
   options: string[];
   onChange: (options: string[]) => void;
+  title?: string;
+  itemLabel?: string;
 }) {
   function setAt(i: number, value: string) {
     onChange(options.map((o, idx) => (idx === i ? value : o)));
@@ -216,13 +282,13 @@ function OptionsEditor({ options, onChange }: {
   }
   return (
     <div className="space-y-1.5">
-      <span className="block text-sm font-medium text-slate-700">Options</span>
+      <span className="block text-sm font-medium text-slate-700">{title}</span>
       <div className="space-y-2">
         {options.map((o, i) => (
           <div key={i} className="flex items-center gap-1.5">
-            <span className="w-16 shrink-0 text-xs text-slate-400">Option {i + 1}:</span>
-            <Input value={o} onChange={(e) => setAt(i, e.target.value)} aria-label={`Option ${i + 1}`} />
-            <button type="button" aria-label={`Move option ${i + 1} up`} disabled={i === 0} onClick={() => move(i, -1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
+            <span className="w-16 shrink-0 text-xs text-slate-400">{itemLabel} {i + 1}:</span>
+            <Input value={o} onChange={(e) => setAt(i, e.target.value)} aria-label={`${itemLabel} ${i + 1}`} />
+            <button type="button" aria-label={`Move ${itemLabel.toLowerCase()} ${i + 1} up`} disabled={i === 0} onClick={() => move(i, -1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
             <button type="button" aria-label={`Move option ${i + 1} down`} disabled={i === options.length - 1} onClick={() => move(i, 1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
             <button type="button" aria-label={`Remove option ${i + 1}`} onClick={() => removeAt(i)} className="rounded p-1 text-red-300 hover:text-red-500"><X className="h-4 w-4" /></button>
           </div>
@@ -233,7 +299,7 @@ function OptionsEditor({ options, onChange }: {
         onClick={() => onChange([...options, ''])}
         className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-navy-300 hover:text-navy-600"
       >
-        <Plus className="h-3.5 w-3.5" /> Add option
+        <Plus className="h-3.5 w-3.5" /> Add {itemLabel.toLowerCase()}
       </button>
     </div>
   );

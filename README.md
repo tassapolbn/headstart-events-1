@@ -90,3 +90,17 @@ The architecture is modular by design. New modules (volunteer registration, pare
 - No confirmation emails: open Settings and press "Send a test email"; check the Apps Script execution log; confirm the three Script Properties.
 - Booth map not showing publicly: the floor plan toggle must be on, the event saved, and at least one booth drawn and saved.
 - Changed the form after registrations arrived: old answers are kept and matched by question, new questions simply show empty for old rows.
+
+## Survey, questionnaire and feedback forms (September 2026)
+
+Every form now has a **form type** (Events -> Create, or Event -> Settings -> Form type):
+
+1. **Event registration form**: unchanged. Reference number, QR check in, booths, waitlist and confirmation email.
+2. **Survey, questionnaire or feedback form**: neutral public wording (no "Register here / below / now"),
+   optional name and email (anonymous responses allowed), a simple thank you page and a thank you
+   email with no reference number, QR code or calendar file. Floor plan, check in and vendor sign
+   tools are hidden for surveys.
+
+Setup: run `supabase/migration-007-survey-forms.sql` once in the Supabase SQL Editor (allows an
+empty email for survey forms only), and redeploy `apps-script/EmailRelay.gs` so administrator
+notifications say "New response" and anonymous responses still notify the team.

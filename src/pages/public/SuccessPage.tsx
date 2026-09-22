@@ -11,6 +11,7 @@ import { download, formatDate, formatTimeRange } from '@/lib/utils';
 import { buildIcs } from '@/lib/ics';
 import { PageLoader } from '@/components/ui/basics';
 import { richToHtml } from '@/components/ui/RichTextArea';
+import { formCopy } from '@/lib/formCopy';
 
 interface LookupResult {
   reference: string;
@@ -42,7 +43,66 @@ export default function SuccessPage() {
     void load();
   }, [slug, reference]);
 
-  if (loading) return <PageLoader label="Confirming your registration" />;
+  if (loading) return <PageLoader label="Just a moment" />;
+
+  const copy = formCopy(event);
+  if (copy.isSurvey) {
+    return (
+      <main className="event-theme event-theme-page min-h-screen py-10 sm:py-14" style={themeStyle(event?.theme)}>
+        <div className="mx-auto max-w-xl px-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+            className="text-center"
+          >
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 15 }}
+              className="inline-flex h-20 w-20 items-center justify-center rounded-full shadow-lg"
+              style={{ background: '#22c55e' }}
+            >
+              <Check className="h-11 w-11 text-white" strokeWidth={3} />
+            </motion.span>
+            <h1 className="mt-5 text-3xl font-extrabold sm:text-4xl" style={{ color: 'var(--ev-title)' }}>
+              {copy.successTitle}
+            </h1>
+            <p className="mt-1.5 text-sm opacity-70">{event?.name ?? reg?.event.name}</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+            className="ev-card ev-accent-top mt-7 p-6 text-center sm:p-8"
+          >
+            <div
+              className="ev-rich mx-auto max-w-md text-[15px] leading-relaxed"
+              dangerouslySetInnerHTML={{
+                __html: richToHtml(
+                  event?.settings.confirmationMessage
+                    || 'Thank you for taking the time to share your views. Your response has been received.'
+                ),
+              }}
+            />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+            className="mt-6 flex flex-wrap justify-center gap-2"
+          >
+            {event?.settings.allowDuplicateEmail !== false && event?.slug && (
+              <Link to={`/e/${event.slug}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/80 px-4 py-2 text-xs font-semibold hover:bg-white">
+                Submit another response
+              </Link>
+            )}
+            <Link to="/" className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/80 px-4 py-2 text-xs font-semibold hover:bg-white">
+              Home
+            </Link>
+          </motion.div>
+        </div>
+      </main>
+    );
+  }
 
   const lookupUrl = `${window.location.origin}/lookup?ref=${reference}`;
   const waitlisted = reg?.status === 'waitlist';

@@ -1,6 +1,6 @@
 import type {
   EmailTemplate, EventRecord, EventSettings, EventTheme,
-  FloorPlanSettings, FormField, PolicySection,
+  FloorPlanSettings, FormField, FormType, PolicySection,
 } from './types';
 import { uid } from './utils';
 
@@ -65,6 +65,7 @@ export const fontOptions = ['Inter', 'Poppins', 'Nunito', 'Playfair Display', 'M
 // Event defaults
 // ------------------------------------------------------------------
 export const defaultSettings: EventSettings = {
+  formType: 'registration',
   maxBooths: 1,
   allowDuplicateEmail: false,
   requireApproval: false,
@@ -111,13 +112,60 @@ export const defaultEmailTemplate: EmailTemplate = {
   adminEmail: '',
 };
 
+/** Thank you email for surveys: no reference number, booth, QR code or calendar file. */
+export const surveyEmailTemplate: EmailTemplate = {
+  enabled: true,
+  subject: 'Thank you for your response: {{Event}}',
+  body: [
+    '<p>Dear Khun {{Name}},</p>',
+    '<p>Thank you for taking the time to complete <strong>{{Event}}</strong>. Your response has been received.</p>',
+    '<p>We truly appreciate your feedback. It helps us continue to improve our school community.</p>',
+    '<p>Warm regards,<br/>HeadStart International School Phuket</p>',
+  ].join('\n'),
+  showLogo: true,
+  showBanner: false,
+  showQr: false,
+  attachCalendar: false,
+  adminNotify: true,
+  adminEmail: '',
+};
+
+/** Settings suited to a survey, questionnaire or feedback form. */
+export const surveySettingsPatch: Partial<EventSettings> = {
+  formType: 'survey',
+  allowDuplicateEmail: true,
+  requireApproval: false,
+  waitlistEnabled: false,
+  requirePolicyAck: false,
+  showQrOnSuccess: false,
+  boothSelection: 'none',
+  confirmationMessage: 'Thank you for taking the time to share your views. Your response has been received.',
+};
+
+/** Settings restored when a form is switched back to event registration. */
+export const registrationSettingsPatch: Partial<EventSettings> = {
+  formType: 'registration',
+  allowDuplicateEmail: defaultSettings.allowDuplicateEmail,
+  waitlistEnabled: defaultSettings.waitlistEnabled,
+  requirePolicyAck: defaultSettings.requirePolicyAck,
+  showQrOnSuccess: defaultSettings.showQrOnSuccess,
+  confirmationMessage: defaultSettings.confirmationMessage,
+};
+
+export function defaultEmailFor(type: FormType): EmailTemplate {
+  return { ...(type === 'survey' ? surveyEmailTemplate : defaultEmailTemplate) };
+}
+
 export const defaultPolicies: PolicySection[] = [
   { id: uid(), title: 'Rules', content: 'All participants must follow the instructions of school staff at all times.', enabled: true },
   { id: uid(), title: 'Health and Safety', content: 'Please report any accident or hazard to the Information Desk immediately.', enabled: true },
   { id: uid(), title: 'Safeguarding', content: 'All visitors must sign in at reception and wear a visitor badge while on campus.', enabled: true },
 ];
 
-export function newEventDraft(name: string, slug: string, campusId = 'hsc'): Omit<EventRecord, 'id' | 'created_at' | 'updated_at'> {
+export function newEventDraft(
+  name: string, slug: string, campusId = 'hsc', formType: FormType = 'registration',
+): Omit<EventRecord, 'id' | 'created_at' | 'updated_at'> {
+  const survey = formType === 'survey';
   return {
     campus_id: campusId,
     slug,
@@ -134,10 +182,10 @@ export function newEventDraft(name: string, slug: string, campusId = 'hsc'): Omi
     status: 'draft',
     branding: {},
     theme: { ...defaultTheme },
-    form_schema: basicFormPreset(),
-    policies: defaultPolicies.map((p) => ({ ...p, id: uid() })),
-    email_template: { ...defaultEmailTemplate },
-    settings: { ...defaultSettings },
+    form_schema: survey ? surveyFormPreset() : basicFormPreset(),
+    policies: survey ? [] : defaultPolicies.map((p) => ({ ...p, id: uid() })),
+    email_template: defaultEmailFor(formType),
+    settings: survey ? { ...defaultSettings, ...surveySettingsPatch } : { ...defaultSettings },
     floor_plan: { ...defaultFloorPlan },
   };
 }
@@ -150,6 +198,28 @@ export function basicFormPreset(): FormField[] {
     { id: uid(), type: 'short_text', label: 'Full Name', required: true, mapTo: 'name', placeholder: 'Your full name' },
     { id: uid(), type: 'email', label: 'Email Address', required: true, mapTo: 'email', placeholder: 'name@example.com' },
     { id: uid(), type: 'phone', label: 'Phone Number', required: false, mapTo: 'phone', placeholder: '08x xxx xxxx' },
+  ];
+}
+
+/** Starter questions for a survey, questionnaire or feedback form. Name and email are optional. */
+export function surveyFormPreset(): FormField[] {
+  return [
+    { id: uid(), type: 'short_text', label: 'Your Name', required: false, mapTo: 'name', placeholder: 'Optional' },
+    {
+      id: uid(), type: 'email', label: 'Email Address', required: false, mapTo: 'email', placeholder: 'name@example.com',
+      helpText: 'Optional. Add your email if you would like to receive a thank you email.',
+    },
+    { id: uid(), type: 'divider', label: 'Divider' },
+    {
+      id: uid(), type: 'rating', label: 'Overall, how satisfied are you?', required: true,
+      options: ['1', '2', '3', '4', '5'], helpText: '1 = Very dissatisfied, 5 = Very satisfied',
+    },
+    {
+      id: uid(), type: 'evaluation', label: 'How would you rate the organisation?', required: true,
+      options: ['Needs improvement', 'Fair', 'Good', 'Very good'],
+    },
+    { id: uid(), type: 'paragraph', label: 'What did you enjoy most?', required: false },
+    { id: uid(), type: 'paragraph', label: 'Any suggestions for improvement?', required: false },
   ];
 }
 
@@ -202,7 +272,10 @@ export const fieldTypeMeta: Record<string, { label: string; group: 'Basic' | 'Se
   date: { label: 'Date', group: 'Basic' },
   time: { label: 'Time', group: 'Basic' },
   dropdown: { label: 'Dropdown', group: 'Selection' },
-  rating: { label: 'Rating scale', group: 'Selection' },
+  rating: { label: 'Rating (stars / scale)', group: 'Selection' },
+  grid: { label: 'Multiple choice grid', group: 'Selection' },
+  checkbox_grid: { label: 'Checkbox grid', group: 'Selection' },
+  ranking: { label: 'Ranking (1st, 2nd, 3rd)', group: 'Selection' },
   evaluation: { label: 'Evaluation / Survey', group: 'Selection' },
   radio: { label: 'Radio Buttons', group: 'Selection' },
   checkboxes: { label: 'Checkboxes', group: 'Selection' },

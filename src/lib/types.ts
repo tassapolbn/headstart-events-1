@@ -5,6 +5,7 @@ export type EventStatus = 'draft' | 'published' | 'open' | 'closed' | 'waitlist'
 export type FieldType =
   | 'short_text' | 'paragraph' | 'email' | 'phone' | 'number' | 'date' | 'time'
   | 'rating' | 'evaluation' | 'dropdown' | 'radio' | 'checkboxes' | 'multiple_choice' | 'menu_quantity'
+  | 'grid' | 'checkbox_grid' | 'ranking'
   | 'file' | 'photo' | 'signature' | 'rich_text' | 'divider' | 'heading';
 
 export interface FieldCondition {
@@ -36,6 +37,15 @@ export interface FormField {
   maxSizeMB?: number;
   /** Number fields: also collect the names, one per line */
   collectNames?: boolean;
+  /** Grid questions: the row labels (options hold the column labels). Ranking: options hold the items. */
+  rows?: string[];
+  /** Multiple choice grid: each column may be chosen in one row only (e.g. 1st, 2nd, 3rd) */
+  onePerColumn?: boolean;
+  /** Rating: how each point is shown */
+  ratingIcon?: 'number' | 'star' | 'heart' | 'thumb';
+  /** Rating: optional words under the lowest and highest point */
+  lowLabel?: string;
+  highLabel?: string;
   /** Copies this answer into the registration columns used for search and email */
   mapTo?: 'name' | 'email' | 'phone' | null;
 }
@@ -106,7 +116,16 @@ export interface EmailTemplate {
   adminEmails?: string[];
 }
 
+/** What the public page is for. Stored inside events.settings (JSON), so no column change is needed. */
+export type FormType = 'registration' | 'survey';
+
 export interface EventSettings {
+  /** 'registration' = event sign up (reference, QR, booths). 'survey' = survey, questionnaire or feedback form. */
+  formType: FormType;
+  /** Optional custom heading above the form (falls back to the wording for the form type) */
+  formHeading?: string;
+  /** Optional custom submit button label (falls back to the wording for the form type) */
+  submitLabel?: string;
   /** How many booths one registration may hold (1 to 3) */
   maxBooths: number;
   allowDuplicateEmail: boolean;

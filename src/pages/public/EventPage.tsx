@@ -12,6 +12,7 @@ import type { Campus } from '@/lib/types';
 import { themeStyle } from '@/lib/theme';
 import { formatDate, formatTimeRange } from '@/lib/utils';
 import { friendlyError } from '@/lib/errors';
+import { formCopy } from '@/lib/formCopy';
 import { uploadVendorFile, dataUrlToBlob } from '@/lib/storage';
 import { isContentField, isVisible } from '@/components/form-renderer/fieldZod';
 import { FormRenderer } from '@/components/form-renderer/FormRenderer';
@@ -67,15 +68,17 @@ export default function EventPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
         <div className="rounded-2xl bg-white p-10 text-center shadow-card">
-          <p className="font-display text-lg font-semibold text-navy-800">Event not found</p>
-          <p className="mt-1 text-sm text-slate-500">This registration link is not available. Please check the link you received.</p>
+          <p className="font-display text-lg font-semibold text-navy-800">Page not found</p>
+          <p className="mt-1 text-sm text-slate-500">This link is not available. Please check the link you received.</p>
         </div>
       </main>
     );
   }
 
   const t = event.theme;
-  const boothsEnabled = event.floor_plan.enabled && event.settings.boothSelection === 'single';
+  const copy = formCopy(event);
+  const isSurvey = copy.isSurvey;
+  const boothsEnabled = !isSurvey && event.floor_plan.enabled && event.settings.boothSelection === 'single';
   const vendorTypeField = event.floor_plan.vendorTypeField ?? '';
   const vendorTypeValue = vendorTypeField ? String(liveValues[vendorTypeField] ?? '') : '';
   const activePolicies = event.policies.filter((p) => p.enabled && (p.title || p.content));
@@ -113,6 +116,7 @@ export default function EventPage() {
         if (isContentField(f) || !isVisible(f, values)) continue;
         let v = values[f.id];
         if (v === undefined || v === null || v === '') continue;
+        if (typeof v === 'object' && !(v instanceof File) && !Array.isArray(v) && Object.keys(v as object).length === 0) continue;
 
         if ((f.type === 'file' || f.type === 'photo') && v instanceof File) {
           v = await uploadVendorFile(v, event.id);
@@ -134,7 +138,7 @@ export default function EventPage() {
       }
       if (!email) {
         const emailField = event.form_schema.find((f) => f.type === 'email');
-        email = emailField ? String(values[emailField.id] ?? '') : '';
+        email = emailField ? String(values[emailField.id] ?? '').trim() : '';
       }
       if (!name) {
         const firstText = event.form_schema.find((f) => f.type === 'short_text');
@@ -145,7 +149,8 @@ export default function EventPage() {
       const { data: result, error } = await supabase.rpc('submit_registration', {
         p_event_id: event.id,
         p_name: name || null,
-        p_email: email,
+        // Surveys may be anonymous: an empty email is sent as null.
+        p_email: email || (isSurvey ? null : email),
         p_phone: phone || null,
         p_data: data,
         p_booth_id: boothsEnabled ? (boothIds[0] ?? null) : null,
@@ -159,7 +164,12 @@ export default function EventPage() {
 
       // 3. Ask the email relay to send the confirmation (fire and forget).
       const relayUrl = campus?.webhook_url ?? appSettings?.webhook_url;
-      if (event.email_template.enabled && relayUrl) {
+      // Registrations: send the confirmation. Surveys: send the thank you (when an email was given)
+      // and/or the administrator notification, even for anonymous responses.
+      const wantsRelay = isSurvey
+        ? event.email_template.enabled || event.email_template.adminNotify
+        : event.email_template.enabled;
+      if (wantsRelay && relayUrl) {
         void fetch(relayUrl, {
           method: 'POST',
           mode: 'no-cors',
@@ -179,8 +189,8 @@ export default function EventPage() {
 
       navigate(`/e/${event.slug}/success/${res.reference}`, { state: { result: res, menu } });
     } catch (err) {
-      console.error('Registration submit failed:', err);
-      toast(friendlyError(err), 'error');
+      console.error('Form submit failed:', err);
+      toast(friendlyError(err, isSurvey ? 'survey' : 'registration'), 'error');
     } finally {
       setBusy(false);
     }
@@ -188,7 +198,7 @@ export default function EventPage() {
 
   return (
     <main className="event-theme event-theme-page min-h-screen pb-16" style={themeStyle(t)}>
-      <a href="#registration-form" className="skip-link">Skip to the registration form</a>
+      <a href="#registration-form" className="skip-link">{copy.skipLink}</a>
 
       {t.animations && (
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[70vh] overflow-hidden" aria-hidden="true">
@@ -257,7 +267,7 @@ export default function EventPage() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.9 }}
             >
-              Register below
+              {copy.scrollCue}
               <ChevronDown className="ev-bob h-5 w-5" aria-hidden="true" />
             </motion.a>
           )}
@@ -289,7 +299,7 @@ export default function EventPage() {
         </div>
 
         {/* Waitlist / closed notices */}
-        {event.status === 'waitlist' && windowState === 'open' && (
+        {!isSurvey && event.status === 'waitlist' && windowState === 'open' && (
           <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             This event is currently accepting waitlist registrations only.
           </div>
@@ -298,12 +308,12 @@ export default function EventPage() {
         {windowState !== 'open' ? (
           <div className="ev-card mt-6 p-8 text-center shadow-card">
             <p className="text-lg font-semibold" style={{ color: 'var(--ev-primary)' }}>
-              {windowState === 'not_open' ? 'Registration has not opened yet' : 'Registration is closed'}
+              {windowState === 'not_open' ? copy.notOpenTitle : copy.closedTitle}
             </p>
             <p className="mt-1 text-sm opacity-70">
               {windowState === 'not_open' && event.reg_opens_at
-                ? `Registration opens on ${formatDate(event.reg_opens_at.slice(0, 10))}.`
-                : 'Thank you for your interest in this event.'}
+                ? copy.opensOn(formatDate(event.reg_opens_at.slice(0, 10)))
+                : copy.closedHint}
             </p>
           </div>
         ) : (
@@ -312,7 +322,7 @@ export default function EventPage() {
             {activePolicies.length > 0 && (
               <motion.section {...reveal} className="ev-card ev-accent-top mt-6 space-y-4 p-5" aria-labelledby="policies-heading">
                 <h2 id="policies-heading" className="flex items-center gap-2 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
-                  <ShieldCheck className="h-5 w-5" /> Event policies
+                  <ShieldCheck className="h-5 w-5" /> {isSurvey ? 'Policies' : 'Event policies'}
                 </h2>
                 <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-2">
                   {activePolicies.map((p) => (
@@ -370,7 +380,9 @@ export default function EventPage() {
 
             {/* Form */}
             <motion.section {...reveal} id="registration-form" className="ev-card ev-accent-top mt-6 scroll-mt-6 p-5 sm:p-7">
-              <h2 className="mb-5 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>Registration form</h2>
+              <h2 className="mb-5 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
+                {event.settings.formHeading?.trim() || copy.formHeading}
+              </h2>
               {/* Honeypot: invisible to humans, irresistible to bots */}
               <input
                 ref={hpRef} type="text" name="website" tabIndex={-1} autoComplete="off"
@@ -382,7 +394,11 @@ export default function EventPage() {
                 busy={busy}
                 onValuesChange={handleValuesChange}
                 onSubmit={handleSubmit}
-                submitLabel={event.status === 'waitlist' ? 'Join the waitlist' : 'Submit registration'}
+                submitLabel={
+                  !isSurvey && event.status === 'waitlist'
+                    ? 'Join the waitlist'
+                    : event.settings.submitLabel?.trim() || copy.submitLabel
+                }
                 beforeSubmit={
                   event.settings.requirePolicyAck && activePolicies.length > 0 ? (
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm">
