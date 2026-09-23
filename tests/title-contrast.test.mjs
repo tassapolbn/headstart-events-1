@@ -11,7 +11,7 @@ try {
     stdin: { contents: `
       export {
         contrastRatio, relativeLuminance, titleOutline, titleNeedsOutline,
-        themeStyle, LARGE_TEXT_CONTRAST,
+        autoTitleOutlineColor, themeStyle, LARGE_TEXT_CONTRAST,
       } from './src/lib/theme';
       export { defaultTheme } from './src/lib/defaults';
     `, resolveDir: process.cwd(), loader: 'tsx' },
@@ -83,6 +83,51 @@ try {
   // A missing theme must not throw.
   assert.equal(typeof m.themeStyle(undefined)['--ev-title-shadow'], 'string');
   assert.equal(m.titleOutline(undefined), 'none');
+
+  // ---- The outline can be chosen in the Theme tab ----
+  const pale = { titleColor: '#e9b701', background: '#ffffff', backgroundTo: '#fff8d6', text: '#14202e' };
+  const reads = { titleColor: '#1a3c5e', background: '#ffffff', text: '#14202e' };
+
+  // Mode. 'auto' is the default and keeps the behaviour above.
+  assert.equal(m.titleOutline({ ...pale, titleOutlineMode: 'auto' }), m.titleOutline(pale));
+  assert.equal(m.titleOutline({ ...pale, titleOutlineMode: 'never' }), 'none');
+  assert.equal(m.titleOutline({ ...reads, titleOutlineMode: 'never' }), 'none');
+  // 'always' shows the ring even on a theme that reads perfectly well, which
+  // is what makes picking a colour on such a theme do something visible.
+  assert.equal(m.titleOutline(reads), 'none');
+  assert.notEqual(m.titleOutline({ ...reads, titleOutlineMode: 'always' }), 'none');
+
+  // Colour. A chosen one is used verbatim, in every mode that draws a ring.
+  const chosen = m.titleOutline({ ...pale, titleOutlineColor: '#b3000c' });
+  assert.ok(chosen.includes('179, 0, 12'), 'the chosen colour must be the ring');
+  assert.equal(chosen.includes('20, 32, 46'), false, 'the automatic colour must not leak through');
+  const chosenAlways = m.titleOutline({ ...reads, titleOutlineMode: 'always', titleOutlineColor: '#b3000c' });
+  assert.ok(chosenAlways.includes('179, 0, 12'));
+  // Choosing a colour cannot revive an outline that was switched off.
+  assert.equal(m.titleOutline({ ...pale, titleOutlineMode: 'never', titleOutlineColor: '#b3000c' }), 'none');
+  // Clearing the colour returns to the automatic pick.
+  assert.equal(m.titleOutline({ ...pale, titleOutlineColor: undefined }), m.titleOutline(pale));
+
+  // The swatch the editor seeds itself with is the colour actually used.
+  for (const theme of [pale, reads, { titleColor: '#F0B323', background: '#8a6a10', text: '#14202e' }]) {
+    const auto = m.autoTitleOutlineColor(theme);
+    const rendered = m.titleOutline({ ...theme, titleOutlineMode: 'always' });
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(auto.replace('#', '').slice(i - 1, i + 1), 16));
+    assert.ok(rendered.includes(`${r}, ${g}, ${b}`), `editor swatch ${auto} must match what is drawn`);
+  }
+  // A dark page seeds a white swatch, a pale page a dark one.
+  assert.equal(m.autoTitleOutlineColor({ titleColor: '#F0B323', background: '#8a6a10', text: '#14202e' }), '#ffffff');
+  assert.equal(m.autoTitleOutlineColor(pale), '#14202e');
+  // With nothing to measure against it still answers with a usable colour.
+  assert.equal(m.autoTitleOutlineColor(undefined), '#14202e');
+
+  // 'always' with no readable background still draws, rather than silently
+  // doing nothing after the setting was switched on.
+  assert.notEqual(m.titleOutline({ titleColor: '#e9b701', background: 'linear-gradient(x)', titleOutlineMode: 'always' }), 'none');
+
+  // And it reaches the page as a variable, same as the automatic ring.
+  assert.ok(m.themeStyle({ ...reads, titleOutlineMode: 'always', titleOutlineColor: '#b3000c' })['--ev-title-shadow'].includes('179, 0, 12'));
+  assert.equal(m.themeStyle({ ...pale, titleOutlineMode: 'never' })['--ev-title-shadow'], 'none');
 
   console.log('title contrast tests passed');
 } finally {

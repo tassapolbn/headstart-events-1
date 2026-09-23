@@ -88,6 +88,14 @@ export interface EventTheme {
   accent: string;
   /** Event name colour (falls back to primary) */
   titleColor?: string;
+  /**
+   * Outline around the event name.
+   * 'auto' (the default) draws it only when the name would not read against
+   * the page, 'always' keeps it whatever the colours are, 'never' drops it.
+   */
+  titleOutlineMode?: 'auto' | 'always' | 'never';
+  /** Outline colour. Empty or missing picks the one that suits the page. */
+  titleOutlineColor?: string;
   /** Question and section heading colour (falls back to primary) */
   headingColor?: string;
   background: string;

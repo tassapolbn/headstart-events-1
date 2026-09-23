@@ -49,24 +49,44 @@ export const LARGE_TEXT_CONTRAST = 3;
  * gold on their printed artwork is outlined. Returns 'none' when the colour
  * already reads on its own.
  */
+/**
+ * The outline colour picked when none is chosen in the Theme tab.
+ *
+ * The ring separates the letters from the page, so it is chosen against the
+ * background rather than against the title: dark behind a pale page, white
+ * behind a dark one. Also used to seed the colour picker, so "choose for me"
+ * and the swatch shown always agree.
+ */
+export function autoTitleOutlineColor(theme?: Partial<EventTheme>): string {
+  const t = { ...defaultTheme, ...(theme ?? {}) };
+  const dark = t.text || '#14202e';
+  const title = t.titleColor || t.primary;
+  const scored = [t.background, t.backgroundTo]
+    .filter((c): c is string => !!c)
+    .map((stop) => ({ stop, ratio: contrastRatio(title, stop) }))
+    .filter((s) => s.ratio > 0);
+  if (scored.length === 0) return dark;
+  const worst = scored.reduce((a, b) => (b.ratio < a.ratio ? b : a));
+  return contrastRatio('#ffffff', worst.stop) > contrastRatio(dark, worst.stop) ? '#ffffff' : dark;
+}
+
 export function titleOutline(theme?: Partial<EventTheme>): string {
   const t = { ...defaultTheme, ...(theme ?? {}) };
+  const mode = t.titleOutlineMode ?? 'auto';
+  if (mode === 'never') return 'none';
+
   const title = t.titleColor || t.primary;
   const stops = [t.background, t.backgroundTo].filter((c): c is string => !!c);
   const scored = stops
     .map((stop) => ({ stop, ratio: contrastRatio(title, stop) }))
     .filter((s) => s.ratio > 0);
-  if (scored.length === 0) return 'none';
   // The stop the title reads worst against decides, so one weak end of a
   // gradient is enough to earn the outline.
-  const worst = scored.reduce((a, b) => (b.ratio < a.ratio ? b : a));
-  if (worst.ratio >= LARGE_TEXT_CONTRAST) return 'none';
+  const worst = scored.length ? scored.reduce((a, b) => (b.ratio < a.ratio ? b : a)) : null;
+  if (mode === 'auto' && (!worst || worst.ratio >= LARGE_TEXT_CONTRAST)) return 'none';
 
-  // The ring separates the letters from the page, so it is chosen against the
-  // background rather than against the title: dark behind a pale page, white
-  // behind a dark one.
-  const dark = t.text || '#14202e';
-  const ring = contrastRatio(dark, worst.stop) >= contrastRatio('#ffffff', worst.stop) ? dark : '#ffffff';
+  // A colour chosen in the Theme tab wins, otherwise one is picked to suit.
+  const ring = t.titleOutlineColor || autoTitleOutlineColor(theme);
   const rgb = rgbChannels(ring, '20, 32, 46');
   const edge = `rgba(${rgb}, 0.92)`;
   const glow = `rgba(${rgb}, 0.28)`;
