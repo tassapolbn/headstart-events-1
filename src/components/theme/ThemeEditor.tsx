@@ -1,7 +1,7 @@
 import type { EventTheme } from '@/lib/types';
 import { QUESTION_LAYOUT_DEFAULTS } from '@/lib/types';
 import { fontOptions, themePresets } from '@/lib/defaults';
-import { themeStyle, buttonClass, usesQuestionCards } from '@/lib/theme';
+import { themeStyle, buttonClass, usesQuestionCards, autoTitleOutlineColor } from '@/lib/theme';
 import { Card } from '@/components/ui/basics';
 import { ColorInput, Field, Select, Switch } from '@/components/ui/inputs';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ export function ThemeEditor({ theme, onChange, eventName }: {
   const gap = q.questionGap ?? QUESTION_LAYOUT_DEFAULTS.questionGap;
   const size = q.questionSize ?? QUESTION_LAYOUT_DEFAULTS.questionSize;
   const boxed = usesQuestionCards(theme);
+  const autoOutlineColour = autoTitleOutlineColor(theme);
 
   return (
     <div className="space-y-5">
@@ -54,6 +55,31 @@ export function ThemeEditor({ theme, onChange, eventName }: {
               </button>
             )}
           </div>
+          <Field label="Event name outline" hint="A ring around the event name so it reads on a pale page.">
+            <Select
+              value={theme.titleOutlineMode ?? 'auto'}
+              onChange={(e) => set({ titleOutlineMode: e.target.value as EventTheme['titleOutlineMode'] })}
+              aria-label="Event name outline"
+            >
+              <option value="auto">Only when the name is hard to read</option>
+              <option value="always">Always show</option>
+              <option value="never">Never show</option>
+            </Select>
+          </Field>
+          {(theme.titleOutlineMode ?? 'auto') !== 'never' && (
+            <div className="flex items-end gap-2">
+              <ColorInput
+                label="Outline colour"
+                value={theme.titleOutlineColor ?? autoOutlineColour}
+                onChange={(v) => set({ titleOutlineColor: v })}
+              />
+              {theme.titleOutlineColor && (
+                <button type="button" className="mb-1 rounded-lg px-2 py-1.5 text-xs text-slate-500 hover:bg-slate-100" onClick={() => set({ titleOutlineColor: undefined })}>
+                  Choose for me
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <ColorInput label="Question heading colour" value={theme.headingColor ?? theme.primary} onChange={(v) => set({ headingColor: v })} />
             {theme.headingColor && (
@@ -170,7 +196,11 @@ export function ThemeEditor({ theme, onChange, eventName }: {
             >
               HeadStart Event
             </span>
-            <h3 className="mt-3 text-xl font-bold" style={{ color: 'var(--ev-primary)' }}>{eventName || 'Event name'}</h3>
+            {/* Uses the event name's own colour and outline, so the choices
+                above can be judged here rather than only after saving. */}
+            <h3 className="ev-title mt-3 text-2xl font-bold" style={{ color: 'var(--ev-title)' }}>
+              {eventName || 'Event name'}
+            </h3>
             <p className="mb-4 mt-1 text-sm opacity-80">This is how questions, choices and buttons will look on the public page.</p>
 
             <div className="ev-form-stack">
