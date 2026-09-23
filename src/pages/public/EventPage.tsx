@@ -9,7 +9,7 @@ import { normalizeEvent } from '@/hooks/useEvent';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { fetchCampus } from '@/context/CampusContext';
 import type { Campus } from '@/lib/types';
-import { themeStyle } from '@/lib/theme';
+import { themeStyle, titleNeedsOutline } from '@/lib/theme';
 import { formatDate, formatTimeRange } from '@/lib/utils';
 import { friendlyError } from '@/lib/errors';
 import { formCopy } from '@/lib/formCopy';
@@ -226,7 +226,10 @@ export default function EventPage() {
             <img src={logo} alt="School logo" className="mx-auto mb-5 h-14 w-auto max-w-[70vw] object-contain sm:h-16" />
           )}
           <motion.h1
-            className={`ev-title-fluid font-extrabold ${t.animations ? 'ev-sheen' : ''}`}
+            /* The sheen clips a gradient to the letters, which fights an
+               outline, so the name keeps whichever it needs: readable first,
+               decorative second. */
+            className={`ev-title ev-title-fluid font-extrabold ${t.animations && !titleNeedsOutline(t) ? 'ev-sheen' : ''}`}
             style={{ color: 'var(--ev-title)' }}
             initial={t.animations ? { opacity: 0, y: 22, scale: 0.97 } : false}
             animate={t.animations ? { opacity: 1, y: 0, scale: 1 } : undefined}
