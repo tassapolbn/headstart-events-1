@@ -65,7 +65,7 @@ export default function SuccessPage() {
             >
               <Check className="h-11 w-11 text-white" strokeWidth={3} />
             </motion.span>
-            <h1 className="mt-5 text-3xl font-extrabold sm:text-4xl" style={{ color: 'var(--ev-title)' }}>
+            <h1 className="ev-title mt-5 text-3xl font-extrabold sm:text-4xl" style={{ color: 'var(--ev-title)' }}>
               {copy.successTitle}
             </h1>
             <p className="mt-1.5 text-sm opacity-70">{event?.name ?? reg?.event.name}</p>
@@ -144,7 +144,7 @@ export default function SuccessPage() {
           >
             <Check className="h-11 w-11 text-white" strokeWidth={3} />
           </motion.span>
-          <h1 className="mt-5 text-3xl font-extrabold sm:text-4xl" style={{ color: 'var(--ev-title)' }}>
+          <h1 className="ev-title mt-5 text-3xl font-extrabold sm:text-4xl" style={{ color: 'var(--ev-title)' }}>
             {waitlisted ? 'You are on the waitlist' : pending ? 'Registration received' : 'Registration confirmed!'}
           </h1>
           <p className="mt-1.5 text-sm opacity-70">{reg?.event.name ?? event?.name}</p>

@@ -272,6 +272,13 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
   letter-spacing: -0.02em;
 }
 
+/* The event name keeps the colour the school chose, and gains an outline when
+   that colour would otherwise disappear into a pale page. The value is worked
+   out per event in theme.ts and is 'none' when the colour reads on its own. */
+.ev-title {
+  text-shadow: var(--ev-title-shadow, none);
+}
+
 /* Universal design: honour reduced motion preferences everywhere */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -318,11 +325,13 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
   50%  { transform: translate3d(3%, -4%, 0) scale(1.12); }
   100% { transform: translate3d(0, 0, 0) scale(1); }
 }
+/* The wash sits directly behind the event name, so it is kept faint. At its
+   old strength it pulled the name's contrast down on pale themes. */
 .ev-aurora {
   position: absolute;
   border-radius: 9999px;
   filter: blur(70px);
-  opacity: 0.4;
+  opacity: 0.22;
   pointer-events: none;
   animation: ev-aurora 18s ease-in-out infinite;
 }
@@ -334,18 +343,25 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
   60%  { background-position: 180% 0; }
   100% { background-position: 180% 0; }
 }
-.ev-sheen {
-  background-image: linear-gradient(
-    100deg,
-    currentColor 0%, currentColor 40%,
-    color-mix(in srgb, var(--ev-secondary) 85%, white) 50%,
-    currentColor 60%, currentColor 100%
-  );
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: ev-sheen 2.6s ease-out 0.5s 1 both;
+/* A light band sweeps once across the event name. Two guards keep it from
+   costing legibility: it only paints where clipping a background to text is
+   actually supported, so the name is never left transparent, and the band is
+   mixed into the name's own colour rather than towards white, so the sweep
+   brightens the letters instead of bleaching them. */
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .ev-sheen {
+    background-image: linear-gradient(
+      100deg,
+      currentColor 0%, currentColor 42%,
+      color-mix(in srgb, var(--ev-secondary) 45%, currentColor) 50%,
+      currentColor 58%, currentColor 100%
+    );
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: ev-sheen 2.6s ease-out 0.5s 1 both;
+  }
 }
 
 /* Gentle nudge inviting the visitor to scroll */
