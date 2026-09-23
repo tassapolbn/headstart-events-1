@@ -13,6 +13,7 @@ import { themeStyle } from '@/lib/theme';
 import { formatDate, formatTimeRange } from '@/lib/utils';
 import { friendlyError } from '@/lib/errors';
 import { formCopy } from '@/lib/formCopy';
+import { wantsRelayEmail } from '@/lib/notificationEmails';
 import { uploadVendorFile, dataUrlToBlob } from '@/lib/storage';
 import { applyOtherAnswer, canAllowOther, isContentField, isVisible } from '@/components/form-renderer/fieldZod';
 import { FormRenderer } from '@/components/form-renderer/FormRenderer';
@@ -164,11 +165,7 @@ export default function EventPage() {
 
       // 3. Ask the email relay to send the confirmation (fire and forget).
       const relayUrl = campus?.webhook_url ?? appSettings?.webhook_url;
-      // Registrations: send the confirmation. Surveys: send the thank you (when an email was given)
-      // and/or the administrator notification, even for anonymous responses.
-      const wantsRelay = isSurvey
-        ? event.email_template.enabled || event.email_template.adminNotify
-        : event.email_template.enabled;
+      const wantsRelay = wantsRelayEmail(event.email_template);
       if (wantsRelay && relayUrl) {
         void fetch(relayUrl, {
           method: 'POST',

@@ -9,6 +9,26 @@ import { useAppSettings } from '@/hooks/useAppSettings';
 import { formCopy } from '@/lib/formCopy';
 import { PageLoader } from '@/components/ui/basics';
 
+/**
+ * The campus name above each group of events.
+ *
+ * The event list is pulled up over the navy header, so the first of these
+ * lands on navy rather than on the page below it. Its text is navy too, which
+ * made it disappear completely. The heading therefore carries its own white
+ * surface and never depends on what is behind it.
+ */
+export function CampusHeading({ campus }: { campus: Pick<Campus, 'name' | 'school_name' | 'accent'> }) {
+  return (
+    <div className="inline-flex max-w-full items-center gap-3 rounded-xl bg-white px-4 py-2.5 shadow-card">
+      <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ background: campus.accent }} />
+      <div className="min-w-0">
+        <h2 className="font-display text-lg font-bold leading-tight text-navy-800">{campus.name}</h2>
+        {campus.school_name && <p className="text-xs text-slate-500">{campus.school_name}</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function PublicHome() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -58,15 +78,7 @@ export default function PublicHome() {
         ) : (
           groups.map(({ campus, list, showHeadings }) => (
             <div key={campus.id} className="space-y-4">
-              {showHeadings && (
-                <div className="flex items-center gap-3">
-                  <span className="h-6 w-1.5 rounded-full" style={{ background: campus.accent }} />
-                  <div>
-                    <h2 className="font-display text-lg font-bold text-navy-800">{campus.name}</h2>
-                    <p className="text-xs text-slate-500">{campus.school_name}</p>
-                  </div>
-                </div>
-              )}
+              {showHeadings && <CampusHeading campus={campus} />}
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {list.map((e, i) => (
                   <motion.div

@@ -53,7 +53,7 @@ function doPost(e) {
         MailApp.sendEmail({
           to: recips.join(','),
           subject: 'HeadStart Events: test email (' + (camp && camp.name ? camp.name : 'campus') + ')',
-          htmlBody: '<p>Your email relay is working correctly. This test was sent to all notification recipients for this campus.</p>',
+          htmlBody: '<p>Your email relay is working correctly. This test was sent to the relay test recipients for this campus, not to any form\'s notification list.</p>',
           name: FROM_NAME,
         });
       }
@@ -80,17 +80,22 @@ function doPost(e) {
       template.showQr = false;
       template.attachCalendar = false;
     }
-    if (!template.enabled && !(isSurvey && template.adminNotify)) return jsonOut({ ok: true, skipped: 'disabled' });
-    if (!reg.email && !isSurvey) return jsonOut({ ok: false, error: 'registration has no email' });
+    // Who is told about this submission comes only from the form's own saved
+    // list. Campus and global addresses are never used for registration or
+    // response data, so one form's replies never reach another form's staff.
+    var adminTo = template.adminNotify ? template.adminEmails : [];
+    // Surveys may be answered anonymously, so a confirmation needs an address
+    // to send to, not merely an enabled template.
+    var sendConfirmation = template.enabled && !!reg.email;
+    if (!sendConfirmation && !adminTo.length) return jsonOut({ ok: true, skipped: 'no recipients' });
 
-    var campus = fetchCampus(event.campus_id || 'hsc');
-    var settings2 = mergeSettings(fetchAppSettings(), campus);
-    var mergeMap = buildMergeMap(event, reg);
-    var subject = renderMerge(template.subject, mergeMap);
-    var htmlBody = buildEmailHtml(template, mergeMap, event, reg, settings2);
+    if (sendConfirmation) {
+      var campus = fetchCampus(event.campus_id || 'hsc');
+      var settings2 = mergeSettings(fetchAppSettings(), campus);
+      var mergeMap = buildMergeMap(event, reg);
+      var subject = renderMerge(template.subject, mergeMap);
+      var htmlBody = buildEmailHtml(template, mergeMap, event, reg, settings2);
 
-    var sentToPerson = false;
-    if (template.enabled && reg.email) {
       var mailOptions = {
         to: reg.email,
         subject: subject,
@@ -106,37 +111,28 @@ function doPost(e) {
       }
 
       MailApp.sendEmail(mailOptions);
-      sentToPerson = true;
     }
     cache.put('sent_' + reference, '1', 300);
 
-    // Notify the administrator, if enabled.
-    if (template.adminNotify) {
-      var recipients = notifyList(campus);
-      if (template.adminEmail) recipients.push(template.adminEmail);
-      // De-duplicate.
-      var seen = {}; var adminTo = [];
-      recipients.forEach(function (r) { r = String(r).toLowerCase(); if (r && !seen[r]) { seen[r] = 1; adminTo.push(r); } });
-      if (adminTo.length) {
-        MailApp.sendEmail({
-          to: adminTo.join(','),
-          subject: (isSurvey ? 'New response: ' : 'New registration: ') + event.name + ' (' + reference + ')',
-          htmlBody: isSurvey
-            ? '<p><strong>' + esc(reg.name || 'Anonymous') + '</strong> submitted a response to <strong>' + esc(event.name) + '</strong>.</p>' +
-              '<p>Reference: ' + reference +
-              '<br/>Email: ' + esc(reg.email || '-') + '</p>'
-            : '<p><strong>' + esc(reg.name || 'Unnamed') + '</strong> registered for <strong>' + esc(event.name) + '</strong>.</p>' +
-              '<p>Reference: ' + reference +
-              '<br/>Email: ' + esc(reg.email || '-') +
-              '<br/>Phone: ' + esc(reg.phone || '-') +
-              '<br/>Booth: ' + esc(buildMergeMap(event, reg).booth) +
-              '<br/>Status: ' + reg.status + '</p>',
-          name: FROM_NAME,
-        });
-      }
+    if (adminTo.length) {
+      MailApp.sendEmail({
+        to: adminTo.join(','),
+        subject: (isSurvey ? 'New response: ' : 'New registration: ') + event.name + ' (' + reference + ')',
+        htmlBody: isSurvey
+          ? '<p><strong>' + esc(reg.name || 'Anonymous') + '</strong> submitted a response to <strong>' + esc(event.name) + '</strong>.</p>' +
+            '<p>Reference: ' + esc(reference) +
+            '<br/>Email: ' + esc(reg.email || '-') + '</p>'
+          : '<p><strong>' + esc(reg.name || 'Unnamed') + '</strong> registered for <strong>' + esc(event.name) + '</strong>.</p>' +
+            '<p>Reference: ' + esc(reference) +
+            '<br/>Email: ' + esc(reg.email || '-') +
+            '<br/>Phone: ' + esc(reg.phone || '-') +
+            '<br/>Booth: ' + esc(buildMergeMap(event, reg).booth) +
+            '<br/>Status: ' + esc(reg.status) + '</p>',
+        name: FROM_NAME,
+      });
     }
 
-    if (sentToPerson) markEmailSent(reg.id);
+    markEmailSent(reg.id);
     return jsonOut({ ok: true });
   } catch (err) {
     return jsonOut({ ok: false, error: String(err) });
@@ -153,38 +149,42 @@ function dailySummary() {
 }
 
 function dailySummaryForCampus(camp) {
-  var recips = notifyList(camp);
-  if (!recips.length) return;
-
   var since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   var rows = supabaseGet(
-    '/rest/v1/registrations?select=reference,name,email,status,created_at,events!inner(name,campus_id)&events.campus_id=eq.' +
+    '/rest/v1/registrations?select=reference,name,email,status,created_at,events!inner(id,name,campus_id,email_template)&events.campus_id=eq.' +
     encodeURIComponent(camp.id) + '&created_at=gte.' +
     encodeURIComponent(since) + '&order=created_at.desc&limit=200'
   );
   if (!rows || rows.length === 0) return;
 
+  // Group by event ID, not by name: two forms may share a name, and their
+  // replies must never be mixed into one another's summary.
   var byEvent = {};
   rows.forEach(function (r) {
-    var name = (r.events && r.events.name) || 'Unknown event';
-    byEvent[name] = byEvent[name] || [];
-    byEvent[name].push(r);
+    var event = r.events;
+    if (!event || !event.id) return;
+    if (!byEvent[event.id]) byEvent[event.id] = { event: event, rows: [] };
+    byEvent[event.id].rows.push(r);
   });
 
-  var html = '<h2 style="font-family:Arial">Daily registration summary</h2>';
-  Object.keys(byEvent).forEach(function (ev) {
-    html += '<h3 style="font-family:Arial;color:#1a3c5e">' + esc(ev) + ' (' + byEvent[ev].length + ')</h3><ul style="font-family:Arial;font-size:13px">';
-    byEvent[ev].forEach(function (r) {
-      html += '<li>' + esc(r.name || 'Unnamed') + ' - ' + esc(r.email || '') + ' - ' + r.reference + ' - ' + r.status + '</li>';
+  // One summary per form, to that form's own recipients.
+  Object.keys(byEvent).forEach(function (id) {
+    var group = byEvent[id];
+    var template = defaults(group.event.email_template);
+    if (!template.adminNotify || !template.adminEmails.length) return;
+    var html = '<h2 style="font-family:Arial">Daily registration summary</h2>' +
+      '<h3 style="font-family:Arial;color:#1a3c5e">' + esc(group.event.name) + ' (' + group.rows.length + ')</h3>' +
+      '<ul style="font-family:Arial;font-size:13px">';
+    group.rows.forEach(function (r) {
+      html += '<li>' + esc(r.name || 'Unnamed') + ' - ' + esc(r.email || '') + ' - ' + esc(r.reference) + ' - ' + esc(r.status) + '</li>';
     });
     html += '</ul>';
-  });
-
-  MailApp.sendEmail({
-    to: recips.join(','),
-    subject: 'HeadStart Events (' + camp.name + '): ' + rows.length + ' registration(s) in the last 24 hours',
-    htmlBody: html,
-    name: FROM_NAME,
+    MailApp.sendEmail({
+      to: template.adminEmails.join(','),
+      subject: 'HeadStart Events: ' + group.event.name + ' - ' + group.rows.length + ' registration(s) in the last 24 hours',
+      htmlBody: html,
+      name: FROM_NAME,
+    });
   });
 }
 
@@ -230,7 +230,8 @@ function fetchCampus(id) {
   return (rows && rows[0]) || null;
 }
 
-// Notification recipients for a campus: the managed list, plus a legacy fallback.
+// Campus recipients are used only by the explicit relay test, never for
+// registration or response data.
 function notifyList(campus) {
   var list = [];
   if (campus && campus.notify_emails) {
@@ -239,6 +240,28 @@ function notifyList(campus) {
     if (arr && arr.length) list = arr.slice();
   }
   return list.filter(function (x) { return x && x.indexOf('@') > 0; });
+}
+
+/**
+ * The recipients saved on one form. An explicit list replaces the older single
+ * address, even when that list is empty, so clearing the box really does mean
+ * "tell nobody" rather than quietly falling back to the campus list.
+ * Mirrors normalizeNotificationEmails and invalidNotificationEmails in
+ * src/lib/notificationEmails.ts, so the admin screen and the relay agree.
+ */
+function formNotifyList(template) {
+  template = template || {};
+  var entries = Array.isArray(template.adminEmails)
+    ? template.adminEmails
+    : String(template.adminEmail || '').split(/[,;\n]/);
+  var seen = {};
+  return entries.filter(function (entry) { return typeof entry === 'string'; })
+    .map(function (email) { return email.trim().toLowerCase(); })
+    .filter(function (email) {
+      if (!/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(email) || seen[email]) return false;
+      seen[email] = true;
+      return true;
+    });
 }
 
 function markEmailSent(id) {
@@ -267,7 +290,7 @@ function defaults(t) {
     buttonLabel: t.buttonLabel || '',
     buttonUrl: t.buttonUrl || '',
     adminNotify: t.adminNotify !== false,
-    adminEmail: t.adminEmail || '',
+    adminEmails: formNotifyList(t),
   };
 }
 
