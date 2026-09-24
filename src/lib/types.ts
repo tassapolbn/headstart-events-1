@@ -83,6 +83,16 @@ export interface EventBranding {
 }
 
 export interface EventTheme {
+  /** Optional public page composition. Stored in the existing theme JSON. */
+  pageWidth?: number;
+  titleAlign?: 'left' | 'center';
+  bannerHeight?: number;
+  bannerFit?: 'cover' | 'contain';
+  bannerPosition?: number;
+  posterWidth?: number;
+  logoHeight?: number;
+  backgroundOpacity?: number;
+  showEventDetails?: boolean;
   primary: string;
   secondary: string;
   accent: string;
@@ -157,6 +167,8 @@ export interface EventSettings {
   formType: FormType;
   /** Optional custom heading above the form (falls back to the wording for the form type) */
   formHeading?: string;
+  introText?: string;
+  footerText?: string;
   /** Optional custom submit button label (falls back to the wording for the form type) */
   submitLabel?: string;
   /** How many booths one registration may hold (1 to 3) */

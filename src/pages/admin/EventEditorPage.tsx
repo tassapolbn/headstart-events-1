@@ -15,6 +15,7 @@ import { Tabs } from '@/components/ui/overlays';
 import { useCampus } from '@/context/CampusContext';
 import { formCopy } from '@/lib/formCopy';
 import DetailsTab from './tabs/DetailsTab';
+import PageDesignTab from './tabs/PageDesignTab';
 import BrandingTab from './tabs/BrandingTab';
 import FormTab from './tabs/FormTab';
 import FloorPlanTab from './tabs/FloorPlanTab';
@@ -25,6 +26,7 @@ import ShareTab from './tabs/ShareTab';
 
 const tabList = [
   { id: 'details', label: 'Details', icon: <Tag className="h-4 w-4" /> },
+  { id: 'design', label: 'Page Design', icon: <LayoutGrid className="h-4 w-4" /> },
   { id: 'branding', label: 'Branding & Theme', icon: <Palette className="h-4 w-4" /> },
   { id: 'form', label: 'Form Builder', icon: <FileText className="h-4 w-4" /> },
   { id: 'floorplan', label: 'Floor Plan', icon: <LayoutGrid className="h-4 w-4" /> },
@@ -65,6 +67,13 @@ export default function EventEditorPage() {
     [draft, event]
   );
 
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
   function update(patch: Partial<EventRecord>) {
     setDraft((d) => (d ? { ...d, ...patch } : d));
   }
@@ -73,7 +82,7 @@ export default function EventEditorPage() {
     if (!draft || !id) return;
     setSaving(true);
     const { id: _id, created_at, updated_at, ...fields } = draft;
-    const { error: err } = await supabase.from('events').update(fields).eq('id', id);
+    const { error: err } = await supabase.from('events').update(fields).eq('id', id).select('id').single();
     setSaving(false);
     if (err) {
       toast(
@@ -88,8 +97,9 @@ export default function EventEditorPage() {
     void reload();
   }
 
-  if (loading || !draft) return <PageLoader label="Loading event" />;
   if (error) return <p className="p-8 text-center text-sm text-red-600">{error}</p>;
+
+  if (loading || !draft) return <PageLoader label="Loading event" />;
 
   const copy = formCopy(draft);
   // Surveys have no floor plan, check in, vendor signs or printed plan.
@@ -132,7 +142,7 @@ export default function EventEditorPage() {
             href={publicEventUrl(draft.slug)} target="_blank" rel="noreferrer"
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            <ExternalLink className="h-4 w-4" /> View
+            <ExternalLink className="h-4 w-4" /> View saved page
           </a>
           <Button onClick={() => void save()} loading={saving} disabled={!dirty} icon={<Save className="h-4 w-4" />}>
             Save
@@ -162,7 +172,9 @@ export default function EventEditorPage() {
 
       <Tabs tabs={visibleTabs} active={activeTab} onChange={setTab} />
 
+      <fieldset disabled={saving} className="min-w-0">
       {activeTab === 'details' && <DetailsTab draft={draft} update={update} />}
+      {activeTab === 'design' && <PageDesignTab draft={draft} update={update} />}
       {activeTab === 'branding' && <BrandingTab draft={draft} update={update} />}
       {activeTab === 'form' && <FormTab draft={draft} update={update} />}
       {activeTab === 'floorplan' && <FloorPlanTab draft={draft} update={update} />}
@@ -170,6 +182,8 @@ export default function EventEditorPage() {
       {activeTab === 'email' && <EmailTab draft={draft} update={update} />}
       {activeTab === 'settings' && <SettingsTab draft={draft} update={update} />}
       {activeTab === 'share' && <ShareTab draft={draft} update={update} />}
+
+      </fieldset>
 
       {dirty && (
         <div className="no-print sticky bottom-3 z-20 flex justify-center">

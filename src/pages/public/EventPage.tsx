@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { CalendarDays, ChevronDown, Clock, Info, MapPin, ShieldCheck } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Info, ShieldCheck } from 'lucide-react';
 import type { FieldValues } from 'react-hook-form';
 import { supabase } from '@/lib/supabase';
 import type { Booth, EventRecord, SubmitResult } from '@/lib/types';
@@ -9,8 +9,8 @@ import { normalizeEvent } from '@/hooks/useEvent';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { fetchCampus } from '@/context/CampusContext';
 import type { Campus } from '@/lib/types';
-import { themeStyle, titleNeedsOutline } from '@/lib/theme';
-import { formatDate, formatTimeRange } from '@/lib/utils';
+import { themeStyle } from '@/lib/theme';
+import { formatDate } from '@/lib/utils';
 import { friendlyError } from '@/lib/errors';
 import { formCopy } from '@/lib/formCopy';
 import { wantsRelayEmail } from '@/lib/notificationEmails';
@@ -20,6 +20,8 @@ import { FormRenderer } from '@/components/form-renderer/FormRenderer';
 import { BoothPicker } from '@/components/floor-plan/BoothPicker';
 import { useToast } from '@/context/ToastContext';
 import { PageLoader } from '@/components/ui/basics';
+import { EventBanner, EventIntroduction } from '@/components/event-page/EventIntroduction';
+import { pageDesign } from '@/lib/pageDesign';
 import { richToHtml } from '@/components/ui/RichTextArea';
 
 export default function EventPage() {
@@ -27,6 +29,7 @@ export default function EventPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const appSettings = useAppSettings();
+  const reducedMotion = useReducedMotion();
 
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [campus, setCampus] = useState<Campus | null>(null);
@@ -76,7 +79,7 @@ export default function EventPage() {
     );
   }
 
-  const t = event.theme;
+  const t = { ...event.theme, animations: event.theme.animations && !reducedMotion };
   const copy = formCopy(event);
   const isSurvey = copy.isSurvey;
   const boothsEnabled = !isSurvey && event.floor_plan.enabled && event.settings.boothSelection === 'single';
@@ -205,98 +208,15 @@ export default function EventPage() {
       )}
       {event.branding.background_url && (
         <div
-          className="pointer-events-none fixed inset-0 bg-cover bg-center opacity-15"
-          style={{ backgroundImage: `url(${event.branding.background_url})` }}
+          className="pointer-events-none fixed inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${event.branding.background_url})`, opacity: pageDesign(t).backgroundOpacity / 100 }}
           aria-hidden="true"
         />
       )}
 
-      {/* Banner */}
-      <header className="relative">
-        {event.branding.banner_url ? (
-          <img src={event.branding.banner_url} alt="" className="block h-auto w-full" />
-        ) : (
-          <div className="h-40 w-full sm:h-52" style={{ background: `linear-gradient(120deg, ${t.primary}, ${t.accent})` }} />
-        )}
-      </header>
-
-      <motion.div {...anim} className="relative mx-auto mt-8 max-w-3xl px-4">
-        <div className="text-center">
-          {!event.branding.hide_logo && (
-            <img src={logo} alt="School logo" className="mx-auto mb-5 h-14 w-auto max-w-[70vw] object-contain sm:h-16" />
-          )}
-          <motion.h1
-            /* The sheen clips a gradient to the letters, which fights an
-               outline, so the name keeps whichever it needs: readable first,
-               decorative second. */
-            className={`ev-title ev-title-fluid font-extrabold ${t.animations && !titleNeedsOutline(t) ? 'ev-sheen' : ''}`}
-            style={{ color: 'var(--ev-title)' }}
-            initial={t.animations ? { opacity: 0, y: 22, scale: 0.97 } : false}
-            animate={t.animations ? { opacity: 1, y: 0, scale: 1 } : undefined}
-            transition={{ type: 'spring', stiffness: 130, damping: 16 }}
-          >
-            {event.name}
-          </motion.h1>
-
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            {([
-              event.event_date && { icon: CalendarDays, text: `${formatDate(event.event_date)}${event.end_date ? ` to ${formatDate(event.end_date, 'd MMMM yyyy')}` : ''}` },
-              formatTimeRange(event.start_time, event.end_time) && { icon: Clock, text: formatTimeRange(event.start_time, event.end_time) },
-              event.location && { icon: MapPin, text: event.location },
-            ].filter(Boolean) as Array<{ icon: typeof Clock; text: string }>).map((item, i) => (
-              <motion.span
-                key={item.text}
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3.5 py-1.5 text-sm font-medium shadow-sm backdrop-blur-sm"
-                initial={t.animations ? { opacity: 0, y: 12 } : false}
-                animate={t.animations ? { opacity: 1, y: 0 } : undefined}
-                transition={{ delay: 0.15 + i * 0.09, type: 'spring', stiffness: 160, damping: 18 }}
-                whileHover={t.animations ? { y: -3 } : undefined}
-              >
-                <item.icon className="h-4 w-4" style={{ color: 'var(--ev-primary)' }} />
-                {item.text}
-              </motion.span>
-            ))}
-          </div>
-
-          {t.animations && windowState === 'open' && (
-            <motion.a
-              href="#registration-form"
-              className="mt-6 inline-flex flex-col items-center gap-1 text-xs font-semibold uppercase tracking-widest"
-              style={{ color: 'var(--ev-primary)' }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.9 }}
-            >
-              {copy.scrollCue}
-              <ChevronDown className="ev-bob h-5 w-5" aria-hidden="true" />
-            </motion.a>
-          )}
-        </div>
-
-        {event.branding.header_url && (
-          <img src={event.branding.header_url} alt="" className="mt-6 w-full rounded-2xl object-cover" style={{ borderRadius: 'var(--ev-radius)' }} />
-        )}
-
-        {event.description && (
-          <motion.div {...reveal} className="ev-card mt-6 p-5">
-            <div
-              className="ev-rich text-sm leading-relaxed opacity-90"
-              dangerouslySetInnerHTML={{ __html: richToHtml(event.description) }}
-            />
-          </motion.div>
-        )}
-
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr]">
-          {event.branding.poster_url && (
-            <motion.img
-              {...reveal}
-              src={event.branding.poster_url}
-              alt={`${event.name} poster`}
-              className="block h-auto w-full rounded-2xl shadow-card"
-              style={{ borderRadius: 'var(--ev-radius)' }}
-            />
-          )}
-        </div>
+      <EventBanner event={event} />
+      <motion.div {...anim} className="relative mx-auto mt-8 px-4" style={{ maxWidth: pageDesign(t).pageWidth }}>
+        <EventIntroduction event={event} logo={logo} showJump={windowState === 'open'} />
 
         {/* Waitlist / closed notices */}
         {!isSurvey && event.status === 'waitlist' && windowState === 'open' && (
@@ -426,7 +346,7 @@ export default function EventPage() {
         )}
 
         <footer className="mt-10 text-center text-xs opacity-60">
-          {campus?.school_name ?? appSettings?.school_name ?? 'HeadStart International School Phuket'}
+          {event.settings.footerText?.trim() || campus?.school_name || appSettings?.school_name || 'HeadStart International School Phuket'}
         </footer>
       </motion.div>
     </main>

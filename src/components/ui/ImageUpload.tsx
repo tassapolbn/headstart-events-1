@@ -5,11 +5,13 @@ import { useToast } from '@/context/ToastContext';
 import { Button, Spinner } from './basics';
 
 /** Upload an image to the public event-assets bucket and store its URL. */
-export function ImageUpload({ label, value, onChange, prefix, hint, dark }: {
+export function ImageUpload({ label, value, onChange, prefix, hint, dark, contain }: {
   label: string; value?: string; onChange: (url: string | undefined) => void;
   prefix: string; hint?: string;
   /** Preview on a navy background, for white logos */
   dark?: boolean;
+  /** Keep logos and artwork entirely visible in the upload preview. */
+  contain?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -41,7 +43,7 @@ export function ImageUpload({ label, value, onChange, prefix, hint, dark }: {
       <span className="block text-sm font-medium text-slate-700">{label}</span>
       {value ? (
         <div className="group relative overflow-hidden rounded-xl border border-slate-200">
-          <img src={value} alt={label} className={dark ? "h-32 w-full bg-navy-800 object-contain p-3" : "h-32 w-full object-cover"} />
+          <img src={value} alt={label} className={dark ? "h-32 w-full bg-navy-800 object-contain p-3" : contain ? "h-32 w-full bg-white object-contain p-3" : "h-32 w-full object-cover"} />
           <div className="absolute inset-0 flex items-center justify-center gap-2 bg-navy-900/50 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
             <Button size="sm" variant="outline" onClick={() => inputRef.current?.click()}>Replace</Button>
             <Button size="sm" variant="danger" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={() => onChange(undefined)}>
