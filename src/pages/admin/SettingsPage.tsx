@@ -143,6 +143,7 @@ export default function SettingsPage() {
             <ColorInput label="Campus accent colour" value={row.accent} onChange={(accent) => set('accent', accent)} />
             <ImageUpload
               label="Default campus logo"
+              contain
               value={row.logo_url ?? undefined}
               onChange={(logo_url) => set('logo_url', logo_url ?? null)}
               prefix={`campus-${row.id}`}
