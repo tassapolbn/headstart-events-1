@@ -80,10 +80,10 @@ export default function PublicHome() {
       <section className="relative mx-auto -mt-8 max-w-6xl space-y-8 px-4 pb-16" aria-label="Browse events and forms">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-navy-800"><SlidersHorizontal className="h-4 w-4" />Find an event or form</div>
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_200px_180px]">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_220px]">
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" /><Input type="search" className="py-2.5 pl-10" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search by name or location" aria-label="Search events and forms" /></div>
             <Select aria-label="Filter by campus" value={campusFilter} onChange={e => setCampusFilter(e.target.value)}><option value="">All campuses</option>{campuses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
-            <Select aria-label="Filter by form type" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}><option value="">Events and surveys</option><option value="registration">Events</option><option value="survey">Surveys and feedback</option></Select>
+            <Select aria-label="Filter by form type" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}><option value="">All form types</option><option value="registration">Events</option><option value="survey">Surveys and feedback</option></Select>
           </div>
           {!loading && !error && <p className="mt-3 text-xs text-slate-500" role="status">{filteredEvents.length} {filteredEvents.length === 1 ? 'result' : 'results'}{(query || campusFilter || typeFilter) && <button type="button" onClick={() => { setQuery(''); setCampusFilter(''); setTypeFilter(''); }} className="ml-3 font-semibold text-navy-700 underline">Clear filters</button>}</p>}
         </div>
