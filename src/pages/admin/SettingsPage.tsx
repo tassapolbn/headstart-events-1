@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Mail, Plus, Save, Send, Trash2, X } from 'lucide-react';
+import { Mail, Plus, Save, Send, Trash2, Palette, Building2, Users } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Campus } from '@/lib/types';
 import { useCampus } from '@/context/CampusContext';
@@ -20,17 +20,32 @@ export default function SettingsPage() {
   const [row, setRow] = useState<Campus | null>(null);
   const [saving, setSaving] = useState(false);
   const [newEmail, setNewEmail] = useState('');
+  const [saved, setSaved] = useState<Campus | null>(null);
+  const [loadError, setLoadError] = useState('');
+  const [section, setSection] = useState('identity');
+  const dirty = !!row && JSON.stringify(row) !== JSON.stringify(saved);
 
   useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  useEffect(() => {
+    let active = true;
     setRow(null);
-    supabase.from('campuses').select('*').eq('id', campusId).maybeSingle().then(({ data }) => {
-      if (data) {
-        setRow({
-          ...(data as Campus),
-          notify_emails: Array.isArray((data as Campus).notify_emails) ? (data as Campus).notify_emails : [],
-        });
-      }
+    setSaved(null);
+    setNewEmail('');
+    setLoadError('');
+    supabase.from('campuses').select('*').eq('id', campusId).maybeSingle().then(({ data, error }) => {
+      if (!active) return;
+      if (error || !data) { setLoadError(error?.message || 'Campus settings could not be found.'); return; }
+      const next = { ...(data as Campus), notify_emails: Array.isArray(data.notify_emails) ? data.notify_emails : [] };
+      setRow(next);
+      setSaved(next);
     });
+    return () => { active = false; };
   }, [campusId]);
 
   function set<K extends keyof Campus>(key: K, value: Campus[K]) {
@@ -52,26 +67,31 @@ export default function SettingsPage() {
   }
 
   async function save() {
-    if (!row) return;
+    if (!row || saving) return;
+    if (!row.name.trim() || !row.school_name.trim()) { toast('Enter both campus names before saving.', 'error'); return; }
+    if (newEmail.trim()) { toast('Add the email address to the recipient list before saving.', 'error'); return; }
     setSaving(true);
     const { error } = await supabase
       .from('campuses')
       .update({
-        school_name: row.school_name,
+        name: row.name.trim(),
+        school_name: row.school_name.trim(),
         logo_url: row.logo_url,
         email_logo_url: row.email_logo_url,
         webhook_url: row.webhook_url,
         notify_emails: row.notify_emails,
         accent: row.accent,
       })
-      .eq('id', row.id);
+      .eq('id', row.id).select('id').single();
     setSaving(false);
     if (error) { toast(error.message, 'error'); return; }
+    setSaved(row);
     toast(`${row.name} settings saved.`);
     void reload();
   }
 
   function sendTest() {
+    if (dirty || newEmail.trim()) { toast('Save your settings before sending a test.', 'info'); return; }
     if (!row?.webhook_url) { toast('Add the email relay URL first.', 'error'); return; }
     void fetch(row.webhook_url, {
       method: 'POST', mode: 'no-cors',
@@ -81,6 +101,7 @@ export default function SettingsPage() {
     toast('Test requested. Every address on the notification list should receive it shortly.');
   }
 
+  if (loadError) return <Card title="Settings unavailable"><p role="alert" className="text-sm text-red-600">{loadError}</p><Button className="mt-4" onClick={() => window.location.reload()}>Try again</Button></Card>;
   if (!row) return <PageLoader label="Loading settings" />;
 
   return (
@@ -95,7 +116,13 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {isOwner && (
+      <nav className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Settings sections">
+        {[{ id: 'identity', label: 'Campus identity', icon: Building2 }, { id: 'email', label: 'Email & notifications', icon: Mail }, { id: 'design', label: 'Page customization', icon: Palette }, ...(isOwner ? [{ id: 'accounts', label: 'Accounts', icon: Users }] : [])].map(item => <button type="button" key={item.id} aria-pressed={section === item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold ${section === item.id ? 'bg-navy-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`}><item.icon className="h-4 w-4" />{item.label}</button>)}
+      </nav>
+
+      {section === 'design' && <Card title="Design each public page"><p className="text-sm leading-relaxed text-slate-600">Each event or survey can have its own appearance. Open a form and choose Page Design to adjust its layout and wording, or Branding & Theme for images, colours and typography. Preview your changes before saving.</p><Link to="/admin/events" className="mt-5 inline-flex rounded-xl bg-navy-800 px-5 py-3 text-sm font-semibold text-white">Choose an event or form</Link></Card>}
+
+      {isOwner && section === 'accounts' && (
         <Card title="Account">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-slate-600">Create username accounts, reset passwords and assign Admin or Staff access. No email address is needed.</p>
@@ -103,7 +130,8 @@ export default function SettingsPage() {
           </div>
         </Card>
       )}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <fieldset disabled={saving} className="min-w-0">
+        <div hidden={section !== 'identity'}>
         <Card title={`${row.name} identity`}>
           <div className="space-y-4">
             <Field label="Campus display name" htmlFor="set-cname" hint="The short label shown on the campus switcher.">
@@ -131,11 +159,12 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        <div className="space-y-5">
-          <Card title="New registration notifications">
+        </div>
+        <div hidden={section !== 'email'} className="space-y-5">
+          <Card title="Campus test email recipients">
             <div className="space-y-4">
               <p className="text-sm text-slate-600">
-                Everyone on this list receives an email whenever a new registration is submitted to a {row.name} event.
+                Use this list to test email delivery for {row.name}. Set the recipients for actual registrations in each form’s Email tab.
               </p>
               <div>
                 <span className="mb-1.5 block text-sm font-medium text-slate-700">Notification recipients</span>
@@ -187,10 +216,11 @@ export default function SettingsPage() {
             </div>
           </Card>
         </div>
-      </div>
+      </fieldset>
 
-      <div className="flex justify-end">
-        <Button onClick={() => void save()} loading={saving} icon={<Save className="h-4 w-4" />}>Save {row.name} settings</Button>
+      <div className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-card backdrop-blur">
+        <p className="text-sm text-slate-500" role="status">{dirty ? 'You have unsaved changes' : 'All changes saved'}</p>
+        <Button onClick={() => void save()} disabled={!dirty} loading={saving} icon={<Save className="h-4 w-4" />}>Save {row.name} settings</Button>
       </div>
     </div>
   );

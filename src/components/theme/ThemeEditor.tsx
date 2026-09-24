@@ -25,7 +25,7 @@ export function ThemeEditor({ theme, onChange, eventName }: {
           {themePresets.map((p) => (
             <button
               key={p.id}
-              onClick={() => onChange({ ...p.theme })}
+              onClick={() => onChange({ ...theme, ...p.theme })}
               className={cn(
                 'rounded-xl border p-3 text-left transition hover:shadow-card',
                 theme.preset === p.id ? 'border-navy-500 ring-2 ring-navy-200' : 'border-slate-200'
