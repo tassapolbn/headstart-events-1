@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import { Check, Copy, Mail, MessageCircle, Printer } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
+import { Check, Copy, Download, Mail, MessageCircle, Printer } from 'lucide-react';
 import { publicEventUrl } from '@/lib/eventOps';
 import { useToast } from '@/context/ToastContext';
 import { Button, Card } from '@/components/ui/basics';
@@ -14,6 +14,17 @@ export default function ShareTab({ draft }: TabProps) {
   const url = publicEventUrl(draft.slug);
   const fc = formCopy(draft);
   const shareText = fc.shareText(draft.name, url);
+  // A large, off-screen copy of the QR code, so the saved image stays sharp on a printed poster.
+  const posterQr = useRef<HTMLCanvasElement>(null);
+
+  function downloadQr(type: 'png' | 'jpeg') {
+    const canvas = posterQr.current;
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.href = canvas.toDataURL(`image/${type}`, 0.95);
+    link.download = `${draft.slug || 'event'}-qr-code.${type === 'jpeg' ? 'jpg' : 'png'}`;
+    link.click();
+  }
 
   async function copy() {
     try {
@@ -74,9 +85,19 @@ export default function ShareTab({ draft }: TabProps) {
           <QRCodeSVG value={url} size={190} level="M" includeMargin aria-label={`QR code linking to ${draft.name}`} />
           <p className="text-center text-sm font-semibold text-navy-800">{draft.name}</p>
           <p className="text-center font-mono text-xs text-slate-400">{url}</p>
-          <Button variant="outline" size="sm" icon={<Printer className="h-3.5 w-3.5" />} onClick={() => window.print()} className="no-print">
-            Print this QR
-          </Button>
+          <div className="no-print flex flex-wrap justify-center gap-2">
+            <Button variant="outline" size="sm" icon={<Download className="h-3.5 w-3.5" />} onClick={() => downloadQr('png')}>
+              Save as PNG
+            </Button>
+            <Button variant="outline" size="sm" icon={<Download className="h-3.5 w-3.5" />} onClick={() => downloadQr('jpeg')}>
+              Save as JPEG
+            </Button>
+            <Button variant="outline" size="sm" icon={<Printer className="h-3.5 w-3.5" />} onClick={() => window.print()}>
+              Print this QR
+            </Button>
+          </div>
+          <p className="no-print text-center text-xs text-slate-500">Saved images are at least 1200 × 1200 pixels, sharp enough for posters.</p>
+          <QRCodeCanvas ref={posterQr} value={url} size={1200} level="M" marginSize={4} className="hidden" aria-hidden="true" />
         </div>
       </Card>
     </div>
