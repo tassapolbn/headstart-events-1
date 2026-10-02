@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/inputs';
 import { Tabs } from '@/components/ui/overlays';
 import { useCampus } from '@/context/CampusContext';
 import { formCopy } from '@/lib/formCopy';
+import { googleSheetId } from '@/lib/googleSheets';
 import DetailsTab from './tabs/DetailsTab';
 import PageDesignTab from './tabs/PageDesignTab';
 import BrandingTab from './tabs/BrandingTab';
@@ -80,8 +81,14 @@ export default function EventEditorPage() {
 
   async function save() {
     if (!draft || !id) return;
+    if (draft.settings.googleSheetUrl?.trim() && !googleSheetId(draft.settings.googleSheetUrl)) {
+      setTab('settings');
+      toast('Please enter a valid Google Sheet link, or clear it to disconnect.', 'error');
+      return;
+    }
     setSaving(true);
     const { id: _id, created_at, updated_at, ...fields } = draft;
+    fields.settings = { ...fields.settings, googleSheetUrl: fields.settings.googleSheetUrl?.trim() || undefined };
     const { error: err } = await supabase.from('events').update(fields).eq('id', id).select('id').single();
     setSaving(false);
     if (err) {

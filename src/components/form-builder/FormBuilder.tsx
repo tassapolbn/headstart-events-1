@@ -59,7 +59,8 @@ function newField(type: FieldType): FormField {
   return base;
 }
 
-export function FormBuilder({ fields, onChange, theme }: {
+export function FormBuilder({ fields, onChange, theme, assetPrefix = 'forms' }: {
+  assetPrefix?: string;
   fields: FormField[];
   onChange: (fields: FormField[]) => void;
   theme: EventTheme;
@@ -181,6 +182,7 @@ export function FormBuilder({ fields, onChange, theme }: {
             key={selected.id}
             field={selected}
             allFields={fields}
+            assetPrefix={assetPrefix}
             onChange={(p) => patch(selected.id, p)}
           />
         ) : (

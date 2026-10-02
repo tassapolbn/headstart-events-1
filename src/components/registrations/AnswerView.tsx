@@ -1,7 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import type { FormField } from '@/lib/types';
 import { isStoredFileRef } from '@/lib/storage';
-import { gridAnswerLines, isGridField } from '@/lib/grid';
+import { gridAnswerLines, gridRows, isGridField } from '@/lib/grid';
 
 /** Answers that read better across the full width of the panel. */
 export function isWideAnswer(field: FormField, value: unknown): boolean {
@@ -53,7 +53,7 @@ export function AnswerView({ field, value, onOpenFile }: {
       );
     }
 
-    if (isGridField(field)) {
+    if (isGridField(field) && typeof value === 'object' && Object.keys(value).every(k => gridRows(field).includes(k))) {
       const lines = gridAnswerLines(field, value);
       if (lines.length === 0) return <Empty />;
       return (
@@ -81,14 +81,14 @@ export function AnswerView({ field, value, onOpenFile }: {
 
     if (typeof value === 'object') {
       const lines = Object.entries(value as Record<string, unknown>)
-        .filter(([, n]) => typeof n === 'number' && n > 0);
+        .filter(([, n]) => n !== null && n !== undefined && n !== '');
       if (lines.length === 0) return <Empty />;
       return (
         <ul className="space-y-1">
           {lines.map(([k, n]) => (
             <li key={k} className="flex items-baseline justify-between gap-3 border-b border-dashed border-slate-100 pb-1 text-sm last:border-0">
               <span className="min-w-0 truncate text-slate-700">{k}</span>
-              <span className="shrink-0 font-semibold tabular-nums text-navy-700">&times; {String(n)}</span>
+              <span className="min-w-0 break-words font-semibold text-navy-700">{typeof n === 'number' ? `× ${n}` : Array.isArray(n) ? n.join(', ') : typeof n === 'object' ? JSON.stringify(n) : String(n)}</span>
             </li>
           ))}
         </ul>

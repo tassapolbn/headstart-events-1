@@ -11,7 +11,7 @@ const bounded = (value: unknown, fallback: number, min: number, max: number) =>
 export function pageDesign(theme?: Partial<EventTheme>) {
   return {
     pageWidth: bounded(theme?.pageWidth, 768, 560, 1120),
-    titleAlign: theme?.titleAlign === 'left' ? 'left' as const : 'center' as const,
+    titleAlign: theme?.titleAlign === 'left' || theme?.titleAlign === 'right' ? theme.titleAlign : 'center' as const,
     bannerHeight: bounded(theme?.bannerHeight, 0, 0, 600),
     bannerFit: theme?.bannerFit === 'contain' ? 'contain' as const : 'cover' as const,
     bannerPosition: bounded(theme?.bannerPosition, 50, 0, 100),

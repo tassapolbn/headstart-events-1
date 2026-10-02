@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Copy, ExternalLink, Plus, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { storedAcks } from '@/components/policies/policyAcks';
+import { FormattedText } from '@/components/ui/FormattedText';
 import type { Booth, EventRecord, Registration, RegistrationStatus } from '@/lib/types';
 import { isContentField } from '@/components/form-renderer/fieldZod';
 import { getSignedUrl, isStoredFileRef } from '@/lib/storage';
@@ -205,6 +207,10 @@ export function RegistrationModal({ event, registration, availableBooths, onClos
         </Field>
       </div>
 
+      {storedAcks(reg.data).length > 0 && <div className="mt-5 rounded-lg bg-slate-50 p-3 text-sm">
+        <h3 className="font-semibold">Recorded consent</h3>
+        {storedAcks(reg.data).map(ack => <div key={ack.id} className="mt-2"><FormattedText value={ack.text} /><p className="text-xs text-slate-500">Accepted: {ack.accepted_at}</p></div>)}
+      </div>}
       <h3 className="mb-2 mt-6 text-sm font-semibold text-navy-800">Form answers</h3>
       <div className="space-y-3">
         {questionFields.map((f) => (

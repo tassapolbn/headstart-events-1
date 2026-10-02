@@ -4,6 +4,8 @@ import { Field, Input, Select, Textarea } from '@/components/ui/inputs';
 import { Button } from '@/components/ui/basics';
 import { ExternalLink } from 'lucide-react';
 import { gridColumns, gridRows, limitOnePerColumn } from '@/lib/grid';
+import { answerFitsQuestion } from '@/lib/questionTypes';
+import { AnswerView } from './AnswerView';
 
 /**
  * Edit one registration answer using the same control type as the original
@@ -17,6 +19,12 @@ export function AnswerEditor({ field, value, onChange, onOpenFile }: {
   onOpenFile?: (path: string) => void;
 }) {
   const label = field.label;
+
+  if (!answerFitsQuestion(field, value)) return <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+    <AnswerView field={field} value={value} onOpenFile={onOpenFile} />
+    <p className="text-xs text-slate-600">This saved answer uses a previous question format. It is preserved when you save other changes.</p>
+    <Button type="button" size="sm" variant="outline" onClick={() => onChange(null)}>Replace answer using current type</Button>
+  </div>;
 
   switch (field.type) {
     case 'rating':

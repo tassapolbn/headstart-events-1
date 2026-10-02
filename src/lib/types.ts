@@ -15,6 +15,13 @@ export interface FieldCondition {
 }
 
 export interface FormField {
+  labelHtml?: string;
+  description?: string;
+  image_url?: string;
+  imageAlt?: string;
+  mediaPosition?: 'above' | 'belowLabel' | 'belowAnswer';
+  imageWidth?: number;
+  textAlign?: 'left' | 'center' | 'right';
   id: string;
   type: FieldType;
   label: string;
@@ -83,9 +90,23 @@ export interface EventBranding {
 }
 
 export interface EventTheme {
+  backgroundAngle?: number;
+  gradientFrom?: string;
+  gradientTo?: string;
+  gradientAngle?: number;
+  gradientPosition?: 'top' | 'bottom' | 'left' | 'right' | 'none';
+  gradientThickness?: number;
+  titleSize?: number;
+  titleLineHeight?: number;
+  helpColor?: string;
+  inputColor?: string;
+  inputBackground?: string;
+  inputBorder?: string;
+  buttonColor?: string;
+  buttonTextColor?: string;
   /** Optional public page composition. Stored in the existing theme JSON. */
   pageWidth?: number;
-  titleAlign?: 'left' | 'center';
+  titleAlign?: 'left' | 'center' | 'right';
   bannerHeight?: number;
   bannerFit?: 'cover' | 'contain';
   bannerPosition?: number;
@@ -145,6 +166,7 @@ export const QUESTION_LAYOUT_DEFAULTS = {
 };
 
 export interface EmailTemplate {
+  design?: EmailDesign;
   enabled: boolean;
   subject: string;
   body: string;
@@ -159,10 +181,31 @@ export interface EmailTemplate {
   adminEmails?: string[];
 }
 
+export interface EmailDesign {
+  headerPosition?: 'top' | 'afterBanner' | 'bottom' | 'hidden';
+  headerAlign?: 'left' | 'center' | 'right';
+  headerColor?: string;
+  headerTextColor?: string;
+  headerPadding?: number;
+  logoHeight?: number;
+  font?: string;
+  pageColor?: string;
+  bodyColor?: string;
+  textColor?: string;
+  buttonColor?: string;
+  buttonTextColor?: string;
+  footerColor?: string;
+  footerTextColor?: string;
+}
+
 /** What the public page is for. Stored inside events.settings (JSON), so no column change is needed. */
 export type FormType = 'registration' | 'survey';
 
 export interface EventSettings {
+  titleHtml?: string;
+  policyDisplay?: 'sections' | 'checkbox';
+  /** One spreadsheet per event. Blank disables the scheduled registration export. */
+  googleSheetUrl?: string;
   /** 'registration' = event sign up (reference, QR, booths). 'survey' = survey, questionnaire or feedback form. */
   formType: FormType;
   /** Optional custom heading above the form (falls back to the wording for the form type) */

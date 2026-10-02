@@ -1,9 +1,12 @@
 import { CalendarDays, ChevronDown, Clock, MapPin } from 'lucide-react';
+import { useEffect } from 'react';
+import { ensureContentFonts } from '@/lib/fonts';
 import type { EventRecord } from '@/lib/types';
 import { pageDesign } from '@/lib/pageDesign';
 import { formatDate, formatTimeRange } from '@/lib/utils';
 import { formCopy } from '@/lib/formCopy';
 import { richToHtml } from '@/components/ui/RichTextArea';
+import { FormattedText } from '@/components/ui/FormattedText';
 
 export function EventBanner({ event }: { event: EventRecord }) {
   const p = pageDesign(event.theme);
@@ -15,13 +18,14 @@ export function EventBanner({ event }: { event: EventRecord }) {
 
 /** Shared by the public page and unsaved design preview. */
 export function EventIntroduction({ event, logo, showJump = false }: { event: EventRecord; logo: string; showJump?: boolean }) {
+  useEffect(() => ensureContentFonts(event.description || ''), [event.description]);
   const p = pageDesign(event.theme);
   return <>
     <div style={{ textAlign: p.titleAlign }}>
-      {!event.branding.hide_logo && <img src={logo} alt="School logo" className={`mb-5 w-auto max-w-full object-contain ${p.titleAlign === 'center' ? 'mx-auto' : ''}`} style={{ height: p.logoHeight }} />}
-      <h1 className="ev-title ev-title-fluid break-words font-extrabold" style={{ color: 'var(--ev-title)' }}>{event.name}</h1>
-      {event.settings.introText && <p className="mt-3 whitespace-pre-line text-base leading-relaxed opacity-80">{event.settings.introText}</p>}
-      {p.showEventDetails && <div className={`mt-4 flex flex-wrap gap-2 ${p.titleAlign === 'center' ? 'justify-center' : ''}`}>
+      {!event.branding.hide_logo && <img src={logo} alt="School logo" className={`mb-5 w-auto max-w-full object-contain ${p.titleAlign === 'center' ? 'mx-auto' : p.titleAlign === 'right' ? 'ml-auto' : ''}`} style={{ height: p.logoHeight }} />}
+      <h1 className="ev-title ev-title-fluid font-extrabold" style={{ color: 'var(--ev-title)' }}><FormattedText value={event.settings.titleHtml?.trim() || event.name} /></h1>
+      {event.settings.introText && <div className="mt-3 text-base leading-relaxed"><FormattedText value={event.settings.introText} /></div>}
+      {p.showEventDetails && <div className={`mt-4 flex flex-wrap gap-2 ${p.titleAlign === 'center' ? 'justify-center' : p.titleAlign === 'right' ? 'justify-end' : ''}`}>
         {([
           event.event_date && { icon: CalendarDays, text: `${formatDate(event.event_date)}${event.end_date ? ` to ${formatDate(event.end_date, 'd MMMM yyyy')}` : ''}` },
           formatTimeRange(event.start_time, event.end_time) && { icon: Clock, text: formatTimeRange(event.start_time, event.end_time) },

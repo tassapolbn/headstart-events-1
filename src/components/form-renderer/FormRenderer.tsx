@@ -9,19 +9,30 @@ import { buttonClass, usesQuestionCards } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { Spinner } from '@/components/ui/basics';
 import { richToHtml } from '@/components/ui/RichTextArea';
+import { FormattedText } from '@/components/ui/FormattedText';
+import { ensureContentFonts } from '@/lib/fonts';
 
 const inputCls =
   'ev-input w-full border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400';
 
 function FieldShell({ field, error, children }: { field: FormField; error?: string; children: ReactNode }) {
+  const description = field.description ?? field.helpText;
+  const details = <div id={`${field.id}-description`} className="space-y-2" style={{ textAlign: field.textAlign }}>
+    {description && <div className="ev-rich ev-help text-sm" dangerouslySetInnerHTML={{ __html: richToHtml(description) }} />}
+    {field.image_url && <img src={field.image_url} alt={field.imageAlt || ''} loading="lazy" className="h-auto max-w-full rounded-lg object-contain"
+      style={{ width: `${Math.min(100, Math.max(25, field.imageWidth ?? 100))}%`, marginLeft: field.textAlign === 'right' || field.textAlign === 'center' ? 'auto' : undefined, marginRight: field.textAlign === 'center' ? 'auto' : undefined }} />}
+  </div>;
+  const position = field.mediaPosition ?? 'belowLabel';
   return (
     <div className="space-y-1.5">
-      <label htmlFor={field.id} className="ev-q-label block">
-        {field.label}
+      {position === 'above' && details}
+      <label htmlFor={field.id} className="ev-q-label block" style={{ textAlign: field.textAlign }}>
+        <FormattedText value={field.labelHtml ?? field.label} />
         {field.required && <span className="ml-0.5" style={{ color: 'var(--ev-primary)' }} aria-hidden="true">*</span>}
       </label>
-      {field.helpText && <p className="text-xs opacity-70">{field.helpText}</p>}
+      {position === 'belowLabel' && details}
       {children}
+      {position === 'belowAnswer' && details}
       {error && <p role="alert" className="text-xs font-medium text-red-600">{error}</p>}
     </div>
   );
@@ -46,6 +57,7 @@ export function FormRenderer({
   const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm({ resolver, mode: 'onBlur' });
   const values = watch();
   const questionCards = usesQuestionCards(theme);
+  useEffect(() => ensureContentFonts(JSON.stringify(fields)), [fields]);
 
   useEffect(() => {
     if (!onValuesChange) return;
@@ -58,7 +70,7 @@ export function FormRenderer({
       case 'heading':
         return (
           <h3 className="pt-2 text-lg font-bold" style={{ color: 'var(--ev-heading)', fontFamily: 'var(--ev-heading-font)' }}>
-            {f.content || f.label}
+            <FormattedText value={f.content || f.label} />
           </h3>
         );
       case 'rich_text':
@@ -73,7 +85,7 @@ export function FormRenderer({
           <div className="flex items-center gap-3 py-2" role="separator" aria-label="Section divider">
             <span className="h-px flex-1" style={{ background: 'linear-gradient(to right, transparent, var(--ev-primary))', opacity: 0.35 }} />
             {f.content ? (
-              <span className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: 'var(--ev-heading)' }}>{f.content}</span>
+              <span className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: 'var(--ev-heading)' }}><FormattedText value={f.content} /></span>
             ) : (
               <span className="flex gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--ev-primary)' }} />
@@ -384,7 +396,7 @@ export function FormRenderer({
         )}
       >
         {busy && <Spinner size={16} />}
-        {preview ? `${submitLabel} (preview)` : submitLabel}
+        <FormattedText value={preview ? `${submitLabel} (preview)` : submitLabel} />
       </button>
     </form>
   );

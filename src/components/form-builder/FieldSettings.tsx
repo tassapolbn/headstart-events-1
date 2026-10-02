@@ -1,5 +1,8 @@
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
-import type { FieldCondition, FormField } from '@/lib/types';
+import type { FieldCondition, FieldType, FormField } from '@/lib/types';
+import { changeQuestionType } from '@/lib/questionTypes';
+import { plainText } from '@/lib/richText';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { fieldTypeMeta } from '@/lib/defaults';
 import { ordinal } from '@/lib/grid';
 import { canAllowOther, isContentField } from '@/components/form-renderer/fieldZod';
@@ -10,7 +13,8 @@ import { RichTextArea } from '@/components/ui/RichTextArea';
 const selectionTypes = ['evaluation', 'dropdown', 'radio', 'checkboxes', 'multiple_choice', 'menu_quantity'];
 const textTypes = ['short_text', 'paragraph'];
 
-export function FieldSettings({ field, allFields, onChange }: {
+export function FieldSettings({ field, allFields, onChange, assetPrefix }: {
+  assetPrefix: string;
   field: FormField;
   allFields: FormField[];
   onChange: (patch: Partial<FormField>) => void;
@@ -28,10 +32,14 @@ export function FieldSettings({ field, allFields, onChange }: {
   return (
     <Card title={`${fieldTypeMeta[field.type]?.label ?? 'Question'} settings`}>
       <div className="space-y-4">
+        {!isContent && <Field label="Question type" htmlFor="fs-type" hint="Keeps this question and its saved answers. Check options and conditional rules after changing type.">
+          <Select id="fs-type" value={field.type} onChange={e => onChange(changeQuestionType(field, e.target.value as FieldType))}>
+            {Object.entries(fieldTypeMeta).filter(([type]) => !['heading', 'rich_text', 'divider'].includes(type)).map(([type, meta]) => <option key={type} value={type}>{meta.label}</option>)}
+          </Select>
+        </Field>}
         {!isContent && (
-          <Field label="Question label" htmlFor="fs-label">
-            <Input id="fs-label" value={field.label} onChange={(e) => onChange({ label: e.target.value })} />
-          </Field>
+          <RichTextArea inline rows={2} label="Question label" id="fs-label" value={field.labelHtml ?? field.label}
+            onChange={labelHtml => onChange({ labelHtml, label: plainText(labelHtml) })} />
         )}
 
         {field.type === 'divider' && (
@@ -40,9 +48,7 @@ export function FieldSettings({ field, allFields, onChange }: {
           </Field>
         )}
         {field.type === 'heading' && (
-          <Field label="Heading text">
-            <Textarea rows={2} value={field.content ?? ''} onChange={(e) => onChange({ content: e.target.value })} />
-          </Field>
+          <RichTextArea inline rows={2} label="Heading text" value={field.content ?? ''} onChange={content => onChange({ content })} />
         )}
         {field.type === 'rich_text' && (
           <RichTextArea
@@ -57,9 +63,18 @@ export function FieldSettings({ field, allFields, onChange }: {
             <Field label="Placeholder" htmlFor="fs-ph">
               <Input id="fs-ph" value={field.placeholder ?? ''} onChange={(e) => onChange({ placeholder: e.target.value })} />
             </Field>
-            <Field label="Help text" htmlFor="fs-help">
-              <Input id="fs-help" value={field.helpText ?? ''} onChange={(e) => onChange({ helpText: e.target.value })} />
-            </Field>
+            <RichTextArea label="Description / instructions" rows={3} value={field.description ?? field.helpText ?? ''} onChange={description => onChange({ description })} />
+            <ImageUpload label="Question photo" value={field.image_url} prefix={`${assetPrefix}/questions/${field.id}`} onChange={image_url => onChange({ image_url })} contain />
+            {field.image_url && <>
+              <Field label="Photo description" hint="Describe the photo for people using a screen reader."><Input value={field.imageAlt ?? ''} onChange={e => onChange({ imageAlt: e.target.value })} /></Field>
+              <Field label={`Photo width: ${field.imageWidth ?? 100}%`}><input aria-label="Photo width" type="range" min={25} max={100} value={field.imageWidth ?? 100} onChange={e => onChange({ imageWidth: Number(e.target.value) })} /></Field>
+            </>}
+            <Field label="Photo and description position"><Select aria-label="Photo and description position" value={field.mediaPosition ?? 'belowLabel'} onChange={e => onChange({ mediaPosition: e.target.value as FormField['mediaPosition'] })}>
+              <option value="above">Above the question</option><option value="belowLabel">Inside question, before the answer</option><option value="belowAnswer">Under the answer</option>
+            </Select></Field>
+            <Field label="Text alignment"><Select aria-label="Question text alignment" value={field.textAlign ?? 'left'} onChange={e => onChange({ textAlign: e.target.value as FormField['textAlign'] })}>
+              <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
+            </Select></Field>
             <Switch checked={!!field.required} onChange={(required) => onChange({ required })} label="Required" />
           </>
         )}
@@ -303,7 +318,7 @@ function OptionsEditor({ options, onChange, title = 'Options', itemLabel = 'Opti
         {options.map((o, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <span className="w-16 shrink-0 text-xs text-slate-400">{itemLabel} {i + 1}:</span>
-            <Input value={o} onChange={(e) => setAt(i, e.target.value)} aria-label={`${itemLabel} ${i + 1}`} />
+            <Textarea rows={2} value={o} onChange={(e) => setAt(i, e.target.value)} aria-label={`${itemLabel} ${i + 1}`} />
             <button type="button" aria-label={`Move ${itemLabel.toLowerCase()} ${i + 1} up`} disabled={i === 0} onClick={() => move(i, -1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
             <button type="button" aria-label={`Move option ${i + 1} down`} disabled={i === options.length - 1} onClick={() => move(i, 1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
             <button type="button" aria-label={`Remove option ${i + 1}`} onClick={() => removeAt(i)} className="rounded p-1 text-red-300 hover:text-red-500"><X className="h-4 w-4" /></button>
