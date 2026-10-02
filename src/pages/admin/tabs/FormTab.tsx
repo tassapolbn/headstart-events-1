@@ -7,6 +7,7 @@ export default function FormTab({ draft, update }: TabProps) {
       fields={draft.form_schema}
       onChange={(form_schema) => update({ form_schema })}
       theme={draft.theme}
+      assetPrefix={draft.id}
     />
   );
 }

@@ -52,30 +52,35 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
 .ev-accent-top::before {
   content: '';
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 5px;
-  background: linear-gradient(90deg, var(--ev-primary), var(--ev-secondary));
+  inset: var(--ev-line-inset, 0 0 auto 0);
+  height: var(--ev-line-height, 5px);
+  width: var(--ev-line-width, 100%);
+  display: var(--ev-line-display, block);
+  pointer-events: none;
+  background: var(--ev-gradient, linear-gradient(90deg, var(--ev-primary), var(--ev-secondary)));
 }
 .ev-btn {
-  background: var(--ev-primary); color: #fff; border-radius: calc(var(--ev-radius) * 0.6);
+  background: var(--ev-button, var(--ev-primary)); color: var(--ev-button-text, #fff); border-radius: calc(var(--ev-radius) * 0.6);
   transition: filter 0.15s ease, transform 0.1s ease;
 }
 .ev-btn:hover { filter: brightness(1.12); }
 .ev-btn:active { transform: scale(0.98); }
 .ev-btn-outline {
-  background: transparent; color: var(--ev-primary); border: 2px solid var(--ev-primary);
+  background: transparent; color: var(--ev-button, var(--ev-primary)); border: 2px solid var(--ev-button, var(--ev-primary));
   border-radius: calc(var(--ev-radius) * 0.6);
 }
 .ev-btn-pill { border-radius: 999px; }
 .ev-input {
   border-radius: calc(var(--ev-radius) * 0.5);
-  background: #fafbfd;
+  background: var(--ev-input-bg, #fafbfd);
+  color: var(--ev-input-text, var(--ev-text));
+  border-color: var(--ev-input-border, #cbd5e1);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .ev-input:hover { border-color: #b6c3d4; }
 .ev-input:focus {
   outline: none;
-  background: #ffffff;
+  background: var(--ev-input-bg, #ffffff);
   border-color: var(--ev-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ev-primary) 18%, transparent);
 }
@@ -87,6 +92,7 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
 
 /* Question labels follow their own size, weight and font. */
 .ev-q-label {
+  color: var(--ev-heading, var(--ev-primary));
   font-family: var(--ev-q-font);
   font-size: var(--ev-q-size);
   font-weight: var(--ev-q-weight);
@@ -267,10 +273,14 @@ body { @apply bg-slate-100 text-slate-800 antialiased; font-family: 'Inter', sys
 
 /* Fluid Typography: the event title scales smoothly with the viewport */
 .ev-title-fluid {
-  font-size: clamp(2.1rem, 5.5vw, 3.6rem);
-  line-height: 1.06;
+  font-size: clamp(24px, 5.5vw, var(--ev-title-size, 58px));
+  line-height: var(--ev-title-leading, 1.15);
   letter-spacing: -0.02em;
 }
+
+.ev-formatted { white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+.ev-help { color: var(--ev-help, var(--ev-text)); }
+.ev-choice span, .ev-row span { white-space: pre-line; }
 
 /* The event name keeps the colour the school chose, and gains an outline when
    that colour would otherwise disappear into a pale page. The value is worked

@@ -8,6 +8,7 @@ import {
 import { copyForType, formCopy } from '@/lib/formCopy';
 import type { FormType } from '@/lib/types';
 import { googleSheetId } from '@/lib/googleSheets';
+import { RefreshGoogleSheet } from '@/components/registrations/RefreshGoogleSheet';
 import type { TabProps } from '../EventEditorPage';
 
 export default function SettingsTab({ draft, update }: TabProps) {
@@ -59,10 +60,10 @@ export default function SettingsTab({ draft, update }: TabProps) {
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Form heading" htmlFor="form-heading" hint={`Optional. Default: "${copy.formHeading}"`}>
-            <Input id="form-heading" value={s.formHeading ?? ''} placeholder={copy.formHeading} onChange={(e) => set({ formHeading: e.target.value || undefined })} />
+            <RichTextArea inline rows={2} id="form-heading" value={s.formHeading ?? copy.formHeading} onChange={formHeading => set({ formHeading })} />
           </Field>
           <Field label="Submit button label" htmlFor="submit-label" hint={`Optional. Default: "${copy.submitLabel}"`}>
-            <Input id="submit-label" value={s.submitLabel ?? ''} placeholder={copy.submitLabel} onChange={(e) => set({ submitLabel: e.target.value || undefined })} />
+            <RichTextArea inline rows={2} id="submit-label" value={s.submitLabel ?? copy.submitLabel} onChange={submitLabel => set({ submitLabel })} />
           </Field>
         </div>
       </Card>
@@ -130,14 +131,15 @@ export default function SettingsTab({ draft, update }: TabProps) {
           {sheetId && <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noreferrer"
             className="inline-block text-sm font-medium text-navy-700 underline">Open spreadsheet</a>}
           <p className="text-xs text-slate-500">
-            One-time setup: enable Google Sheets syncing in the school’s Apps Script project and give its Google account
+            One-time setup: update the school’s Apps Script relay and give its Google account
             Editor access to this spreadsheet. Keep sharing restricted to your team.
           </p>
           <p className="text-xs text-slate-500">
-            Once set up, syncing checks every five minutes and also imports existing submissions. Large imports may take
-            several runs. It creates a “Registrations” tab and retries missed rows automatically, even with emails off.
-            Rows are copied once; later edits and cancellations are managed in the app.
+            New registrations are sent to the sheet when submitted, even with emails off. No scheduled scans run.
+            Save this event first, then use Refresh Google Sheet to import existing records, recover missed rows,
+            or update changed answers and statuses. Large refreshes may ask you to continue in the new tab.
           </p>
+          <RefreshGoogleSheet event={draft} />
         </div>
       </Card>
 

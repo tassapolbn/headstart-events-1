@@ -5,6 +5,7 @@ import { themeStyle, buttonClass, usesQuestionCards, autoTitleOutlineColor } fro
 import { Card } from '@/components/ui/basics';
 import { ColorInput, Field, Select, Switch } from '@/components/ui/inputs';
 import { cn } from '@/lib/utils';
+import { DesignControls } from './DesignControls';
 
 export function ThemeEditor({ theme, onChange, eventName }: {
   theme: EventTheme;
@@ -135,6 +136,7 @@ export function ThemeEditor({ theme, onChange, eventName }: {
         </div>
       </Card>
 
+      <DesignControls theme={theme} onChange={set} />
       <Card title="Form layout">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Question boxes" hint="How each question sits on the public page.">
@@ -189,7 +191,7 @@ export function ThemeEditor({ theme, onChange, eventName }: {
 
       <Card title="Live preview" padded={false}>
         <div className="event-theme rounded-b-2xl p-6" style={themeStyle(theme)}>
-          <div className="ev-card mx-auto max-w-sm p-5 shadow-lg">
+          <div className="ev-card ev-accent-top mx-auto max-w-sm p-5 shadow-lg">
             <span
               className="inline-block rounded-full px-3 py-1 text-xs font-semibold"
               style={{ background: 'var(--ev-secondary)', color: 'var(--ev-text)' }}

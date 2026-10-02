@@ -111,14 +111,31 @@ export function themeStyle(theme?: Partial<EventTheme>): CSSProperties {
   ensureFont(t.font);
   ensureFont(t.headingFont);
   if (q.questionFont) ensureFont(q.questionFont);
+  const position = t.gradientPosition ?? 'top';
+  const vertical = position === 'left' || position === 'right';
+  const bounded = (v: number | undefined, fallback: number, min: number, max: number) => typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
+  const thickness = `${bounded(t.gradientThickness, 5, 1, 16)}px`;
   return {
+    '--ev-gradient': `linear-gradient(${bounded(t.gradientAngle, 90, 0, 360)}deg, ${t.gradientFrom || t.primary}, ${t.gradientTo || t.secondary})`,
+    '--ev-line-inset': position === 'bottom' ? 'auto 0 0 0' : position === 'right' ? '0 0 0 auto' : position === 'left' ? '0 auto 0 0' : '0 0 auto 0',
+    '--ev-line-width': vertical ? thickness : '100%',
+    '--ev-line-height': vertical ? '100%' : thickness,
+    '--ev-line-display': position === 'none' ? 'none' : 'block',
+    '--ev-help': t.helpColor || t.text,
+    '--ev-input-text': t.inputColor || t.text,
+    '--ev-input-bg': t.inputBackground || '#fafbfd',
+    '--ev-input-border': t.inputBorder || '#cbd5e1',
+    '--ev-button': t.buttonColor || t.primary,
+    '--ev-button-text': t.buttonTextColor || '#ffffff',
+    '--ev-title-size': `${bounded(t.titleSize, 58, 24, 96)}px`,
+    '--ev-title-leading': bounded(t.titleLineHeight, 1.15, 1, 2),
     '--ev-primary': t.primary,
     '--ev-primary-rgb': rgbChannels(t.primary),
     '--ev-secondary': t.secondary,
     '--ev-accent': t.accent,
     '--ev-title': t.titleColor || t.primary,
     '--ev-heading': t.headingColor || t.primary,
-    '--ev-bg': t.backgroundTo ? `linear-gradient(170deg, ${t.background} 0%, ${t.backgroundTo} 100%)` : t.background,
+    '--ev-bg': t.backgroundTo ? `linear-gradient(${bounded(t.backgroundAngle, 170, 0, 360)}deg, ${t.background} 0%, ${t.backgroundTo} 100%)` : t.background,
     '--ev-card': t.card,
     '--ev-text': t.text,
     '--ev-radius': `${t.radius}px`,

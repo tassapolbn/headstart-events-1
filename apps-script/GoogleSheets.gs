@@ -1,13 +1,8 @@
 /**
- * Per-event Google Sheets export. Add this file alongside EmailRelay.gs.
- * Uses its server-side Supabase credentials; never receives a destination
- * from the public registration form. See GOOGLE_SHEETS_SETUP.md.
- *
- * This is an append-only export, not a two-way editor. A recurring complete
- * sweep repairs missed rows without relying on email delivery or a browser.
+ * One spreadsheet per event. Runs ONLY after a registration or an admin refresh.
+ * Add alongside EmailRelay.gs. No scheduled scans or background database polling.
  */
 var SHEETS_OWNER_KEY = 'headstart_event';
-var SHEETS_EVENT_CURSOR = 'sheets_event_cursor';
 var SHEETS_BATCH_SIZE = 100;
 
 function sheetsDestination(value) {
@@ -15,59 +10,90 @@ function sheetsDestination(value) {
   return match && match[1] !== 'e' ? match[1] : null;
 }
 
-/** Run once in the Apps Script editor using the school account. */
+/** Run once when upgrading: remove only triggers from the former sheet scanner. */
 function installGoogleSheetsSync() {
-  var exists = ScriptApp.getProjectTriggers().some(function (trigger) {
-    return trigger.getHandlerFunction() === 'syncGoogleSheets';
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === 'syncGoogleSheets') ScriptApp.deleteTrigger(trigger);
   });
-  if (!exists) ScriptApp.newTrigger('syncGoogleSheets').timeBased().everyMinutes(5).create();
-  return syncGoogleSheets();
+  return { mode: 'registration-or-admin-refresh', scheduledScans: false };
 }
 
-function syncGoogleSheets() {
+/** A stale installed trigger must not query the database after upgrading. */
+function syncGoogleSheets() { return { skipped: 'Scheduled syncing is disabled. Use Refresh Google Sheet.' }; }
+
+/** Reuses the registration and event already fetched by the email relay. */
+function syncRegistrationToSheet(reg) {
+  var event = reg.events;
+  if (!event || !event.settings || !event.settings.googleSheetUrl) return { added: 0, updated: 0 };
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(1000)) return { skipped: 'already running' };
-  var errors = [];
-  var added = 0;
-  try {
-    // Ten events per run, rotating by UUID. Progress is saved per event, so
-    // one large event or a broken spreadsheet cannot starve the others.
-    var cursor = PROPS.getProperty(SHEETS_EVENT_CURSOR) || '';
-    var path = '/rest/v1/events?select=id,name,settings,form_schema&settings->>googleSheetUrl=not.is.null&order=id.asc&limit=10';
-    var events = supabaseGet(path + (cursor ? '&id=gt.' + encodeURIComponent(cursor) : ''));
-    if (!events.length && cursor) events = supabaseGet(path);
-    var deadline = Date.now() + 240000;
-    for (var i = 0; i < events.length && Date.now() < deadline; i++) {
-      var event = events[i];
-      try {
-        var url = event.settings && event.settings.googleSheetUrl;
-        if (url && String(url).trim()) added += syncEventSheet(event);
-      } catch (err) {
-        errors.push(event.id);
-        console.error('Google Sheets sync failed for event ' + event.id + ': ' + String(err));
-      }
-      PROPS.setProperty(SHEETS_EVENT_CURSOR, event.id);
-    }
-    if (!events.length) PROPS.deleteProperty(SHEETS_EVENT_CURSOR);
-    // Mark failed trigger executions as failures, so Apps Script can notify
-    // its owner. Successful events still make progress and failed ones retry.
-    if (errors.length) throw new Error('Google Sheets sync failed for event(s): ' + errors.join(', ') + '. Check the execution log.');
-    return { added: added };
-  } finally {
-    lock.releaseLock();
-  }
+  if (!lock.tryLock(5000)) throw new Error('Sheet is busy. An admin can refresh to recover this row.');
+  try { return writeEventRows(event, [reg], false); }
+  finally { lock.releaseLock(); }
 }
 
-/** Called only while holding the script lock. */
-function syncEventSheet(event) {
+/** Owner/staff role is read from verified, server-controlled app_metadata. */
+function verifySheetAdmin(token) {
+  if (typeof token !== 'string' || !token) throw new Error('Sign in to the app before refreshing.');
+  var res = UrlFetchApp.fetch(SUPABASE_URL + '/auth/v1/user', {
+    headers: { apikey: SERVICE_KEY, Authorization: 'Bearer ' + token }, muteHttpExceptions: true
+  });
+  if (res.getResponseCode() !== 200) throw new Error('Your session expired. Sign in again and retry.');
+  var user = JSON.parse(res.getContentText());
+  var role = user.app_metadata && user.app_metadata.role;
+  if (!user.id || user.is_anonymous || ['owner', 'staff'].indexOf(role) === -1) throw new Error('Only a school owner or staff account can refresh a sheet.');
+}
+
+/** One explicit refresh walks only this event, never all events. */
+function refreshEventSheet(payload) {
+  verifySheetAdmin(payload.accessToken);
+  if (!/^[a-f0-9-]{36}$/i.test(String(payload.eventId || ''))) throw new Error('Invalid event.');
+  var events = supabaseGet('/rest/v1/events?select=id,name,settings,form_schema&id=eq.' + encodeURIComponent(payload.eventId));
+  var event = events[0];
+  if (!event || !sheetsDestination(event.settings && event.settings.googleSheetUrl)) throw new Error('Save a Google Sheet link in this event’s settings first.');
+  var cursor = /^[a-f0-9-]{36}$/i.test(String(payload.cursor || '')) ? payload.cursor : '';
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) throw new Error('Another sync is running. Please try Refresh again.');
+  var added = 0, updated = 0, complete = false;
+  try {
+    var deadline = Date.now() + 200000;
+    for (var page = 0; page < 20 && Date.now() < deadline; page++) {
+      var path = '/rest/v1/registrations?select=id,event_id,reference,name,email,phone,status,created_at,data,booths!registrations_booth_id_fkey(label,number),registration_booths(booths(label,number))' +
+        '&event_id=eq.' + encodeURIComponent(event.id) + '&order=id.asc&limit=' + SHEETS_BATCH_SIZE + (cursor ? '&id=gt.' + encodeURIComponent(cursor) : '');
+      var rows = supabaseGet(path);
+      var result = writeEventRows(event, rows, true);
+      added += result.added; updated += result.updated;
+      if (!rows.length) { complete = true; break; }
+      cursor = rows[rows.length - 1].id;
+    }
+    return { added: added, updated: updated, complete: complete, cursor: cursor, url: event.settings.googleSheetUrl };
+  } finally { lock.releaseLock(); }
+}
+
+/** Returns a visible completion page because Apps Script responses do not offer browser CORS. */
+function sheetRefreshPage(payload) {
+  var escape = function (s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
+  var body;
+  try {
+    var result = refreshEventSheet(payload);
+    body = '<h1>' + (result.complete ? 'Google Sheet refreshed' : 'Refresh in progress') + '</h1><p>' + result.added + ' rows added; ' + result.updated + ' rows updated in this batch.</p>';
+    if (!result.complete) {
+      var next = JSON.stringify({ action: 'google_sheet_refresh', eventId: payload.eventId, accessToken: payload.accessToken, cursor: result.cursor });
+      body += '<p>This event needs another batch. Nothing runs in the background.</p><form method="post" target="_top" action="' + escape(ScriptApp.getService().getUrl()) + '"><input type="hidden" name="request" value="' + escape(next) + '"><button type="submit">Continue refresh</button></form>';
+    }
+    body += '<p><a target="_blank" rel="noopener noreferrer" href="https://docs.google.com/spreadsheets/d/' + sheetsDestination(result.url) + '/edit">Open Google Sheet</a></p>';
+  } catch (err) { body = '<h1>Sheet refresh failed</h1><p>' + escape(String(err)) + '</p><p>Return to the app and try again after correcting the problem. Saved registrations are retained.</p>'; }
+  return HtmlService.createHtmlOutput('<!doctype html><html><head><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font:16px Arial,sans-serif;max-width:640px;margin:48px auto;padding:24px;color:#1a3c5e">' + body + '</body></html>');
+}
+
+/** Called with a lock held. Destination is always taken from the saved event. */
+function writeEventRows(event, rows, updateExisting) {
   var spreadsheetId = sheetsDestination(event.settings.googleSheetUrl);
   if (!spreadsheetId) throw new Error('Invalid Google Sheet link.');
+  if (rows.some(function (r) { return r.event_id !== event.id; })) throw new Error('Registration event mismatch.');
   var book = SpreadsheetApp.openById(spreadsheetId);
   var owner = SUPABASE_URL + '#' + event.id;
   var metadata = book.getDeveloperMetadata().filter(function (m) { return m.getKey() === SHEETS_OWNER_KEY; });
-  if (metadata.some(function (m) { return m.getValue() !== owner; })) {
-    throw new Error('This spreadsheet belongs to another event. Use a separate blank spreadsheet.');
-  }
+  if (metadata.some(function (m) { return m.getValue() !== owner; })) throw new Error('This spreadsheet belongs to another event. Use a separate blank spreadsheet.');
   var sheet = book.getSheetByName('Registrations');
   if (!metadata.length) {
     if (sheet && sheet.getLastRow()) throw new Error('The Registrations tab already contains data. Use a blank spreadsheet.');
@@ -75,40 +101,23 @@ function syncEventSheet(event) {
   }
   if (!sheet) sheet = book.insertSheet('Registrations');
   var columns = sheetsColumns(sheet, event);
-
-  // The destination is part of the saved progress. Changing the link starts
-  // a fresh import; returning to an old file is safe because IDs are checked.
-  var key = 'sheets_rows_' + event.id;
-  var saved = PROPS.getProperty(key);
-  var progress = saved ? JSON.parse(saved) : {};
-  var cursor = progress.destination === spreadsheetId ? progress.cursor : '';
-  var path = '/rest/v1/registrations?select=id,event_id,reference,name,email,phone,status,created_at,data,booths!registrations_booth_id_fkey(label,number),registration_booths(booths(label,number))' +
-    '&event_id=eq.' + encodeURIComponent(event.id) + '&order=id.asc&limit=' + SHEETS_BATCH_SIZE;
-  var rows = supabaseGet(path + (cursor ? '&id=gt.' + encodeURIComponent(cursor) : ''));
-  // Start the next sweep once the cursor reaches the end. Do not infer the
-  // end from page length: a server can impose a smaller result limit.
-  if (!rows.length && cursor) rows = supabaseGet(path);
-  if (rows.some(function (r) { return r.event_id !== event.id; })) throw new Error('Registration event mismatch.');
-
-  var lastRow = sheet.getLastRow();
-  var seen = Object.create(null);
-  if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 1).getValues().forEach(function (r) { seen[String(r[0])] = true; });
-  var values = [];
+  var lastRow = sheet.getLastRow(), seen = Object.create(null), added = [], updated = 0;
+  if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 1).getValues().forEach(function (r, i) { seen[String(r[0])] = i + 2; });
   rows.forEach(function (reg) {
     if (!reg.id) throw new Error('Registration ID missing.');
-    if (seen[reg.id]) return;
-    seen[reg.id] = true;
-    values.push(columns.map(function (column) { return sheetsText(sheetsValue(column, event, reg)); }));
+    var values = columns.map(function (column) { return sheetsText(sheetsValue(column, event, reg)); });
+    if (seen[reg.id]) {
+      if (updateExisting) { sheet.getRange(seen[reg.id], 1, 1, columns.length).setNumberFormat('@').setValues([values]); updated++; }
+    } else {
+      added.push(values); seen[reg.id] = lastRow + added.length;
+    }
   });
-  if (values.length) {
-    sheetsEnsureSize(sheet, lastRow + values.length, columns.length);
-    sheet.getRange(lastRow + 1, 1, values.length, columns.length).setNumberFormat('@').setValues(values);
+  if (added.length) {
+    sheetsEnsureSize(sheet, lastRow + added.length, columns.length);
+    sheet.getRange(lastRow + 1, 1, added.length, columns.length).setNumberFormat('@').setValues(added);
   }
-  // Flush before advancing. If a write succeeds but the checkpoint fails,
-  // the next run reads the IDs from the sheet and skips the committed rows.
   SpreadsheetApp.flush();
-  PROPS.setProperty(key, JSON.stringify({ destination: spreadsheetId, cursor: rows.length ? rows[rows.length - 1].id : '' }));
-  return values.length;
+  return { added: added.length, updated: updated };
 }
 
 function sheetsEnsureSize(sheet, rows, columns) {
@@ -121,7 +130,7 @@ function sheetsColumns(sheet, event) {
     { key: 'id', label: 'Registration ID' }, { key: 'reference', label: 'Reference' },
     { key: 'created_at', label: 'Submitted (UTC)' }, { key: 'event', label: 'Event' },
     { key: 'name', label: 'Name' }, { key: 'email', label: 'Email' },
-    { key: 'phone', label: 'Phone' }, { key: 'booth', label: 'Booth' }, { key: 'status', label: 'Status at export' },
+    { key: 'phone', label: 'Phone' }, { key: 'booth', label: 'Booth' }, { key: 'status', label: 'Status' },
   ];
   var questions = (event.form_schema || []).filter(function (f) {
     return ['heading', 'rich_text', 'divider'].indexOf(f.type) === -1;
@@ -165,7 +174,7 @@ function sheetsValue(column, event, reg) {
   }
   if (column.key.indexOf('answer:') !== 0) return reg[column.key];
   var value = (reg.data || {})[column.key.slice(7)];
-  if (column.type === 'signature') return value ? 'Signature captured (view in app)' : '';
+  if (typeof value === 'string' && /^data:image\//i.test(value)) return 'Signature captured (view in app)';
   if (value && typeof value === 'object' && 'bucket' in value && 'path' in value) return value.name || 'File (view in app)';
   if (Array.isArray(value)) return value.map(function (v) { return typeof v === 'object' ? JSON.stringify(v) : String(v); }).join(', ');
   if (value && typeof value === 'object') return JSON.stringify(value);

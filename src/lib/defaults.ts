@@ -61,7 +61,7 @@ export const themePresets: ThemePreset[] = [
   },
 ];
 
-export const fontOptions = ['Inter', 'Poppins', 'Nunito', 'Playfair Display', 'Merriweather', 'Quicksand'];
+export const fontOptions = ['Inter', 'Poppins', 'Nunito', 'Playfair Display', 'Merriweather', 'Quicksand', 'Sarabun'];
 
 // ------------------------------------------------------------------
 // Event defaults

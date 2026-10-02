@@ -46,184 +46,151 @@ class Sheet {
   }
 }
 
-function harness(events, registrations) {
-  const books = new Map(), props = new Map(), logs = [], queries = [], triggers = [];
-  let locked = false, failCheckpoint = false, failFlush = false;
+
+function harness(events = [], registrations = []) {
+  const books = new Map(), queries = [], triggers = ['syncGoogleSheets', 'unrelated'];
+  let locked = false, failFlush = false, user = { id: 'admin', app_metadata: { role: 'staff' } }, code = 200;
   const book = id => {
     if (!books.has(id)) books.set(id, {
       metadata: [], sheet: null,
       getDeveloperMetadata() { return this.metadata.map(([key, value]) => ({ getKey: () => key, getValue: () => value })); },
       addDeveloperMetadata(key, value) { this.metadata.push([key, value]); },
-      getSheetByName: function () { return this.sheet; },
-      insertSheet: function () { return this.sheet = new Sheet(); },
+      getSheetByName() { return this.sheet; }, insertSheet() { return this.sheet = new Sheet(); },
     });
     return books.get(id);
   };
   const ctx = vm.createContext({
-    SUPABASE_URL: 'https://test.supabase.co',
-    PROPS: {
-      getProperty: key => props.get(key), deleteProperty: key => props.delete(key),
-      setProperty: (key, val) => {
-        if (failCheckpoint && key.startsWith('sheets_rows_')) { failCheckpoint = false; throw new Error('Checkpoint failure'); }
-        props.set(key, val);
-      },
-    },
-    console: { error: value => logs.push(value) },
-    LockService: { getScriptLock: () => ({
-      tryLock: () => { if (locked) return false; locked = true; return true; }, releaseLock: () => { locked = false; },
-    }) },
+    SUPABASE_URL: 'https://test.supabase.co', SERVICE_KEY: 'server-secret', console,
+    UrlFetchApp: { fetch: (address, options) => {
+      assert.equal(address, 'https://test.supabase.co/auth/v1/user');
+      assert.equal(options.headers.Authorization, 'Bearer session');
+      return { getResponseCode: () => code, getContentText: () => JSON.stringify(user) };
+    } },
+    LockService: { getScriptLock: () => ({ tryLock: () => { if (locked) return false; locked = true; return true; }, releaseLock: () => { locked = false; } }) },
     SpreadsheetApp: { openById: book, DeveloperMetadataVisibility: { DOCUMENT: 'DOCUMENT' },
-      flush: () => { if (failFlush) { failFlush = false; throw new Error('Flush failure'); } },
-    },
+      flush: () => { if (failFlush) { failFlush = false; throw new Error('Flush failure'); } } },
     ScriptApp: {
       getProjectTriggers: () => triggers.map(name => ({ getHandlerFunction: () => name })),
-      newTrigger: name => ({ timeBased: () => ({ everyMinutes: minutes => {
-        assert.equal(minutes, 5); return { create: () => triggers.push(name) };
-      } }) }),
+      deleteTrigger: trigger => triggers.splice(triggers.indexOf(trigger.getHandlerFunction()), 1),
+      newTrigger: () => { throw new Error('Scheduled jobs are forbidden'); },
+      getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/test/exec' }),
     },
+    HtmlService: { createHtmlOutput: html => html },
     supabaseGet: path => {
       queries.push(path);
-      const query = new URL(`https://test.invalid${path}`).searchParams;
+      const query = new URL('https://test.invalid' + path).searchParams;
+      if (path.startsWith('/rest/v1/events?')) return plain(events.filter(e => e.id === query.get('id')?.slice(3)));
       const cursor = query.get('id')?.slice(3);
-      const list = path.startsWith('/rest/v1/events?')
-        ? events.filter(e => e.settings.googleSheetUrl != null)
-        : registrations.filter(r => r.event_id === query.get('event_id')?.slice(3));
-      return plain(list.filter(r => !cursor || r.id > cursor).sort((a, b) => a.id.localeCompare(b.id)).slice(0, Number(query.get('limit'))));
+      return plain(registrations.filter(r => r.event_id === query.get('event_id')?.slice(3) && (!cursor || r.id > cursor))
+        .sort((a, b) => a.id.localeCompare(b.id)).slice(0, Number(query.get('limit'))));
     },
   });
   vm.runInContext(script, ctx);
-  return { ctx, book, props, queries, logs, triggers,
-    checkpointFailure: () => { failCheckpoint = true; }, flushFailure: () => { failFlush = true; },
-    lock: value => { locked = value; },
+  return { ctx, book, queries, triggers, flushFailure: () => { failFlush = true; }, lock: value => { locked = value; },
+    auth: (value, status = 200) => { user = value; code = status; },
+    send: (e, reg) => ctx.syncRegistrationToSheet({ ...reg, events: e }),
+    refresh: e => ctx.refreshEventSheet({ eventId: e.id, accessToken: 'session' }),
   };
 }
+const uuid = n => '00000000-0000-4000-8000-' + String(n).padStart(12, '0');
 
-test('separate spreadsheets contain only their event, including anonymous responses with emails off', () => {
-  const h = harness([event('a'), event('b')], [registration('a', 'a1', { q1: 'Apple' }), registration('b', 'b1', { q1: 'Banana' })]);
-  assert.equal(h.ctx.syncGoogleSheets().added, 2);
-  assert.equal(h.book('sheet-a').sheet.values[1][0], 'a1');
-  assert.equal(h.book('sheet-b').sheet.values[1][0], 'b1');
+test('registration export is isolated, deduplicated and makes zero extra database reads, including emails-off surveys', () => {
+  const h = harness(), a = event('a'), b = event('b');
+  assert.equal(h.send(a, registration('a', 'a1', { q1: 'Apple' })).added, 1);
+  assert.equal(h.send(b, registration('b', 'b1', { q1: 'Banana' })).added, 1);
+  assert.equal(h.send(a, registration('a', 'a1')).added, 0);
   assert.equal(h.book('sheet-a').sheet.values[1].at(-1), 'Apple');
+  assert.equal(h.book('sheet-b').sheet.values[1].at(-1), 'Banana');
   assert.equal(h.book('sheet-a').sheet.values[1][6], '001234');
-  assert.equal(h.ctx.syncGoogleSheets().added, 0);
+  assert.deepEqual(h.queries, []);
 });
-
-test('cannot reuse a spreadsheet for another event, and a failing event does not block others', () => {
-  const h = harness([event('a', 'shared'), event('b', 'shared'), event('c')],
-    ['a', 'b', 'c'].map(id => registration(id, `${id}1`)));
-  assert.throws(() => h.ctx.syncGoogleSheets(), /failed for event\(s\): b/);
+test('old scheduled handlers do no work and upgrading removes only the old sheet trigger', () => {
+  const h = harness();
+  assert.match(h.ctx.syncGoogleSheets().skipped, /disabled/);
+  h.ctx.installGoogleSheetsSync(); h.ctx.installGoogleSheetsSync();
+  assert.deepEqual(h.triggers, ['unrelated']); assert.deepEqual(h.queries, []);
+});
+test('cannot mix events, use an occupied unowned sheet, or export after disconnecting', () => {
+  const h = harness(), a = event('a', 'shared'), b = event('b', 'shared');
+  h.send(a, registration('a', 'a1'));
+  assert.throws(() => h.send(b, registration('b', 'b1')), /another event/);
+  assert.throws(() => h.send(a, registration('b', 'b1')), /mismatch/);
+  const occupied = event('c'); h.book('sheet-c').sheet = new Sheet(); h.book('sheet-c').sheet.values = [['Staff records']];
+  assert.throws(() => h.send(occupied, registration('c', 'c1')), /already contains/);
+  assert.deepEqual(h.book('sheet-c').sheet.values, [['Staff records']]);
+  a.settings.googleSheetUrl = ''; assert.equal(h.send(a, registration('a', 'a2')).added, 0);
   assert.equal(h.book('shared').sheet.values.length, 2);
-  assert.equal(h.book('sheet-c').sheet.values[1][0], 'c1');
 });
-
-test('a pre-existing unowned Registrations tab is never overwritten', () => {
-  const h = harness([event('a')], [registration('a', 'a1')]);
-  h.book('sheet-a').sheet = new Sheet();
-  h.book('sheet-a').sheet.values = [['Staff records']];
-  assert.throws(() => h.ctx.syncGoogleSheets(), /failed/);
-  assert.deepEqual(h.book('sheet-a').sheet.values, [['Staff records']]);
-});
-
-test('write failures retry, while checkpoint or flush failure after writing cannot duplicate a row', () => {
-  for (const failure of ['write', 'checkpoint', 'flush']) {
-    const h = harness([event('a')], []);
-    h.ctx.syncGoogleSheets();
+test('write and flush failures recover on explicit retry without duplicating rows', () => {
+  for (const failure of ['write', 'flush']) {
+    const h = harness(), e = event('a'); h.ctx.writeEventRows(e, [], false);
     const sheet = h.book('sheet-a').sheet;
-    // Use the public fetch seam to add a registration after initialization.
-    h.ctx.supabaseGet = path => path.startsWith('/rest/v1/events?') ? [event('a')] : [registration('a', 'a1')];
-    if (failure === 'write') sheet.failWrite = true;
-    if (failure === 'checkpoint') h.checkpointFailure();
-    if (failure === 'flush') h.flushFailure();
-    assert.throws(() => h.ctx.syncGoogleSheets(), /failed/);
-    sheet.failWrite = false;
-    h.ctx.syncGoogleSheets();
+    if (failure === 'write') sheet.failWrite = true; else h.flushFailure();
+    assert.throws(() => h.send(e, registration('a', 'a1')), /failure/);
+    sheet.failWrite = false; h.send(e, registration('a', 'a1'));
     assert.equal(sheet.values.length, 2);
-    assert.equal(sheet.values[1][0], 'a1');
   }
 });
-
-test('paged sweeps eventually recover late inserts behind the cursor and reset for a new destination', () => {
-  const e = event('a');
-  const regs = Array.from({ length: 205 }, (_, i) => registration('a', `r${String(i + 1).padStart(3, '0')}`));
-  const h = harness([e], regs);
-  assert.equal(h.ctx.syncGoogleSheets().added, 100);
-  regs.push(registration('a', 'r000'));
-  assert.equal(h.ctx.syncGoogleSheets().added, 100);
-  assert.equal(h.ctx.syncGoogleSheets().added, 5);
-  assert.equal(h.ctx.syncGoogleSheets().added, 1);
-  assert.equal(h.book('sheet-a').sheet.values.length, 207);
-  e.settings.googleSheetUrl = url('replacement');
-  assert.equal(h.ctx.syncGoogleSheets().added, 100);
-  assert.equal(h.book('replacement').sheet.values[1][0], 'r000');
+test('manual refresh fills missed registrations and updates answers and status for only the chosen event', () => {
+  const e = event(uuid(1)), other = event(uuid(2));
+  const regs = [registration(e.id, uuid(3), { q1: 'Before' }), registration(other.id, uuid(4))];
+  const h = harness([e, other], regs); h.send(e, regs[0]);
+  regs[0].status = 'approved'; regs[0].data.q1 = 'After'; regs.push(registration(e.id, uuid(5)));
+  const result = h.refresh(e);
+  assert.equal(result.added, 1); assert.equal(result.updated, 1); assert.equal(result.complete, true);
+  const sheet = h.book('sheet-' + e.id).sheet;
+  assert.equal(sheet.values[1][8], 'approved'); assert.equal(sheet.values[1][9], 'After'); assert.equal(sheet.values.length, 3);
+  assert.ok(h.queries.every(q => q.includes(e.id))); assert.equal(h.book('sheet-' + other.id).sheet, null);
+  assert.equal(h.refresh(e).added, 0);
 });
-
-test('more than ten events rotate across executions; disabling a link stops exports', () => {
-  const events = Array.from({ length: 12 }, (_, i) => event(`e${String(i).padStart(2, '0')}`));
-  const regs = events.map(e => registration(e.id, `${e.id}-r1`));
-  const h = harness(events, regs);
-  assert.equal(h.ctx.syncGoogleSheets().added, 10);
-  assert.equal(h.ctx.syncGoogleSheets().added, 2);
-  events[0].settings.googleSheetUrl = '';
-  regs.push(registration(events[0].id, 'new'));
-  h.ctx.syncGoogleSheets();
-  assert.equal(h.book('sheet-e00').sheet.values.length, 2);
+test('manual refresh authenticates server roles and rejects forged or anonymous roles before reading events', () => {
+  for (const [user, status] of [[{}, 401], [{ id: 'x', user_metadata: { role: 'owner' } }, 200],
+    [{ id: 'x', is_anonymous: true, app_metadata: { role: 'owner' } }, 200], [{ id: 'x', app_metadata: { role: 'parent' } }, 200]]) {
+    const h = harness(); h.auth(user, status);
+    assert.throws(() => h.refresh(event(uuid(1))), /session|owner or staff/); assert.deepEqual(h.queries, []);
+  }
+  const h = harness(); assert.throws(() => h.ctx.refreshEventSheet({ eventId: uuid(1) }), /Sign in/);
 });
-
-test('a database limit smaller than the requested page size does not strand later records', () => {
-  const h = harness([event('a')], Array.from({ length: 5 }, (_, i) => registration('a', `r${i}`)));
-  const read = h.ctx.supabaseGet;
+test('manual pagination handles a smaller database cap and explicitly continues bounded batches', () => {
+  const e = event(uuid(1)), regs = Array.from({ length: 43 }, (_, i) => registration(e.id, uuid(i + 100)));
+  const h = harness([e], regs), read = h.ctx.supabaseGet;
   h.ctx.supabaseGet = path => read(path).slice(0, 2);
-  for (let i = 0; i < 4; i++) h.ctx.syncGoogleSheets();
-  assert.equal(h.book('sheet-a').sheet.values.length, 6);
+  const first = h.refresh(e); assert.equal(first.added, 40); assert.equal(first.complete, false);
+  const rest = h.ctx.refreshEventSheet({ eventId: e.id, accessToken: 'session', cursor: first.cursor });
+  assert.equal(rest.added, 3); assert.equal(rest.complete, true);
+  assert.equal(h.book('sheet-' + e.id).sheet.values.length, 44);
 });
-
-test('overlapping runs skip and installing twice creates only one trigger', () => {
-  const h = harness([], []);
-  h.lock(true);
-  assert.equal(h.ctx.syncGoogleSheets().skipped, 'already running');
-  h.lock(false);
-  h.ctx.installGoogleSheetsSync(); h.ctx.installGoogleSheetsSync();
-  assert.deepEqual(h.triggers, ['syncGoogleSheets']);
+test('overlapping writes fail visibly and release the lock after a failure', () => {
+  const h = harness(), e = event('a'); h.lock(true);
+  assert.throws(() => h.send(e, registration('a', 'a1')), /busy/);
+  h.lock(false); assert.equal(h.send(e, registration('a', 'a1')).added, 1);
 });
-
-test('reordered questions keep stable columns, new fields append, and deleted fields retain old answers', () => {
-  const e = event('a');
-  const regs = [registration('a', 'a1', { q1: 'First' })];
-  const h = harness([e], regs); h.ctx.syncGoogleSheets();
-  e.form_schema = [{ id: 'q2', label: 'Question', type: 'checkboxes' }, { id: 'q1', label: 'Renamed', type: 'short_text' }];
-  regs.push(registration('a', 'a2', { q1: 'Second', q2: ['A', 'B'] }));
-  h.ctx.syncGoogleSheets();
-  const sheet = h.book('sheet-a').sheet;
-  assert.deepEqual(sheet.values[2].slice(-2), ['Second', 'A, B']);
-  e.form_schema = [];
-  regs.push(registration('a', 'a3', { q1: 'Stored old answer' }));
-  h.ctx.syncGoogleSheets();
+test('question reorder, rename, type changes and removal preserve column identity and stored answers', () => {
+  const h = harness(), e = event('a'); h.send(e, registration('a', 'a1', { q1: 'First' }));
+  e.form_schema = [{ id: 'q2', label: 'Question', type: 'checkboxes' }, { id: 'q1', label: 'Renamed', type: 'long_text' }];
+  h.send(e, registration('a', 'a2', { q1: 'Second', q2: ['A', 'B'] }));
+  const sheet = h.book('sheet-a').sheet; assert.deepEqual(sheet.values[2].slice(-2), ['Second', 'A, B']);
+  e.form_schema = []; h.send(e, registration('a', 'a3', { q1: 'Stored old answer' }));
   assert.equal(sheet.values[3][9], 'Stored old answer');
-  sheet.notes[0][0] = '';
-  assert.throws(() => h.ctx.syncGoogleSheets(), /failed/);
+  sheet.notes[0][0] = ''; assert.throws(() => h.send(e, registration('a', 'a4')), /notes/);
 });
-
-test('formula-like answers and labels are escaped, private uploads stay private, and capacity grows', () => {
-  const e = event('a');
-  e.form_schema = [
-    { id: 'q1', label: '=IMPORTXML("bad")', type: 'short_text' },
+test('formula-like answers are literal, private uploads stay private, and sheet capacity grows', () => {
+  const e = event('a'); e.form_schema = [{ id: 'q1', label: '=IMPORTXML("bad")', type: 'short_text' },
     { id: 'file', label: 'File', type: 'file' }, { id: 'sig', label: 'Sign', type: 'signature' },
-    ...Array.from({ length: 25 }, (_, i) => ({ id: `extra-${i}`, label: `Extra ${i}`, type: 'short_text' })),
-  ];
-  const h = harness([e], [registration('a', 'a1', { q1: '=IMPORTXML("bad")',
-    file: { bucket: 'private', path: 'secret/path', name: 'menu.pdf' }, sig: 'data:image/png;base64,secret',
-  })]);
-  h.ctx.syncGoogleSheets();
+    ...Array.from({ length: 25 }, (_, i) => ({ id: 'extra-' + i, label: 'Extra ' + i, type: 'short_text' }))];
+  const h = harness(); h.send(e, registration('a', 'a1', { q1: '=IMPORTXML("bad")',
+    file: { bucket: 'private', path: 'secret/path', name: 'menu.pdf' }, sig: 'data:image/png;base64,secret' }));
   const sheet = h.book('sheet-a').sheet;
-  assert.equal(sheet.values[0][9][0], "'");
-  assert.equal(sheet.values[1][9][0], "'");
-  assert.equal(sheet.values[1][10], 'menu.pdf');
-  assert.equal(sheet.values[1][11], 'Signature captured (view in app)');
+  assert.equal(sheet.values[0][9][0], "'"); assert.equal(sheet.values[1][9][0], "'");
+  assert.equal(sheet.values[1][10], 'menu.pdf'); assert.equal(sheet.values[1][11], 'Signature captured (view in app)');
   assert.equal(sheet.columns, 37);
   for (const value of ['+123', '-1', '@SUM(A1)', ' \n=HYPERLINK("bad")']) assert.ok(h.ctx.sheetsText(value).startsWith("'"));
   assert.match(h.ctx.sheetsText('x'.repeat(50001)), /truncated; view full answer in app/);
 });
-
+test('refresh result page reports failure and escapes error content', () => {
+  const h = harness(); h.ctx.refreshEventSheet = () => { throw new Error('<script>unsafe</script>'); };
+  const html = h.ctx.sheetRefreshPage({}); assert.match(html, /refresh failed/); assert.ok(!html.includes('<script>'));
+});
 test('frontend and worker accept only Google spreadsheet URLs; copied settings exclude the destination', () => {
   const mod = { exports: {} };
   vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/googleSheets.ts', import.meta.url), 'utf8'),
