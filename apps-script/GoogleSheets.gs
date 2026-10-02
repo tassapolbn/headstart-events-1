@@ -116,8 +116,72 @@ function writeEventRows(event, rows, updateExisting) {
     sheetsEnsureSize(sheet, lastRow + added.length, columns.length);
     sheet.getRange(lastRow + 1, 1, added.length, columns.length).setNumberFormat('@').setValues(added);
   }
+  // Appearance never blocks the export: the rows above are already written.
+  try { styleRegistrationsSheet(sheet, columns, Math.max(sheet.getLastRow(), 1)); }
+  catch (styleError) { console.warn('Sheet styling skipped: ' + styleError); }
   SpreadsheetApp.flush();
   return { added: added.length, updated: updated };
+}
+
+// HeadStart branding: navy header with a gold rule, soft navy row banding,
+// and status colours that match the app. Safe to repeat after every write.
+var SHEETS_STYLE = {
+  navy: '#1a3c5e', gold: '#f0b323', white: '#ffffff', band: '#eef3f8', text: '#14202e',
+  status: {
+    confirmed: ['#dcfce7', '#166534'],
+    pending: ['#fdf7e7', '#8f5e0c'], waitlist: ['#d5e0ec', '#1a3c5e'],
+    rejected: ['#fee2e2', '#991b1b'], cancelled: ['#f1f5f9', '#64748b'],
+  },
+};
+var SHEETS_WIDTHS = { reference: 110, created_at: 170, event: 200, name: 190, email: 230, phone: 130, booth: 130, status: 110 };
+
+function styleRegistrationsSheet(sheet, columns, rows) {
+  var width = columns.length, s = SHEETS_STYLE;
+  sheet.setTabColor(s.navy);
+  sheet.setFrozenRows(1);
+  sheet.setHiddenGridlines(true);
+
+  sheet.setRowHeight(1, 40);
+  sheet.getRange(1, 1, 1, width)
+    .setBackground(s.navy).setFontColor(s.white).setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+    .setVerticalAlignment('middle').setHorizontalAlignment('left').setWrap(true)
+    .setBorder(null, null, true, null, null, null, s.gold, SpreadsheetApp.BorderStyle.SOLID_THICK);
+
+  if (rows > 1) {
+    sheet.getRange(2, 1, rows - 1, width)
+      .setFontFamily('Arial').setFontSize(10).setFontColor(s.text).setVerticalAlignment('top')
+      .setBorder(null, null, null, null, null, true, '#d5e0ec', SpreadsheetApp.BorderStyle.SOLID);
+  }
+
+  // Alternate row shading over the whole table, grown as rows arrive.
+  var table = sheet.getRange(1, 1, rows, width);
+  var banding = sheet.getBandings()[0];
+  if (banding) banding.setRange(table);
+  else banding = table.applyRowBanding(SpreadsheetApp.BandingTheme.BLUE, true, false);
+  banding.setHeaderRowColor(s.navy).setFirstRowColor(s.white).setSecondRowColor(s.band);
+
+  // A filter row lets staff sort and filter by status, booth or any answer.
+  var filter = sheet.getFilter();
+  if (filter && filter.getRange().getA1Notation() !== table.getA1Notation()) { filter.remove(); filter = null; }
+  if (!filter) table.createFilter();
+
+  columns.forEach(function (column, i) {
+    var col = i + 1;
+    if (column.key === 'id') sheet.setColumnWidth(col, 90);
+    else sheet.setColumnWidth(col, SHEETS_WIDTHS[column.key] || 240);
+    if (rows > 1 && column.key.indexOf('answer:') === 0) sheet.getRange(2, col, rows - 1, 1).setWrap(true);
+  });
+  // The internal ID is kept (it prevents duplicates) but tucked out of the way.
+  sheet.hideColumns(1);
+
+  var statusIndex = columns.map(function (c) { return c.key; }).indexOf('status');
+  if (statusIndex >= 0 && rows > 1) {
+    var statusRange = sheet.getRange(2, statusIndex + 1, rows - 1, 1).setHorizontalAlignment('center').setFontWeight('bold');
+    sheet.setConditionalFormatRules(Object.keys(s.status).map(function (name) {
+      return SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(name)
+        .setBackground(s.status[name][0]).setFontColor(s.status[name][1]).setRanges([statusRange]).build();
+    }));
+  }
 }
 
 function sheetsEnsureSize(sheet, rows, columns) {
