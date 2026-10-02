@@ -71,7 +71,8 @@ function doGet() {
 
 function doPost(e) {
   try {
-    var payload = JSON.parse(e.postData.contents || '{}');
+    var payload = JSON.parse((e.parameter && e.parameter.request) || e.postData.contents || '{}');
+    if (payload.action === 'google_sheet_refresh') return sheetRefreshPage(payload);
     var cache = CacheService.getScriptCache();
 
     if (payload.test) {
@@ -101,6 +102,12 @@ function doPost(e) {
 
     var reg = fetchRegistration(reference);
     if (!reg) return jsonOut({ ok: false, error: 'not found' });
+    // Reuse the fetched row: Sheets adds no database query on registration.
+    // Failure to export must never prevent a confirmation email.
+    if (typeof syncRegistrationToSheet === 'function') {
+      try { syncRegistrationToSheet(reg); }
+      catch (sheetError) { console.error('Registration sheet sync failed; use admin Refresh Google Sheet.'); }
+    }
     if (reg.email_sent_at && !payload.resend) return jsonOut({ ok: true, skipped: 'already sent' });
 
     var event = reg.events;
@@ -122,7 +129,10 @@ function doPost(e) {
     // Surveys may be answered anonymously, so a confirmation needs an address
     // to send to, not merely an enabled template.
     var sendConfirmation = template.enabled && !!reg.email;
-    if (!sendConfirmation && !adminTo.length) return jsonOut({ ok: true, skipped: 'no recipients' });
+    if (!sendConfirmation && !adminTo.length) {
+      cache.put('sent_' + reference, '1', 300);
+      return jsonOut({ ok: true, skipped: 'no recipients' });
+    }
 
     if (sendConfirmation) {
       var campus = fetchCampus(event.campus_id || 'hsc');
@@ -375,6 +385,7 @@ function markEmailSent(id) {
 function defaults(t) {
   t = t || {};
   return {
+    design: t.design || {},
     enabled: t.enabled !== false,
     subject: t.subject || 'Registration confirmed: {{Event}}',
     body: t.body || '<p>Dear Khun {{Name}},</p><p>Thank you for registering for {{Event}}.</p><p>Reference: {{ReferenceNumber}}</p>',
@@ -427,49 +438,19 @@ function renderMerge(text, map) {
 
 function buildEmailHtml(template, mergeMap, event, reg, settings) {
   var branding = event.branding || {};
-  var logoUrl = settings.email_logo_url || branding.logo_url || settings.logo_url || '';
-  var bannerUrl = branding.banner_url || '';
-  var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(reg.reference);
   // Merge values include what the person typed, such as their name, so they
   // go in as text. Otherwise anyone could put a link or markup into an email
   // that is sent from the school account.
   var htmlMap = {};
   Object.keys(mergeMap).forEach(function (key) { htmlMap[key] = esc(mergeMap[key]); });
-  var body = renderMerge(template.body, htmlMap) + menuBlock(event, reg);
-
-  var button = '';
-  if (template.buttonLabel && template.buttonUrl) {
-    button =
-      '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto;"><tr><td style="background:#F0B323;border-radius:10px;">' +
-      '<a href="' + renderMerge(template.buttonUrl, htmlMap) + '" style="display:inline-block;padding:12px 28px;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;color:#1a3c5e;text-decoration:none;">' +
-      esc(template.buttonLabel) + '</a></td></tr></table>';
-  }
-
-  var qr = '';
-  if (template.showQr) {
-    qr =
-      '<div style="text-align:center;margin:24px 0;">' +
-      '<img src="' + qrUrl + '" alt="Check in QR code" width="150" height="150" style="border:1px solid #e2e8f0;border-radius:8px;"/>' +
-      '<p style="font-family:Arial,sans-serif;font-size:12px;color:#64748b;margin-top:8px;">Show this QR code at the event for check in.</p></div>';
-  }
-
-  return (
-    '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;">' +
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px;"><tr><td align="center">' +
-    '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;">' +
-    '<tr><td style="background:#1a3c5e;padding:20px 32px;text-align:center;">' +
-    (template.showLogo && logoUrl
-      ? '<img src="' + logoUrl + '" alt="School logo" height="56" style="height:56px;max-width:320px;object-fit:contain;"/>'
-      : '<p style="font-family:Arial,sans-serif;color:#ffffff;font-size:18px;font-weight:bold;margin:8px 0 0;">' + esc(settings.school_name || 'HeadStart International School Phuket') + '</p>') +
-    '</td></tr>' +
-    (template.showBanner && bannerUrl ? '<tr><td><img src="' + bannerUrl + '" alt="" width="600" style="width:100%;display:block;"/></td></tr>' : '') +
-    '<tr><td style="padding:32px;font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#14202e;">' +
-    body + button + qr +
-    '</td></tr>' +
-    '<tr><td style="background:#f8fafc;padding:16px 32px;text-align:center;">' +
-    '<p style="font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;margin:0;">This email was sent automatically by HeadStart Events. Please do not reply to this message.</p>' +
-    '</td></tr></table></td></tr></table></body></html>'
-  );
+  return HeadStartEmail.buildEmailHtml({
+    template: Object.assign({}, template, { body: template.body + menuBlock(event, reg) }),
+    mergeMap: htmlMap,
+    logoUrl: settings.email_logo_url || branding.logo_url || settings.logo_url || '',
+    bannerUrl: branding.banner_url || '',
+    qrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(reg.reference),
+    schoolName: settings.school_name || 'HeadStart International School Phuket'
+  });
 }
 
 // Lists menu-with-quantity answers on the email, like a food ticket.
@@ -529,3 +510,89 @@ function esc(s) {
 function jsonOut(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
+
+// BEGIN GENERATED EMAIL RENDERER
+// Generated from src/lib/emailHtml.ts. Run node scripts/build-email-relay.mjs after changes.
+var HeadStartEmail = (function () {
+function safeColor(value, fallback) {
+    return typeof value === 'string' && /^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value) ? value : fallback;
+}
+function renderMergeFields(template, map) {
+    return template.replace(/\{\{\s*([A-Za-z]+)\s*\}\}/g, (whole, key) => {
+        const v = map[key.toLowerCase()];
+        return v !== undefined ? v : whole;
+    });
+}
+function emailDesign(raw = {}) {
+    const color = (key, fallback) => safeColor(raw[key], fallback);
+    const bound = (value, fallback, min, max) => typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
+    return {
+        headerPosition: ['top', 'afterBanner', 'bottom', 'hidden'].includes(raw.headerPosition || '') ? raw.headerPosition : 'top',
+        headerAlign: ['left', 'center', 'right'].includes(raw.headerAlign || '') ? raw.headerAlign : 'center',
+        headerColor: color('headerColor', '#1a3c5e'), headerTextColor: color('headerTextColor', '#ffffff'),
+        headerPadding: bound(raw.headerPadding, 20, 0, 64), logoHeight: bound(raw.logoHeight, 56, 24, 160),
+        font: ['Arial', 'Sarabun', 'Inter', 'Poppins', 'Nunito', 'Merriweather', 'Quicksand', 'Playfair Display'].includes(raw.font || '') ? raw.font : 'Arial',
+        pageColor: color('pageColor', '#f1f5f9'), bodyColor: color('bodyColor', '#ffffff'), textColor: color('textColor', '#14202e'),
+        buttonColor: color('buttonColor', '#F0B323'), buttonTextColor: color('buttonTextColor', '#1a3c5e'),
+        footerColor: color('footerColor', '#f8fafc'), footerTextColor: color('footerTextColor', '#94a3b8'),
+    };
+}
+/**
+ * Build the confirmation email HTML.
+ * The Apps Script relay uses the same structure so what you preview
+ * in the editor is what the registrant receives.
+ */
+function buildEmailHtml(opts) {
+    const { template, mergeMap, logoUrl, bannerUrl, qrUrl, schoolName } = opts;
+    const d = emailDesign(template.design);
+    const font = `${d.font},Arial,sans-serif`;
+    const header = `<tr><td style="background:${d.headerColor};padding:${d.headerPadding}px 32px;text-align:${d.headerAlign};">${template.showLogo && logoUrl
+        ? `<img src="${logoUrl}" alt="School logo" height="${d.logoHeight}" style="height:${d.logoHeight}px;max-width:100%;object-fit:contain;"/>`
+        : `<p style="font-family:${font};color:${d.headerTextColor};font-size:18px;font-weight:bold;margin:8px 0 0;">${schoolName ?? 'HeadStart International School Phuket'}</p>`}</td></tr>`;
+    const fontLink = d.font === 'Arial' ? '' : `<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(d.font)}:wght@400;600;700&amp;display=swap" rel="stylesheet">`;
+    const body = renderMergeFields(template.body, mergeMap);
+    const button = template.buttonLabel && template.buttonUrl
+        ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto;"><tr><td style="background:${d.buttonColor};border-radius:10px;">
+         <a href="${renderMergeFields(template.buttonUrl, mergeMap)}" style="display:inline-block;padding:12px 28px;font-family:${font};font-size:14px;font-weight:bold;color:${d.buttonTextColor};text-decoration:none;">${template.buttonLabel}</a>
+       </td></tr></table>`
+        : '';
+    const qr = template.showQr && qrUrl
+        ? `<div style="text-align:center;margin:24px 0;">
+         <img src="${qrUrl}" alt="Check in QR code" width="150" height="150" style="border:1px solid #e2e8f0;border-radius:8px;"/>
+         <p style="font-family:${font};font-size:12px;color:${d.textColor};margin-top:8px;">Show this QR code at the event for check in.</p>
+       </div>`
+        : '';
+    return `<!DOCTYPE html>
+<html><head>${fontLink}</head>
+<body style="margin:0;padding:0;background:${d.pageColor};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${d.pageColor};padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:${d.bodyColor};border-radius:16px;overflow:hidden;">
+        ${d.headerPosition === 'top' ? header : ''}
+        ${template.showBanner && bannerUrl ? `<tr><td><img src="${bannerUrl}" alt="" width="600" style="width:100%;display:block;"/></td></tr>` : ''}
+        ${d.headerPosition === 'afterBanner' ? header : ''}
+        <tr>
+          <td style="padding:32px;font-family:${font};font-size:14px;line-height:1.7;color:${d.textColor};">
+            ${body}
+            ${button}
+            ${qr}
+          </td>
+        </tr>
+        ${d.headerPosition === 'bottom' ? header : ''}
+        <tr>
+          <td style="background:${d.footerColor};padding:16px 32px;text-align:center;">
+            <p style="font-family:${font};font-size:11px;color:${d.footerTextColor};margin:0;">
+              This email was sent automatically by HeadStart Events. Please do not reply to this message.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+return { buildEmailHtml: buildEmailHtml };
+})();
+// END GENERATED EMAIL RENDERER

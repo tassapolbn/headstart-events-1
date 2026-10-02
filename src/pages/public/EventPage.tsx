@@ -14,6 +14,7 @@ import { formatDate } from '@/lib/utils';
 import { friendlyError } from '@/lib/errors';
 import { formCopy } from '@/lib/formCopy';
 import { wantsRelayEmail } from '@/lib/notificationEmails';
+import { googleSheetId } from '@/lib/googleSheets';
 import { uploadVendorFile, dataUrlToBlob } from '@/lib/storage';
 import { applyOtherAnswer, canAllowOther, isContentField, isVisible } from '@/components/form-renderer/fieldZod';
 import { FormRenderer } from '@/components/form-renderer/FormRenderer';
@@ -23,6 +24,11 @@ import { PageLoader } from '@/components/ui/basics';
 import { EventBanner, EventIntroduction } from '@/components/event-page/EventIntroduction';
 import { pageDesign } from '@/lib/pageDesign';
 import { richToHtml } from '@/components/ui/RichTextArea';
+import { ConsentCheckbox, needsConsent, consentText } from '@/components/policies/ConsentCheckbox';
+import { buildAckRecords } from '@/components/policies/policyAcks';
+import { POLICY_ACK_KEY } from '@/lib/types';
+import { FormattedText } from '@/components/ui/FormattedText';
+import { ensureContentFonts } from '@/lib/fonts';
 
 export default function EventPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -45,6 +51,7 @@ export default function EventPage() {
   const hpRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setAck(false);
     async function load() {
       const { data } = await supabase.from('events').select('*').eq('slug', slug).maybeSingle();
       if (!data) setNotFound(true);
@@ -67,6 +74,10 @@ export default function EventPage() {
     return 'open';
   }, [event]);
 
+  useEffect(() => {
+    if (event) ensureContentFonts(JSON.stringify([event.policies, event.floor_plan.note]));
+  }, [event]);
+
   if (loading) return <PageLoader label="Loading event" />;
   if (notFound || !event) {
     return (
@@ -85,7 +96,8 @@ export default function EventPage() {
   const boothsEnabled = !isSurvey && event.floor_plan.enabled && event.settings.boothSelection === 'single';
   const vendorTypeField = event.floor_plan.vendorTypeField ?? '';
   const vendorTypeValue = vendorTypeField ? String(liveValues[vendorTypeField] ?? '') : '';
-  const activePolicies = event.policies.filter((p) => p.enabled && (p.title || p.content));
+  const activePolicies = event.settings.policyDisplay === 'checkbox' ? [] : event.policies.filter((p) => p.enabled && (p.title || p.content || p.image_url));
+  const consentRequired = needsConsent(event);
   const logo = event.branding.logo_url ?? campus?.logo_url ?? appSettings?.logo_url ?? '/logo.svg';
   const anim = t.animations
     ? { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 } }
@@ -103,7 +115,7 @@ export default function EventPage() {
 
   async function handleSubmit(values: FieldValues) {
     if (!event) return;
-    if (event.settings.requirePolicyAck && activePolicies.length > 0 && !ack) {
+    if (consentRequired && !ack) {
       toast('Please read and accept the event policies before submitting.', 'error');
       return;
     }
@@ -115,6 +127,7 @@ export default function EventPage() {
     try {
       // 1. Upload any files, photos and signatures.
       const data: Record<string, unknown> = {};
+      if (consentRequired && ack) data[POLICY_ACK_KEY] = buildAckRecords([], {}, { accepted: true, text: consentText(event) });
       let name = '', email = '', phone = '';
       for (const f of event.form_schema) {
         if (isContentField(f) || !isVisible(f, values)) continue;
@@ -159,20 +172,21 @@ export default function EventPage() {
         p_data: data,
         p_booth_id: boothsEnabled ? (boothIds[0] ?? null) : null,
         p_booth_ids: boothsEnabled && boothIds.length > 0 ? boothIds : null,
-        p_ack: ack || !event.settings.requirePolicyAck || activePolicies.length === 0,
+        p_ack: ack || !consentRequired,
         p_hp: hpRef.current?.value ?? '',
         p_elapsed_seconds: Math.floor((Date.now() - startedAt.current) / 1000),
       });
       if (error) throw error;
       const res = result as unknown as SubmitResult;
 
-      // 3. Ask the email relay to send the confirmation (fire and forget).
-      const relayUrl = campus?.webhook_url ?? appSettings?.webhook_url;
-      const wantsRelay = wantsRelayEmail(event.email_template);
+      // 3. Reuse one relay request for email and this registration's sheet row.
+      const relayUrl = campus?.webhook_url || appSettings?.webhook_url;
+      const wantsRelay = wantsRelayEmail(event.email_template) || !!googleSheetId(event.settings.googleSheetUrl);
       if (wantsRelay && relayUrl) {
         void fetch(relayUrl, {
           method: 'POST',
           mode: 'no-cors',
+          keepalive: true,
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ reference: res.reference }),
         }).catch(() => undefined);
@@ -301,7 +315,7 @@ export default function EventPage() {
             {/* Form */}
             <motion.section {...reveal} id="registration-form" className="ev-card ev-accent-top mt-6 scroll-mt-6 p-5 sm:p-7">
               <h2 className="mb-5 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>
-                {event.settings.formHeading?.trim() || copy.formHeading}
+                <FormattedText value={event.settings.formHeading?.trim() || copy.formHeading} />
               </h2>
               {/* Honeypot: invisible to humans, irresistible to bots */}
               <input
@@ -320,21 +334,9 @@ export default function EventPage() {
                     : event.settings.submitLabel?.trim() || copy.submitLabel
                 }
                 beforeSubmit={
-                  event.settings.requirePolicyAck && activePolicies.length > 0 ? (
-                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={ack}
-                        onChange={(e) => setAck(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded"
-                        style={{ accentColor: 'var(--ev-primary)' }}
-                        aria-required="true"
-                      />
-                      <span>{event.settings.policyAckText}</span>
-                    </label>
-                  ) : undefined
+                  <ConsentCheckbox event={event} checked={ack} onChange={setAck} />
                 }
-                submitDisabled={event.settings.requirePolicyAck && activePolicies.length > 0 && !ack}
+                submitDisabled={consentRequired && !ack}
               />
               {boothsEnabled && boothInfos.length > 0 && (
                 <p className="mt-3 text-center text-xs opacity-70">
@@ -346,7 +348,7 @@ export default function EventPage() {
         )}
 
         <footer className="mt-10 text-center text-xs opacity-60">
-          {event.settings.footerText?.trim() || campus?.school_name || appSettings?.school_name || 'HeadStart International School Phuket'}
+          <FormattedText value={event.settings.footerText?.trim() || campus?.school_name || appSettings?.school_name || 'HeadStart International School Phuket'} />
         </footer>
       </motion.div>
     </main>

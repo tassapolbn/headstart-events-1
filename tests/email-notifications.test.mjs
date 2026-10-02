@@ -13,6 +13,32 @@ vm.runInNewContext(ts.transpileModule(
 const { notificationEmailEntries, normalizeNotificationEmails, invalidNotificationEmails, wantsRelayEmail } = helpers.exports;
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
+test('registration relay exports with email off, and sheet failures never block confirmation', () => {
+  const anon = registration('SHEET', { enabled: false, adminNotify: false });
+  anon.email = null;
+  const r = relay([anon]);
+  const exported = [];
+  r.ctx.syncRegistrationToSheet = row => exported.push(row.id);
+  r.post({ reference: anon.reference });
+  r.post({ reference: anon.reference });
+  assert.deepEqual(exported, ['SHEET']); assert.equal(r.mail.length, 0);
+  const normal = relay([registration('NORMAL')]);
+  normal.ctx.syncRegistrationToSheet = () => { throw new Error('Google unavailable'); };
+  normal.ctx.console = { error: () => {} };
+  normal.post({ reference: 'HS-normal' });
+  // References are case-normalized by the relay.
+  normal.ctx.fetchRegistration = () => registration('NORMAL');
+  normal.post({ reference: 'HS-normal' });
+  assert.equal(normal.mail.length, 1);
+});
+
+test('manual refresh routes before registration/email work and sends nothing', () => {
+  const r = relay([]);
+  r.ctx.sheetRefreshPage = payload => ({ result: 'refreshed', id: payload.eventId });
+  const result = r.ctx.doPost({ parameter: { request: JSON.stringify({ action: 'google_sheet_refresh', eventId: 'chosen' }) } });
+  assert.equal(result.id, 'chosen'); assert.equal(r.mail.length, 0); assert.deepEqual(r.requests, []);
+});
+
 function registration(id, template = {}) {
   return {
     id, reference: `HS-${id}`, name: `Guest ${id}`, email: `guest${id}@example.com`,

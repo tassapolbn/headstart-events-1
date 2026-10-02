@@ -7,6 +7,8 @@ import {
 } from '@/lib/defaults';
 import { copyForType, formCopy } from '@/lib/formCopy';
 import type { FormType } from '@/lib/types';
+import { googleSheetId } from '@/lib/googleSheets';
+import { RefreshGoogleSheet } from '@/components/registrations/RefreshGoogleSheet';
 import type { TabProps } from '../EventEditorPage';
 
 export default function SettingsTab({ draft, update }: TabProps) {
@@ -14,6 +16,7 @@ export default function SettingsTab({ draft, update }: TabProps) {
   const set = (patch: Partial<typeof s>) => update({ settings: { ...s, ...patch } });
   const copy = formCopy(draft);
   const isSurvey = copy.isSurvey;
+  const sheetId = googleSheetId(s.googleSheetUrl);
 
   function switchType(next: FormType) {
     if (next === (isSurvey ? 'survey' : 'registration')) return;
@@ -57,10 +60,10 @@ export default function SettingsTab({ draft, update }: TabProps) {
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Form heading" htmlFor="form-heading" hint={`Optional. Default: "${copy.formHeading}"`}>
-            <Input id="form-heading" value={s.formHeading ?? ''} placeholder={copy.formHeading} onChange={(e) => set({ formHeading: e.target.value || undefined })} />
+            <RichTextArea inline rows={2} id="form-heading" value={s.formHeading ?? copy.formHeading} onChange={formHeading => set({ formHeading })} />
           </Field>
           <Field label="Submit button label" htmlFor="submit-label" hint={`Optional. Default: "${copy.submitLabel}"`}>
-            <Input id="submit-label" value={s.submitLabel ?? ''} placeholder={copy.submitLabel} onChange={(e) => set({ submitLabel: e.target.value || undefined })} />
+            <RichTextArea inline rows={2} id="submit-label" value={s.submitLabel ?? copy.submitLabel} onChange={submitLabel => set({ submitLabel })} />
           </Field>
         </div>
       </Card>
@@ -109,6 +112,34 @@ export default function SettingsTab({ draft, update }: TabProps) {
               description="Show the attendee's check in QR code on the confirmation page. Turn off for simple events without check in."
             />
           )}
+        </div>
+      </Card>
+
+      <Card title="Google Sheets">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Send this form’s submissions to its own Google spreadsheet. Use a different spreadsheet for each event.
+          </p>
+          <Field label="Google Sheet link" htmlFor="google-sheet-url"
+            hint="Leave blank to disconnect. Save the event to apply changes."
+            error={s.googleSheetUrl?.trim() && !sheetId ? 'Enter a link starting with https://docs.google.com/spreadsheets/d/' : undefined}>
+            <Input id="google-sheet-url" type="url" value={s.googleSheetUrl ?? ''}
+              placeholder="https://docs.google.com/spreadsheets/d/…/edit"
+              aria-invalid={!!s.googleSheetUrl?.trim() && !sheetId}
+              onChange={(e) => set({ googleSheetUrl: e.target.value })} />
+          </Field>
+          {sheetId && <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noreferrer"
+            className="inline-block text-sm font-medium text-navy-700 underline">Open spreadsheet</a>}
+          <p className="text-xs text-slate-500">
+            One-time setup: update the school’s Apps Script relay and give its Google account
+            Editor access to this spreadsheet. Keep sharing restricted to your team.
+          </p>
+          <p className="text-xs text-slate-500">
+            New registrations are sent to the sheet when submitted, even with emails off. No scheduled scans run.
+            Save this event first, then use Refresh Google Sheet to import existing records, recover missed rows,
+            or update changed answers and statuses. Large refreshes may ask you to continue in the new tab.
+          </p>
+          <RefreshGoogleSheet event={draft} />
         </div>
       </Card>
 

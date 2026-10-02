@@ -10,6 +10,9 @@ import { formCopy } from '@/lib/formCopy';
 import { useCampus } from '@/context/CampusContext';
 import type { EventTheme } from '@/lib/types';
 import type { TabProps } from '../EventEditorPage';
+import { RichTextArea } from '@/components/ui/RichTextArea';
+import { FormattedText } from '@/components/ui/FormattedText';
+import { ConsentCheckbox } from '@/components/policies/ConsentCheckbox';
 
 export default function PageDesignTab({ draft, update }: TabProps) {
   const [mobile, setMobile] = useState(false);
@@ -32,7 +35,9 @@ export default function PageDesignTab({ draft, update }: TabProps) {
       <Card title="Page composition">
         <p className="mb-5 text-sm text-slate-500">Shape the page around your event. Use Branding & Theme for images, colours and fonts.</p>
         <div className="space-y-5">
-          <Field label="Title alignment" htmlFor="page-align"><Select id="page-align" value={p.titleAlign} onChange={e => set({ titleAlign: e.target.value as 'left' | 'center' })}><option value="center">Centred</option><option value="left">Left aligned</option></Select></Field>
+          <Field label="Title alignment" htmlFor="page-align"><Select id="page-align" value={p.titleAlign} onChange={e => set({ titleAlign: e.target.value as EventTheme['titleAlign'] })}><option value="center">Centred</option><option value="left">Left aligned</option><option value="right">Right aligned</option></Select></Field>
+          <Field label={`Title size: ${draft.theme.titleSize ?? 58}px`}><input type="range" min={24} max={96} value={draft.theme.titleSize ?? 58} aria-label="Title size" onChange={e => set({ titleSize: Number(e.target.value) })} /></Field>
+          <Field label={`Title line spacing: ${draft.theme.titleLineHeight ?? 1.15}`}><input type="range" min={1} max={2} step={0.05} value={draft.theme.titleLineHeight ?? 1.15} aria-label="Title line spacing" onChange={e => set({ titleLineHeight: Number(e.target.value) })} /></Field>
           <Field label="Banner image fit" htmlFor="page-fit"><Select id="page-fit" value={p.bannerFit} onChange={e => set({ bannerFit: e.target.value as 'cover' | 'contain' })}><option value="cover">Fill and crop</option><option value="contain">Show the entire image</option></Select></Field>
           {ranges.map(([key, label, min, max, unit]) => <Field key={key} label={`${label}: ${p[key]}${unit}`} htmlFor={`page-${key}`}><input id={`page-${key}`} type="range" min={min} max={max} step={1} value={p[key]} onChange={e => set({ [key]: Number(e.target.value) })} className="w-full accent-navy-700" /></Field>)}
           <Switch checked={p.showEventDetails} onChange={showEventDetails => set({ showEventDetails })} label="Show date, time and location" description="Hide these details for a simpler survey introduction." />
@@ -40,10 +45,12 @@ export default function PageDesignTab({ draft, update }: TabProps) {
         </div>
       </Card>
       <Card title="Public wording"><div className="space-y-4">
-        <Field label="Introduction below the title" htmlFor="page-intro"><Textarea id="page-intro" rows={3} value={draft.settings.introText ?? ''} onChange={e => settings({ introText: e.target.value })} placeholder="A short welcome or instructions for visitors" /></Field>
-        <Field label="Form heading" htmlFor="page-heading"><Input id="page-heading" value={draft.settings.formHeading ?? ''} placeholder={copy.formHeading} onChange={e => settings({ formHeading: e.target.value })} /></Field>
-        <Field label="Submit button" htmlFor="page-submit"><Input id="page-submit" value={draft.settings.submitLabel ?? ''} placeholder={copy.submitLabel} onChange={e => settings({ submitLabel: e.target.value })} /></Field>
-        <Field label="Footer text" htmlFor="page-footer" hint="Leave blank to use the campus name."><Input id="page-footer" value={draft.settings.footerText ?? ''} onChange={e => settings({ footerText: e.target.value })} /></Field>
+        <RichTextArea label="Public title" inline rows={3} value={draft.settings.titleHtml ?? draft.name} onChange={titleHtml => settings({ titleHtml })} hint="Color selected words separately. Add line breaks or keep a short phrase together, then check the mobile preview. The event's name in reports stays unchanged." />
+        <button type="button" onClick={() => settings({ titleHtml: undefined })} className="text-xs underline">Use event name as title</button>
+        <RichTextArea label="Introduction below the title" id="page-intro" rows={3} value={draft.settings.introText ?? ''} onChange={introText => settings({ introText })} />
+        <RichTextArea inline label="Form heading" id="page-heading" rows={2} value={draft.settings.formHeading ?? copy.formHeading} onChange={formHeading => settings({ formHeading })} />
+        <RichTextArea inline label="Submit button" id="page-submit" rows={2} value={draft.settings.submitLabel ?? copy.submitLabel} onChange={submitLabel => settings({ submitLabel })} />
+        <RichTextArea inline label="Footer text" id="page-footer" rows={2} value={draft.settings.footerText ?? ''} onChange={footerText => settings({ footerText })} hint="Leave blank to use the campus name." />
       </div></Card>
     </div>
     <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-card xl:sticky xl:top-4" aria-label="Unsaved page preview">
@@ -61,10 +68,10 @@ export default function PageDesignTab({ draft, update }: TabProps) {
             <div className="mx-auto px-4 py-6" style={{ maxWidth: p.pageWidth }}>
               <EventIntroduction event={draft} logo={draft.branding.logo_url ?? campus?.logo_url ?? '/logo.svg'} />
               <div className="ev-card ev-accent-top mt-6 p-5">
-                <h2 className="mb-5 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}>{draft.settings.formHeading?.trim() || copy.formHeading}</h2>
-                <fieldset disabled className="min-w-0"><FormRenderer fields={draft.form_schema} theme={draft.theme} onSubmit={() => undefined} submitDisabled submitLabel={!copy.isSurvey && draft.status === 'waitlist' ? 'Join the waitlist' : draft.settings.submitLabel?.trim() || copy.submitLabel} /></fieldset>
+                <h2 className="mb-5 text-lg font-bold" style={{ color: 'var(--ev-heading)' }}><FormattedText value={draft.settings.formHeading?.trim() || copy.formHeading} /></h2>
+                <fieldset disabled className="min-w-0"><FormRenderer fields={draft.form_schema} theme={draft.theme} onSubmit={() => undefined} submitDisabled submitLabel={!copy.isSurvey && draft.status === 'waitlist' ? 'Join the waitlist' : draft.settings.submitLabel?.trim() || copy.submitLabel} beforeSubmit={<ConsentCheckbox event={draft} checked={false} onChange={() => undefined} disabled />} /></fieldset>
               </div>
-              <p className="mt-5 text-center text-xs opacity-60">{draft.settings.footerText?.trim() || campus?.school_name || 'HeadStart International School Phuket'}</p>
+              <p className="mt-5 text-center text-xs"><FormattedText value={draft.settings.footerText?.trim() || campus?.school_name || 'HeadStart International School Phuket'} /></p>
             </div>
           </div>
         </div>

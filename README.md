@@ -6,6 +6,10 @@ Built with React, Vite, TypeScript, Tailwind CSS, React Hook Form, Zod and Frame
 
 A Thai language quick start guide is in `SETUP_GUIDE_TH.md`.
 
+For automatic registration exports to a separate Google spreadsheet per event,
+see [Google Sheets setup](GOOGLE_SHEETS_SETUP.md). Updates happen only on a new
+registration or an admin refresh, independently of confirmation emails. No polling.
+
 ---
 
 ## 1. What you need
@@ -123,3 +127,7 @@ Every form now has a **form type** (Events -> Create, or Event -> Settings -> Fo
 Setup: run `supabase/migration-007-survey-forms.sql` once in the Supabase SQL Editor (allows an
 empty email for survey forms only), and redeploy `apps-script/EmailRelay.gs` so administrator
 notifications say "New response" and anonymous responses still notify the team.
+
+## Flexible forms and on-demand Sheets
+
+See [Form design guide](FORM_DESIGN_GUIDE.md) for question photos and descriptions, type changes, standalone consent, rich headings, Sarabun and email styling. See [Google Sheets setup](GOOGLE_SHEETS_SETUP.md) for registration-triggered export and explicit admin refresh. No scheduled Sheets scans or new database migrations are required. After changing the email renderer, run `node scripts/build-email-relay.mjs` and check with `--check` before updating Apps Script.

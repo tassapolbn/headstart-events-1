@@ -15,6 +15,7 @@ import { Select } from '@/components/ui/inputs';
 import { Tabs } from '@/components/ui/overlays';
 import { useCampus } from '@/context/CampusContext';
 import { formCopy } from '@/lib/formCopy';
+import { googleSheetId } from '@/lib/googleSheets';
 import DetailsTab from './tabs/DetailsTab';
 import PageDesignTab from './tabs/PageDesignTab';
 import BrandingTab from './tabs/BrandingTab';
@@ -87,6 +88,11 @@ export default function EventEditorPage() {
       toast('Please correct the notification email addresses before saving.', 'error');
       return;
     }
+    if (draft.settings.googleSheetUrl?.trim() && !googleSheetId(draft.settings.googleSheetUrl)) {
+      setTab('settings');
+      toast('Please enter a valid Google Sheet link, or clear it to disconnect.', 'error');
+      return;
+    }
     setSaving(true);
     const { id: _id, created_at, updated_at, ...fields } = draft;
     // Save recipients as the one list the email relay reads. Any older single
@@ -96,6 +102,7 @@ export default function EventEditorPage() {
       adminEmails: normalizeNotificationEmails(recipients),
       adminEmail: '',
     };
+    fields.settings = { ...fields.settings, googleSheetUrl: fields.settings.googleSheetUrl?.trim() || undefined };
     const { error: err } = await supabase.from('events').update(fields).eq('id', id).select('id').single();
     setSaving(false);
     if (err) {

@@ -20,6 +20,7 @@ import { Switch } from '@/components/ui/inputs';
 import { isContentField } from '@/components/form-renderer/fieldZod';
 import { RegistrationModal } from '@/components/registrations/RegistrationModal';
 import { exportCsv, exportXlsx } from '@/components/registrations/exporters';
+import { RefreshGoogleSheet } from '@/components/registrations/RefreshGoogleSheet';
 
 const statusBadge: Record<RegistrationStatus, 'blue' | 'green' | 'amber' | 'red' | 'gray'> = {
   pending: 'blue', confirmed: 'green', waitlist: 'amber', rejected: 'red', cancelled: 'gray',
@@ -207,6 +208,7 @@ export default function RegistrationsPage() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={() => exportCsv(event, visible)}>CSV</Button>
           <Button variant="outline" icon={<FileSpreadsheet className="h-4 w-4" />} onClick={() => exportXlsx(event, visible)}>Excel</Button>
+          <RefreshGoogleSheet event={event} />
           <Button variant="outline" icon={<Printer className="h-4 w-4" />} onClick={() => setPrintOpen(true)}>Print</Button>
         </div>
       </div>

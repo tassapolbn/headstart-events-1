@@ -8,6 +8,7 @@ import { Button, Card } from '@/components/ui/basics';
 import { formCopy } from '@/lib/formCopy';
 import { defaultEmailFor } from '@/lib/defaults';
 import { Field, Input, Switch, Textarea } from '@/components/ui/inputs';
+import { EmailDesignEditor } from './EmailDesignEditor';
 
 export function EmailTemplateEditor({ event, template, onChange }: {
   event: EventRecord;
@@ -145,12 +146,13 @@ export function EmailTemplateEditor({ event, template, onChange }: {
           </div>
         </Card>
 
+        <EmailDesignEditor value={template.design} onChange={design => set({ design })} />
         <Card title="Extras">
           <div className="space-y-4">
             <Switch
               checked={template.showLogo} onChange={(showLogo) => set({ showLogo })}
               label="Show the school logo in the header"
-              description="Uses the white email logo from Settings, made for the dark blue header. The school name text is hidden when the logo is shown."
+              description="Uses the email logo from Settings. Choose a header color that suits it. The school name is shown when the logo is hidden."
             />
             <Switch checked={template.showBanner} onChange={(showBanner) => set({ showBanner })} label="Show the event banner image" />
             {!isSurvey && (

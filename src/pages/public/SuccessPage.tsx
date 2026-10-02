@@ -12,6 +12,7 @@ import { buildIcs } from '@/lib/ics';
 import { PageLoader } from '@/components/ui/basics';
 import { richToHtml } from '@/components/ui/RichTextArea';
 import { formCopy } from '@/lib/formCopy';
+import { ensureContentFonts } from '@/lib/fonts';
 
 interface LookupResult {
   reference: string;
@@ -29,6 +30,8 @@ export default function SuccessPage() {
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [reg, setReg] = useState<LookupResult | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => { if (event) ensureContentFonts(JSON.stringify(event.settings)); }, [event]);
 
   useEffect(() => {
     async function load() {
