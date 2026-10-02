@@ -68,6 +68,13 @@ function harness(events = [], registrations = []) {
     } },
     LockService: { getScriptLock: () => ({ tryLock: () => { if (locked) return false; locked = true; return true; }, releaseLock: () => { locked = false; } }) },
     SpreadsheetApp: { openById: book, DeveloperMetadataVisibility: { DOCUMENT: 'DOCUMENT' },
+      BorderStyle: { SOLID: 'SOLID', SOLID_THICK: 'SOLID_THICK' }, BandingTheme: { BLUE: 'BLUE' },
+      newConditionalFormatRule: () => {
+        const rule = {};
+        const builder = { whenTextEqualTo: t => (rule.text = t, builder), setBackground: c => (rule.background = c, builder),
+          setFontColor: c => (rule.color = c, builder), setRanges: r => (rule.ranges = r, builder), build: () => rule };
+        return builder;
+      },
       flush: () => { if (failFlush) { failFlush = false; throw new Error('Flush failure'); } } },
     ScriptApp: {
       getProjectTriggers: () => triggers.map(name => ({ getHandlerFunction: () => name })),
@@ -208,4 +215,61 @@ test('frontend and worker accept only Google spreadsheet URLs; copied settings e
   const original = { formType: 'survey', googleSheetUrl: url('abc'), requireApproval: true };
   assert.deepEqual(plain(mod.exports.withoutGoogleSheet(original)), { formType: 'survey', requireApproval: true });
   assert.equal(original.googleSheetUrl, url('abc'));
+});
+
+// A sheet that also records formatting, to check the HeadStart styling.
+class StyledSheet extends Sheet {
+  calls = []; bandings = []; filter = null; rules = []; hidden = [];
+  record(name, ...args) { this.calls.push([name, ...args]); }
+  setTabColor(c) { this.record('tab', c); } setHiddenGridlines(v) { this.record('gridlines', v); }
+  setRowHeight(r, h) { this.record('rowHeight', r, h); } setColumnWidth(c, w) { this.record('width', c, w); }
+  hideColumns(c) { this.hidden.push(c); }
+  getBandings() { return this.bandings; } getFilter() { return this.filter; }
+  setConditionalFormatRules(rules) { this.rules = rules; }
+  getRange(row, col, height = 1, width = 1) {
+    const range = super.getRange(row, col, height, width), sheet = this, a1 = `${row},${col},${height},${width}`;
+    for (const name of ['setBackground', 'setFontColor', 'setFontFamily', 'setFontSize', 'setFontWeight',
+      'setVerticalAlignment', 'setHorizontalAlignment', 'setWrap', 'setBorder']) {
+      range[name] = (...args) => { sheet.record(name, a1, ...args); return range; };
+    }
+    range.getA1Notation = () => a1;
+    range.applyRowBanding = () => {
+      const banding = { range: a1, setRange: r => { banding.range = r.getA1Notation(); return banding; },
+        setHeaderRowColor: c => (banding.header = c, banding), setFirstRowColor: c => (banding.first = c, banding),
+        setSecondRowColor: c => (banding.second = c, banding) };
+      sheet.bandings.push(banding); return banding;
+    };
+    range.createFilter = () => { sheet.filter = { range: a1, getRange: () => range, remove: () => { sheet.filter = null; } }; };
+    return range;
+  }
+}
+
+test('the export sheet carries HeadStart branding and grows its formatting with new rows', () => {
+  const h = harness(), e = event('a'); const sheet = h.book('sheet-a').sheet = new StyledSheet();
+  h.send(e, registration('a', 'a1', { q1: 'Apple' }));
+  const header = '1,1,1,10';
+  assert.ok(sheet.calls.some(c => c[0] === 'setBackground' && c[1] === header && c[2] === '#1a3c5e'));
+  assert.ok(sheet.calls.some(c => c[0] === 'setFontColor' && c[1] === header && c[2] === '#ffffff'));
+  assert.ok(sheet.calls.some(c => c[0] === 'setBorder' && c[1] === header && c.includes('#f0b323')));
+  assert.ok(sheet.calls.some(c => c[0] === 'tab' && c[1] === '#1a3c5e'));
+  assert.deepEqual(sheet.hidden.slice(0, 1), [1]);
+  assert.equal(sheet.bandings.length, 1);
+  assert.equal(sheet.bandings[0].second, '#eef3f8');
+  assert.equal(sheet.filter.range, '1,1,2,10');
+  assert.deepEqual(plain(sheet.rules.map(r => r.text)), ['confirmed', 'pending', 'waitlist', 'rejected', 'cancelled']);
+  // Status is column 9: the colours cover exactly the data rows of that column.
+  assert.equal(sheet.rules[0].ranges[0].getA1Notation(), '2,9,1,1');
+
+  h.send(e, registration('a', 'a2'));
+  assert.equal(sheet.bandings.length, 1, 'the banding is extended, not stacked');
+  assert.equal(sheet.bandings[0].range, '1,1,3,10');
+  assert.equal(sheet.filter.range, '1,1,3,10');
+  assert.equal(sheet.values.length, 3);
+});
+
+test('a styling failure never stops a registration reaching the sheet', () => {
+  const h = harness(), e = event('a'); const sheet = h.book('sheet-a').sheet = new StyledSheet();
+  sheet.setTabColor = () => { throw new Error('Formatting service unavailable'); };
+  assert.equal(h.send(e, registration('a', 'a1', { q1: 'Apple' })).added, 1);
+  assert.equal(sheet.values[1].at(-1), 'Apple');
 });

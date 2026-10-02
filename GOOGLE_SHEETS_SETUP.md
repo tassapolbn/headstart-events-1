@@ -23,6 +23,8 @@ Manual refresh verifies the signed-in user's session with Supabase and requires 
 4. Click **Refresh Google Sheet** in Settings or Registrations to import existing responses. A new tab shows the actual result or error; allow pop-ups if asked. Large events may show **Continue refresh**. Click it for the next batch; nothing continues automatically.
 5. Submit a test response. The registration relay adds its row, even when confirmation and admin emails are both disabled. The relay must still be configured.
 
+The script creates a managed **Registrations** tab in HeadStart colours: a navy header row with white bold text and a gold rule, alternating white and light navy rows, a navy tab, a filter row for sorting, and colour coded statuses (confirmed green, pending gold, waitlist navy, rejected red, cancelled grey). The internal Registration ID column is hidden but kept, because it prevents duplicates. The styling is reapplied after every write, so changing it by hand on this tab will not last. If styling ever fails, the rows are still exported.
+
 The script creates a managed **Registrations** tab. It exports ID, reference, submission time (UTC), event, contact details, booths, status and answers. Anonymous surveys, pending registrations and waitlist entries are included. Files show names and signatures show a notice to view them in the app. Private file links and signature images are not exposed. Answers over 49,000 characters are marked as truncated; originals stay in the app.
 
 ## Performance and recovery
