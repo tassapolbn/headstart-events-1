@@ -6,7 +6,8 @@ export type FieldType =
   | 'short_text' | 'paragraph' | 'email' | 'phone' | 'number' | 'date' | 'time'
   | 'rating' | 'evaluation' | 'dropdown' | 'radio' | 'checkboxes' | 'multiple_choice' | 'menu_quantity'
   | 'grid' | 'checkbox_grid' | 'ranking'
-  | 'file' | 'photo' | 'signature' | 'rich_text' | 'divider' | 'heading';
+  | 'yes_no' | 'picture_choice' | 'slider' | 'consent' | 'url' | 'datetime'
+  | 'file' | 'photo' | 'signature' | 'rich_text' | 'callout' | 'divider' | 'heading';
 
 export interface FieldCondition {
   fieldId: string;
@@ -48,6 +49,12 @@ export interface FormField {
   rows?: string[];
   /** Multiple choice grid: each column may be chosen in one row only (e.g. 1st, 2nd, 3rd) */
   onePerColumn?: boolean;
+  /** Picture choice: one image per option, in the same order as options. */
+  optionImages?: string[];
+  /** Slider: the step between values (min and max live in validation). */
+  step?: number;
+  /** Instruction box: its colour. */
+  tone?: 'info' | 'success' | 'warning' | 'note';
   /** Rating: how each point is shown */
   ratingIcon?: 'number' | 'star' | 'heart' | 'thumb';
   /** Rating: optional words under the lowest and highest point */

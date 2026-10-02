@@ -10,3 +10,22 @@ Open an event and use these controls, then click **Save**.
 - **Google Sheets:** Save one spreadsheet link per event. A new registration adds a row. Click **Refresh Google Sheet** to import missed rows or update changed records. The separate setup guide explains the one-time Google Apps Script update.
 
 The editor's Preview shows unsaved form and page changes. Email preview uses the same generated renderer as the Google relay; update the relay when deploying this release.
+
+## More question types and step-by-step instructions (October 2026)
+
+New in **Form Builder → Add**:
+
+- **Yes / No buttons**: large side-by-side answer buttons. The choices are editable, for example Yes, No, Not yet.
+- **Picture choice**: each option has its own picture, such as stall types or menu items.
+- **Slider (0 to 10)**: choose the range, step and the labels at each end.
+- **Date and time**, and **Website link** (must start with https://).
+- **Agreement checkbox**: one tick box such as "I agree to the market rules". When Required is on, the form cannot be sent until it is ticked.
+- **Instruction box (text and image)**: a coloured box (blue, green, amber or grey) with formatted text and an optional picture.
+
+Show something only after a chosen answer:
+
+1. Add the question, for example a Yes / No question "Have you paid the deposit?" with Yes and Not yet.
+2. Below it, add an Instruction box (or any question).
+3. In its settings, under **Conditional logic**, choose the question, **equals**, and pick **Not yet** from the list.
+
+The box or question then appears only for that answer. Anything that depends on a hidden question is hidden too, and hidden questions never stop the form being sent.

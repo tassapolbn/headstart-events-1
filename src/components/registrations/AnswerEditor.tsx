@@ -31,7 +31,9 @@ export function AnswerEditor({ field, value, onChange, onOpenFile }: {
     case 'evaluation':
     case 'dropdown':
     case 'radio':
-    case 'multiple_choice': {
+    case 'multiple_choice':
+    case 'yes_no':
+    case 'picture_choice': {
       const current = typeof value === 'string' ? value : '';
       const known = (field.options ?? []).includes(current);
       return (
@@ -187,6 +189,30 @@ export function AnswerEditor({ field, value, onChange, onOpenFile }: {
       return (
         <Field label={label}>
           <Input type="time" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
+        </Field>
+      );
+
+    case 'datetime':
+      return (
+        <Field label={label}>
+          <Input type="datetime-local" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
+        </Field>
+      );
+
+    case 'consent':
+      return (
+        <Field label={label}>
+          <Select value={value === 'Agreed' ? 'Agreed' : ''} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+            <option value="">Not agreed</option>
+            <option value="Agreed">Agreed</option>
+          </Select>
+        </Field>
+      );
+
+    case 'slider':
+      return (
+        <Field label={label}>
+          <Input type="number" min={field.validation?.min} max={field.validation?.max} step={field.step} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
         </Field>
       );
 

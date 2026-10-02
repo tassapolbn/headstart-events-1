@@ -3,7 +3,7 @@ import type { FieldValues, Resolver } from 'react-hook-form';
 import type { FormField } from '@/lib/types';
 import { gridError, isGridField } from '@/lib/grid';
 
-const CONTENT_TYPES = ['heading', 'rich_text', 'divider'];
+const CONTENT_TYPES = ['heading', 'rich_text', 'callout', 'divider'];
 
 /** Stored in the answer while "Other" is picked; swapped for the typed text on submit. */
 export const OTHER_VALUE = '__other__';
@@ -55,10 +55,18 @@ export function applyOtherAnswer(f: FormField, value: unknown, typedRaw: unknown
   return value === OTHER_VALUE ? label : value;
 }
 
-/** Evaluate a conditional question against the current answers. */
-export function isVisible(field: FormField, values: FieldValues): boolean {
+/**
+ * Evaluate a conditional question or block against the current answers.
+ * With the whole form passed in, a rule also fails when the question it
+ * depends on is itself hidden, so follow-up steps disappear together.
+ */
+export function isVisible(field: FormField, values: FieldValues, fields?: FormField[], depth = 0): boolean {
   const c = field.condition;
   if (!c || !c.fieldId) return true;
+  if (fields && depth < 20) {
+    const source = fields.find((f) => f.id === c.fieldId);
+    if (source && !isVisible(source, values, fields, depth + 1)) return false;
+  }
   const raw = values[c.fieldId];
   const answered = Array.isArray(raw)
     ? raw.length > 0
@@ -147,6 +155,16 @@ function schemaForField(f: FormField): z.ZodTypeAny {
         }
       });
     }
+    case 'yes_no':
+    case 'picture_choice':
+      return z.string().refine((value) => (!f.required && value === '') || (f.options ?? []).includes(value), 'Please choose one of the answers.');
+    case 'consent':
+      return z.string().refine((value) => !f.required || value !== '', 'Please tick the box to continue.');
+    case 'slider':
+      return z.string().refine((value) => !f.required || value !== '', 'Please move the slider to choose a value.');
+    case 'url':
+      return z.string().trim().refine((value) => value === '' ? !f.required : /^https?:\/\/[^\s.]+\.[^\s]+$/i.test(value),
+        f.required ? 'Please enter a link starting with https://' : 'Please enter a link starting with https://, or leave it empty.');
     case 'signature': {
       const s = z.string();
       return f.required ? s.min(10, 'Please sign in the box.') : s;
@@ -178,7 +196,7 @@ export function buildResolver(fields: FormField[]): Resolver<FieldValues> {
     const errors: Record<string, { type: string; message: string }> = {};
     for (const f of fields) {
       if (isContentField(f)) continue;
-      if (!isVisible(f, values)) continue;
+      if (!isVisible(f, values, fields)) continue;
       const result = schemaForField(f).safeParse(values[f.id] ?? (f.type === 'checkboxes' ? [] : f.type === 'menu_quantity' || isGridField(f) ? {} : ''));
       if (!result.success) {
         errors[f.id] = { type: 'validation', message: result.error.issues[0]?.message ?? 'Invalid value.' };
