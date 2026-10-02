@@ -3,6 +3,7 @@ import { newEventDraft } from './defaults';
 import type { Booth, EventRecord, FormType, TemplateSnapshot } from './types';
 import { normalizeEvent } from '@/hooks/useEvent';
 import { slugify } from './utils';
+import { withoutGoogleSheet } from './googleSheets';
 
 /** Fields copied when duplicating an event or saving it as a template. */
 function snapshotEventFields(e: EventRecord): Partial<EventRecord> {
@@ -18,7 +19,7 @@ function snapshotEventFields(e: EventRecord): Partial<EventRecord> {
     form_schema: e.form_schema,
     policies: e.policies,
     email_template: e.email_template,
-    settings: e.settings,
+    settings: withoutGoogleSheet(e.settings),
     floor_plan: e.floor_plan,
   };
 }
@@ -94,7 +95,9 @@ export async function saveAsTemplate(eventId: string, name: string, description:
 }
 
 export async function createFromTemplate(snapshot: TemplateSnapshot, name: string, campusId = 'hsc'): Promise<string> {
-  return insertEventWithBooths(snapshot.event ?? {}, snapshot.booths ?? [], name, campusId);
+  const fields = { ...snapshot.event };
+  if (fields.settings) fields.settings = withoutGoogleSheet(fields.settings);
+  return insertEventWithBooths(fields, snapshot.booths ?? [], name, campusId);
 }
 
 export async function createBlankEvent(name: string, campusId = 'hsc', formType: FormType = 'registration'): Promise<string> {

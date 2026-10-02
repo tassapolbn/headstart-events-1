@@ -6,6 +6,10 @@ Built with React, Vite, TypeScript, Tailwind CSS, React Hook Form, Zod and Frame
 
 A Thai language quick start guide is in `SETUP_GUIDE_TH.md`.
 
+For automatic registration exports to a separate Google spreadsheet per event,
+see [Google Sheets setup](GOOGLE_SHEETS_SETUP.md). This uses a five-minute Apps
+Script trigger and works independently of confirmation emails.
+
 ---
 
 ## 1. What you need

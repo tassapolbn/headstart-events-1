@@ -163,6 +163,8 @@ export interface EmailTemplate {
 export type FormType = 'registration' | 'survey';
 
 export interface EventSettings {
+  /** One spreadsheet per event. Blank disables the scheduled registration export. */
+  googleSheetUrl?: string;
   /** 'registration' = event sign up (reference, QR, booths). 'survey' = survey, questionnaire or feedback form. */
   formType: FormType;
   /** Optional custom heading above the form (falls back to the wording for the form type) */
