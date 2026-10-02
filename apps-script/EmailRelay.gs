@@ -19,36 +19,69 @@
  * 2. Paste this whole file into Code.gs.
  * 3. Open Project Settings (gear icon) -> Script Properties and add:
  *       SUPABASE_URL          https://YOUR-PROJECT-REF.supabase.co
- *       SERVICE_ROLE_KEY      (Supabase Dashboard -> Project Settings -> API -> service_role)
+ *       SERVICE_ROLE_KEY      (Supabase Dashboard -> Project Settings -> API Keys ->
+ *                              Legacy API Keys -> service_role)
  *       FROM_NAME             HeadStart Events
  * 4. Deploy -> New deployment -> type: Web app
  *       Execute as: Me
  *       Who has access: Anyone
  *    Copy the web app URL (ends in /exec).
- * 5. Paste that URL into HeadStart Events -> Settings -> Relay web app URL.
+ * 5. Paste that URL into HeadStart Events -> Settings -> Email & notifications
+ *    -> Relay web app URL, and save. Do this for every campus.
  * 6. Optional daily summary: in the Triggers page (clock icon),
  *    add a trigger for dailySummary, time driven, every day 07:00 to 08:00.
  *
- * NOTE ON QUOTAS: Google Workspace accounts can send about 1,500
- * emails per day with MailApp, which is plenty for school events.
+ * UPDATING TO A NEW VERSION OF THIS FILE
+ * Paste the new file over all the old code and save. Then choose
+ * Deploy -> Manage deployments -> pencil icon (Edit) ->
+ * Version: New version -> Deploy. The web app URL stays the same,
+ * so nothing needs changing in HeadStart Events. Do not choose
+ * "New deployment": that creates a different URL.
+ *
+ * CHECKING THE RELAY
+ * - Open the web app URL in a browser. It shows the deployed version,
+ *   which should match RELAY_VERSION below.
+ * - In the editor, choose checkSetup in the toolbar, press Run and read
+ *   the Execution log. It sends no email and changes nothing.
+ *
+ * NOTE ON QUOTAS: MailApp counts every recipient. Google Workspace
+ * accounts may email about 1,500 recipients per day, free Gmail
+ * accounts about 100. checkSetup shows what is left today.
  * ============================================================
  */
 
 var PROPS = PropertiesService.getScriptProperties();
-var SUPABASE_URL = PROPS.getProperty('SUPABASE_URL');
-var SERVICE_KEY = PROPS.getProperty('SERVICE_ROLE_KEY');
+// Trimmed, because a space or line break pasted with a value is enough for
+// Supabase to refuse every request.
+var SUPABASE_URL = (PROPS.getProperty('SUPABASE_URL') || '').trim().replace(/\/+$/, '');
+var SERVICE_KEY = (PROPS.getProperty('SERVICE_ROLE_KEY') || '').trim();
 var FROM_NAME = PROPS.getProperty('FROM_NAME') || 'HeadStart Events';
 
+// Change this whenever the file changes, so the deployed copy can be checked.
+var RELAY_VERSION = '2026-10-02';
+
 // ------------------------------------------------------------
-// Web app entry point
+// Web app entry points
 // ------------------------------------------------------------
+
+// Opening the web app URL in a browser shows which version is deployed.
+function doGet() {
+  return jsonOut({ ok: true, relay: 'HeadStart Events email relay', version: RELAY_VERSION });
+}
+
 function doPost(e) {
   try {
     var payload = JSON.parse((e.parameter && e.parameter.request) || e.postData.contents || '{}');
     if (payload.action === 'google_sheet_refresh') return sheetRefreshPage(payload);
+    var cache = CacheService.getScriptCache();
 
     if (payload.test) {
-      var camp = fetchCampus(payload.campus || 'hsc');
+      var campusId = String(payload.campus || 'hsc');
+      // Anyone who finds the relay URL can ask for a test, so one test per
+      // campus per minute keeps staff inboxes and the daily quota safe.
+      if (cache.get('test_' + campusId)) return jsonOut({ ok: true, test: true, skipped: 'cooldown' });
+      cache.put('test_' + campusId, '1', 60);
+      var camp = fetchCampus(campusId);
       var recips = notifyList(camp);
       if (recips.length) {
         MailApp.sendEmail({
@@ -65,7 +98,6 @@ function doPost(e) {
     if (!reference) return jsonOut({ ok: false, error: 'missing reference' });
 
     // Basic abuse guard: one send per reference per 5 minutes.
-    var cache = CacheService.getScriptCache();
     if (cache.get('sent_' + reference)) return jsonOut({ ok: true, skipped: 'cooldown' });
 
     var reg = fetchRegistration(reference);
@@ -90,7 +122,10 @@ function doPost(e) {
     // Who is told about this submission comes only from the form's own saved
     // list. Campus and global addresses are never used for registration or
     // response data, so one form's replies never reach another form's staff.
-    var adminTo = template.adminNotify ? template.adminEmails : [];
+    // A resend repeats the confirmation only: the form's recipients were told
+    // when the entry first arrived, and must not be told again as if it were new.
+    var alreadyNotified = !!(payload.resend && reg.email_sent_at);
+    var adminTo = template.adminNotify && !alreadyNotified ? template.adminEmails : [];
     // Surveys may be answered anonymously, so a confirmation needs an address
     // to send to, not merely an enabled template.
     var sendConfirmation = template.enabled && !!reg.email;
@@ -199,11 +234,69 @@ function dailySummaryForCampus(camp) {
 }
 
 // ------------------------------------------------------------
+// Setup check: choose checkSetup in the editor toolbar, press Run,
+// then read the Execution log. It sends no email and changes nothing.
+// ------------------------------------------------------------
+function checkSetup() {
+  Logger.log('Relay version: ' + RELAY_VERSION);
+  if (!SUPABASE_URL) throw new Error('Script Property SUPABASE_URL is missing.');
+  if (!SERVICE_KEY) throw new Error('Script Property SERVICE_ROLE_KEY is missing.');
+  var kind = keyKind();
+  if (kind !== 'service_role' && kind !== 'secret') {
+    throw new Error('SERVICE_ROLE_KEY holds the wrong key (' + kind + '). Copy the service_role key from ' +
+      'Supabase -> Project Settings -> API Keys -> Legacy API Keys.');
+  }
+  Logger.log('Key type: ' + (kind === 'secret' ? 'new secret key (sb_secret_...)' : 'legacy service_role key'));
+  var campuses;
+  try {
+    campuses = supabaseGet('/rest/v1/campuses?select=id,name,webhook_url&order=sort_order');
+  } catch (err) {
+    throw new Error('Supabase refused the connection. Check SUPABASE_URL and SERVICE_ROLE_KEY. ' + err.message);
+  }
+  Logger.log('Supabase connection: OK');
+  // A campus without its own URL falls back to the older global one, so both
+  // are listed. Each should be this deployment's web app URL.
+  var globalUrl = fetchAppSettings().webhook_url;
+  campuses.forEach(function (c) {
+    Logger.log('Relay URL for ' + c.name + ': ' + (c.webhook_url || 'not set, uses the global URL ' + (globalUrl || '(not set either)')));
+  });
+  Logger.log('Script time zone (used by the daily summary trigger): ' + Session.getScriptTimeZone());
+  Logger.log('Email recipients left today: ' + MailApp.getRemainingDailyQuota());
+}
+
+// ------------------------------------------------------------
 // Supabase helpers
 // ------------------------------------------------------------
+
+// Legacy keys are JWTs and are sent in both headers. The newer keys
+// (sb_secret_...) are not JWTs, and Supabase takes them in the apikey header only.
+function isJwtKey() {
+  return !/^sb_/.test(SERVICE_KEY);
+}
+
+function supabaseHeaders() {
+  var headers = { apikey: SERVICE_KEY };
+  if (isJwtKey()) headers.Authorization = 'Bearer ' + SERVICE_KEY;
+  return headers;
+}
+
+// Which key SERVICE_ROLE_KEY holds. The anon key sits right next to
+// service_role in Supabase, and with it every lookup quietly finds nothing.
+function keyKind() {
+  if (/^sb_secret_/.test(SERVICE_KEY)) return 'secret';
+  if (!isJwtKey()) return 'publishable';
+  try {
+    var part = SERVICE_KEY.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    var claims = JSON.parse(Utilities.newBlob(Utilities.base64Decode(part + '==='.slice((part.length + 3) % 4))).getDataAsString());
+    return claims.role || 'unknown';
+  } catch (e) {
+    return 'unknown';
+  }
+}
+
 function supabaseGet(path) {
   var res = UrlFetchApp.fetch(SUPABASE_URL + path, {
-    headers: { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY },
+    headers: supabaseHeaders(),
     muteHttpExceptions: true,
   });
   if (res.getResponseCode() >= 300) throw new Error('Supabase error: ' + res.getContentText());
@@ -275,10 +368,12 @@ function formNotifyList(template) {
 }
 
 function markEmailSent(id) {
+  var headers = supabaseHeaders();
+  headers.Prefer = 'return=minimal';
   UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/registrations?id=eq.' + id, {
     method: 'patch',
     contentType: 'application/json',
-    headers: { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY, Prefer: 'return=minimal' },
+    headers: headers,
     payload: JSON.stringify({ email_sent_at: new Date().toISOString() }),
     muteHttpExceptions: true,
   });
@@ -320,8 +415,15 @@ function buildMergeMap(event, reg) {
     name: reg.name || 'Guest',
     booth: boothText,
     event: event.name || '',
-    date: event.event_date ? Utilities.formatDate(new Date(event.event_date), Session.getScriptTimeZone(), 'EEEE d MMMM yyyy') : 'To be announced',
-    time: [event.start_time, event.end_time].filter(String).join(' - ') || 'To be announced',
+    // event_date is a plain YYYY-MM-DD, which reads as midnight UTC, so it is
+    // formatted in UTC. The script's time zone setting can then never turn it
+    // into the day before.
+    date: event.event_date ? Utilities.formatDate(new Date(event.event_date), 'UTC', 'EEEE d MMMM yyyy') : 'To be announced',
+    // As in the admin preview: "09:00 - 12:00", or the one time that is set.
+    // A time left empty is saved as null.
+    time: (event.start_time && event.end_time
+      ? event.start_time + ' - ' + event.end_time
+      : event.start_time || event.end_time) || 'To be announced',
     location: event.location || 'HeadStart International School Phuket',
     referencenumber: reg.reference || '',
   };
@@ -336,9 +438,14 @@ function renderMerge(text, map) {
 
 function buildEmailHtml(template, mergeMap, event, reg, settings) {
   var branding = event.branding || {};
+  // Merge values include what the person typed, such as their name, so they
+  // go in as text. Otherwise anyone could put a link or markup into an email
+  // that is sent from the school account.
+  var htmlMap = {};
+  Object.keys(mergeMap).forEach(function (key) { htmlMap[key] = esc(mergeMap[key]); });
   return HeadStartEmail.buildEmailHtml({
     template: Object.assign({}, template, { body: template.body + menuBlock(event, reg) }),
-    mergeMap: mergeMap,
+    mergeMap: htmlMap,
     logoUrl: settings.email_logo_url || branding.logo_url || settings.logo_url || '',
     bannerUrl: branding.banner_url || '',
     qrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(reg.reference),
@@ -397,7 +504,7 @@ function buildIcs(event, reference) {
 // Small utilities
 // ------------------------------------------------------------
 function esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function jsonOut(obj) {

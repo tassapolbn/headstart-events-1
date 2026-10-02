@@ -60,7 +60,7 @@ const registration: FormCopy = {
   behaviourCard: 'Registration behaviour',
   emailCard: 'Confirmation email',
   emailSwitch: 'Send a confirmation email after each registration',
-  notifySwitch: 'Notify the administrator about each registration',
+  notifySwitch: "Notify this form's recipients about each registration",
 };
 
 const survey: FormCopy = {
@@ -89,7 +89,7 @@ const survey: FormCopy = {
   behaviourCard: 'Response behaviour',
   emailCard: 'Thank you email',
   emailSwitch: 'Send a thank you email after each response',
-  notifySwitch: 'Notify the administrator about each response',
+  notifySwitch: "Notify this form's recipients about each response",
 };
 
 export function formTypeOf(event?: Pick<EventRecord, 'settings'> | null): FormType {

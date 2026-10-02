@@ -5,6 +5,7 @@ import {
   Link2, Mail, Map, Palette, QrCode, Save, Settings2, ShieldCheck, Tag,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { invalidNotificationEmails, normalizeNotificationEmails, notificationEmailEntries } from '@/lib/notificationEmails';
 import type { EventRecord } from '@/lib/types';
 import { useEvent } from '@/hooks/useEvent';
 import { publicEventUrl } from '@/lib/eventOps';
@@ -81,6 +82,12 @@ export default function EventEditorPage() {
 
   async function save() {
     if (!draft || !id) return;
+    const recipients = notificationEmailEntries(draft.email_template);
+    if (invalidNotificationEmails(recipients).length) {
+      setTab('email');
+      toast('Please correct the notification email addresses before saving.', 'error');
+      return;
+    }
     if (draft.settings.googleSheetUrl?.trim() && !googleSheetId(draft.settings.googleSheetUrl)) {
       setTab('settings');
       toast('Please enter a valid Google Sheet link, or clear it to disconnect.', 'error');
@@ -88,6 +95,13 @@ export default function EventEditorPage() {
     }
     setSaving(true);
     const { id: _id, created_at, updated_at, ...fields } = draft;
+    // Save recipients as the one list the email relay reads. Any older single
+    // address is folded into it, so the Email tab always shows who is told.
+    fields.email_template = {
+      ...fields.email_template,
+      adminEmails: normalizeNotificationEmails(recipients),
+      adminEmail: '',
+    };
     fields.settings = { ...fields.settings, googleSheetUrl: fields.settings.googleSheetUrl?.trim() || undefined };
     const { error: err } = await supabase.from('events').update(fields).eq('id', id).select('id').single();
     setSaving(false);
