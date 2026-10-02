@@ -42,15 +42,32 @@ Option B, drag and drop:
 
 ## 4. Set up the email relay (about 5 minutes)
 
-Follow the step by step instructions at the top of `apps-script/EmailRelay.gs`. In short: create a new Apps Script project, paste the file, add the three Script Properties (including the Supabase `service_role` key, which stays safely inside Apps Script), deploy as a web app with access set to Anyone, then paste the web app URL into **HeadStart Events -> Settings -> Relay web app URL**.
+Follow the step by step instructions at the top of `apps-script/EmailRelay.gs`. In short: create a new Apps Script project, paste the file, add the three Script Properties (including the Supabase `service_role` key, which stays safely inside Apps Script), deploy as a web app with access set to Anyone, then paste the web app URL into **HeadStart Events -> Settings -> Email & notifications -> Relay web app URL** for every campus.
 
-The relay also supports an optional daily summary email: add a time driven trigger for the `dailySummary` function.
+The relay also supports an optional daily summary email: add a time driven trigger for the `dailySummary` function. Each form's summary goes only to that form's notification recipients.
+
+### Choose notification recipients for each form
+
+1. Open **Events -> select the form -> Email**.
+2. Under **Registration notifications for this form** (or **Response notifications** for a survey), turn on the switch.
+3. Enter the people to tell in **Notification recipients**, one email per line (commas and semicolons also work), then **Save**. Duplicates are removed, and invalid addresses must be corrected before saving.
+4. Repeat for each form. An empty list sends no notifications: campus addresses are never used as a fallback. Turning notifications off keeps the list for later.
+
+The campus **test recipients** in Settings receive relay test emails only.
+
+### Updating the relay after this file changes
+
+The website and the relay are deployed separately, so updating the website alone never changes the emails. Paste the new `apps-script/EmailRelay.gs` over the old code, save, then choose **Deploy -> Manage deployments -> Edit (pencil) -> Version: New version -> Deploy**. This keeps the same web app URL. Choosing **New deployment** instead creates a different URL that HeadStart Events does not know about.
+
+To check what is live, open the web app URL in a browser: it shows the relay version, which should match `RELAY_VERSION` near the top of the file. For a fuller check, choose `checkSetup` in the Apps Script toolbar and press **Run**. The Execution log shows the Supabase connection, each campus's relay URL, the script time zone and how many email recipients are left today. It sends no email.
+
+Supabase is retiring the legacy `anon` and `service_role` keys by the end of 2026. Keep the current `service_role` key for now. The relay already sends the newer `sb_secret_...` keys the way Supabase requires, but Supabase refuses secret keys from browsers by checking the `User-Agent` header, and Apps Script always identifies itself starting with `Mozilla/5.0`. Before the legacy key is turned off, put a secret key in `SERVICE_ROLE_KEY`, run `checkSetup`, and keep it only if the connection shows OK.
 
 ## 5. First steps in the app
 
 1. Open `https://your-site.netlify.app/admin` and sign in.
-2. Go to **Settings**, set the school name, upload the school logo, enter the admin notification email and the relay URL, then save.
-3. Create your first event, build the form (or press "Insert vendor questions"), design the floor plan, adjust the theme, review the email template, then set the status to **Open** and save.
+2. Go to **Settings**, set the school name, upload the school logo, enter the relay test recipients and the relay URL, then save.
+3. Create your first event, build the form (or press "Insert vendor questions"), design the floor plan, adjust the theme, review the email template and add the form's notification recipients in **Email**, then set the status to **Open** and save.
 4. Share the public link (Copy link button on the Events page). No login is needed for parents or vendors.
 
 ## 6. How booth locking works
@@ -87,7 +104,9 @@ The architecture is modular by design. New modules (volunteer registration, pare
 
 - Blank page after deploy: check the two environment variables on Netlify, then redeploy.
 - Sign in fails: confirm the user exists in Supabase Authentication and was auto confirmed.
-- No confirmation emails: open Settings and press "Send a test email"; check the Apps Script execution log; confirm the three Script Properties.
+- No confirmation emails: open Settings and press "Send a test to all recipients"; run `checkSetup` in Apps Script and read the Execution log; confirm the three Script Properties.
+- Staff not notified about a form: check that form's **Email -> Notification recipients**. An empty list notifies nobody.
+- Run `npm test` for the notification and relay regression tests, and `npm run build` for the TypeScript check and production build.
 - Booth map not showing publicly: the floor plan toggle must be on, the event saved, and at least one booth drawn and saved.
 - Changed the form after registrations arrived: old answers are kept and matched by question, new questions simply show empty for old rows.
 

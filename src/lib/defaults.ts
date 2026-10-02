@@ -111,7 +111,7 @@ export const defaultEmailTemplate: EmailTemplate = {
   showQr: true,
   attachCalendar: true,
   adminNotify: true,
-  adminEmail: '',
+  adminEmails: [],
 };
 
 /** Thank you email for surveys: no reference number, booth, QR code or calendar file. */
@@ -129,7 +129,7 @@ export const surveyEmailTemplate: EmailTemplate = {
   showQr: false,
   attachCalendar: false,
   adminNotify: true,
-  adminEmail: '',
+  adminEmails: [],
 };
 
 /** Settings suited to a survey, questionnaire or feedback form. */

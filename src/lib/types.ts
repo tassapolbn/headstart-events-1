@@ -155,7 +155,9 @@ export interface EmailTemplate {
   buttonLabel?: string;
   buttonUrl?: string;
   adminNotify: boolean;
+  /** Legacy single recipient, read only when adminEmails is absent. */
   adminEmail?: string;
+  /** Recipients for this form only. An empty list sends no notifications. */
   adminEmails?: string[];
 }
 

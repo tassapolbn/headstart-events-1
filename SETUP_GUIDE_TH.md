@@ -55,10 +55,11 @@
    - Execute as: **Me**
    - Who has access: **Anyone**
    - อนุญาตสิทธิ์เมื่อระบบถาม แล้วคัดลอก **Web app URL** (ลงท้ายด้วย /exec)
-5. เปิดเว็บของเรา ไปที่ `/admin` เข้าสู่ระบบ แล้วไปหน้า **Settings**
+5. เปิดเว็บของเรา ไปที่ `/admin` เข้าสู่ระบบ แล้วไปหน้า **Settings -> Email & notifications** (ทำทุกวิทยาเขต)
    - วาง Web app URL ในช่อง **Relay web app URL**
-   - ใส่อีเมลผู้ดูแล แล้วกด **Save settings**
-   - กด **Send a test email** เพื่อทดสอบ
+   - ใส่อีเมลผู้รับอีเมลทดสอบ แล้วกดปุ่ม **Save** ที่แถบด้านล่าง
+   - กด **Send a test to all recipients** เพื่อทดสอบ
+   - ผู้รับแจ้งเตือนการลงทะเบียนจริงกำหนดแยกในแท็บ **Email** ของแต่ละฟอร์ม (ดู `EMAIL_RELAY_DETAILED_GUIDE_TH.md` ส่วนที่ 6)
 6. (ทางเลือก) สรุปยอดลงทะเบียนรายวัน: ใน Apps Script ไปที่เมนู **Triggers (ไอคอนนาฬิกา)**
    เพิ่ม trigger ให้ฟังก์ชัน `dailySummary` แบบ Time driven ทุกวันช่วง 07:00 ถึง 08:00
 
@@ -88,5 +89,7 @@
 
 - หน้าเว็บว่างเปล่า: ตรวจ Environment variables 2 ค่าบน Netlify แล้ว Deploy ใหม่
 - เข้าสู่ระบบไม่ได้: ตรวจว่าสร้าง user ใน Supabase Authentication และติ๊ก Auto confirm แล้ว
-- อีเมลไม่ส่ง: กดปุ่ม Send a test email ในหน้า Settings แล้วดู log ใน Apps Script
-  (เมนู Executions) และตรวจ Script Properties ทั้ง 3 ค่า
+- อีเมลไม่ส่ง: กดปุ่ม Send a test to all recipients ในหน้า Settings แล้วรัน `checkSetup` ใน Apps Script
+  ดู log (เมนู Executions) และตรวจ Script Properties ทั้ง 3 ค่า
+- แก้ไฟล์ `EmailRelay.gs` แล้ว: ต้องวางโค้ดใหม่ใน Apps Script และกด Deploy -> Manage deployments -> Edit
+  -> New version -> Deploy ทุกครั้ง (ดู `EMAIL_RELAY_DETAILED_GUIDE_TH.md` ส่วนที่ 8)

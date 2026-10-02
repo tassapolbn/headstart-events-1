@@ -37,6 +37,8 @@ function relay(rows) {
     Session: { getScriptTimeZone: () => 'UTC' },
   });
   vm.runInContext(source, ctx);
+  // Kept before the stub below replaces it, for the tests that read the real email.
+  const realBuildEmailHtml = ctx.buildEmailHtml;
   ctx.jsonOut = (value) => plain(value);
   ctx.fetchRegistration = (reference) => rows.find((r) => r.reference === reference);
   ctx.fetchCampus = () => ({ id: 'hsc', name: 'Campus', notify_emails: ['all-admins@example.com'] });
@@ -45,7 +47,7 @@ function relay(rows) {
   ctx.markEmailSent = (id) => marked.push(id);
   ctx.supabaseGet = (path) => { requests.push(path); return rows; };
   const post = (payload) => ctx.doPost({ postData: { contents: JSON.stringify(payload) } });
-  return { ctx, mail, marked, requests, post };
+  return { ctx, mail, marked, requests, post, realBuildEmailHtml };
 }
 
 test('a registration notifies only its assigned admins, with one confirmation', () => {
@@ -220,4 +222,144 @@ test('the public page calls the relay whenever either email is wanted', () => {
   const r = relay([registration('A', { enabled: false, adminEmails: ['owner@example.com'] })]);
   r.post({ reference: 'HS-A' });
   assert.deepEqual(r.mail.map((m) => m.to), ['owner@example.com']);
+});
+
+// ---------------------------------------------------------------------------
+// Relay review, October 2026.
+// ---------------------------------------------------------------------------
+
+test('a resend repeats the confirmation only, without a second staff notice', () => {
+  const sent = { ...registration('A', { adminEmails: ['owner@example.com'] }), email_sent_at: '2026-09-30T00:00:00Z' };
+  const r = relay([sent]);
+  assert.equal(r.post({ reference: 'HS-A', resend: true }).ok, true);
+  assert.deepEqual(r.mail.map((m) => m.to), ['guestA@example.com']);
+  assert.deepEqual(r.marked, ['A']);
+
+  // Never emailed before (for example, no relay URL at the time): the resend
+  // is the first send, so the form's recipients are told as usual.
+  const fresh = relay([registration('B', { adminEmails: ['owner@example.com'] })]);
+  fresh.post({ reference: 'HS-B', resend: true });
+  assert.deepEqual(fresh.mail.map((m) => m.to), ['guestB@example.com', 'owner@example.com']);
+
+  // An anonymous response that was already notified has nothing left to send.
+  const anon = relay([surveyRegistration('C', { adminEmails: ['owner@example.com'] }, { email: null, email_sent_at: '2026-09-30T00:00:00Z' })]);
+  assert.equal(anon.post({ reference: 'HS-C', resend: true }).skipped, 'no recipients');
+  assert.equal(anon.mail.length, 0);
+});
+
+test('repeated test requests send one email per campus per minute', () => {
+  const r = relay([]);
+  for (let i = 0; i < 5; i++) r.post({ test: true, campus: 'hsc' });
+  assert.equal(r.mail.length, 1);
+  assert.equal(r.post({ test: true, campus: 'hsc' }).skipped, 'cooldown');
+  // Each campus has its own allowance.
+  assert.equal(r.post({ test: true, campus: 'hsn' }).ok, true);
+  assert.equal(r.mail.length, 2);
+});
+
+test('date and time read as in the admin preview, whatever the script time zone', () => {
+  const r = relay([]);
+  // A real formatter, so the time zone the relay asks for actually matters.
+  r.ctx.Utilities.formatDate = (date, zone) => new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(date);
+  r.ctx.Session.getScriptTimeZone = () => 'America/New_York';
+  const map = (start, end) => r.ctx.buildMergeMap(
+    { name: 'Fair', event_date: '2026-10-02', start_time: start, end_time: end }, { name: 'A', reference: 'HS-A' }
+  );
+  assert.equal(map('09:00', '12:00').date, '2026-10-02');
+  assert.equal(map('09:00', '12:00').time, '09:00 - 12:00');
+  // Empty times are saved as null; the email must not show a stray dash.
+  assert.equal(map('09:00', null).time, '09:00');
+  assert.equal(map(null, '12:00').time, '12:00');
+  assert.equal(map(null, null).time, 'To be announced');
+});
+
+test("a registrant's name goes into the email as text, never as markup", () => {
+  const r = relay([]);
+  const reg = { reference: 'HS-A', name: '<a href="https://evil.example">Pay your booth fee</a>' };
+  const event = { name: 'Food & Fun', location: 'Main Hall' };
+  const map = r.ctx.buildMergeMap(event, reg);
+  const template = r.ctx.defaults({
+    body: '<p>Dear Khun {{Name}}, welcome to {{Event}}.</p>',
+    buttonLabel: 'Open', buttonUrl: 'https://school.example/e?n={{Name}}',
+  });
+  const html = r.realBuildEmailHtml(template, map, event, reg, {});
+  assert.doesNotMatch(html, /href="https:\/\/evil/);
+  assert.match(html, /Dear Khun &lt;a href=&quot;https:\/\/evil\.example&quot;&gt;Pay your booth fee&lt;\/a&gt;,/);
+  assert.match(html, /welcome to Food &amp; Fun\./);
+  // The template's own HTML is untouched, and the subject stays plain text.
+  assert.match(html, /<p>Dear Khun /);
+  assert.equal(r.ctx.renderMerge('Registration confirmed: {{Event}}', map), 'Registration confirmed: Food & Fun');
+});
+
+test('legacy keys go in both headers, new secret keys only in apikey', () => {
+  for (const [key, bearer] of [['eyJhbGciOiJIUzI1NiJ9.legacy', true], ['sb_secret_abc123', false]]) {
+    const calls = [];
+    const props = { SUPABASE_URL: ' https://demo.supabase.co/ ', SERVICE_ROLE_KEY: ` ${key}\n` };
+    const ctx = vm.createContext({
+      PropertiesService: { getScriptProperties: () => ({ getProperty: (name) => props[name] ?? null }) },
+      UrlFetchApp: {
+        fetch: (url, options) => {
+          calls.push({ url, options });
+          return { getResponseCode: () => 200, getContentText: () => '[]' };
+        },
+      },
+    });
+    vm.runInContext(source, ctx);
+    ctx.supabaseGet('/rest/v1/campuses?select=id');
+    ctx.markEmailSent('r1');
+    assert.equal(calls.length, 2);
+    for (const { url, options } of calls) {
+      // Pasted spaces, line breaks and a trailing slash are tidied away.
+      assert.match(url, /^https:\/\/demo\.supabase\.co\/rest\/v1\//);
+      assert.equal(options.headers.apikey, key);
+      assert.equal(options.headers.Authorization, bearer ? `Bearer ${key}` : undefined);
+    }
+    assert.equal(calls[1].options.headers.Prefer, 'return=minimal');
+  }
+});
+
+test('opening the relay URL shows the deployed version', () => {
+  const r = relay([]);
+  const out = r.ctx.doGet();
+  assert.equal(out.ok, true);
+  assert.match(out.version, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(out.version, r.ctx.RELAY_VERSION);
+});
+
+// A legacy Supabase key is a JWT whose middle part names its role.
+const jwt = (role) => ['eyJhbGciOiJIUzI1NiJ9', Buffer.from(JSON.stringify({ iss: 'supabase', role })).toString('base64url'), 'sig'].join('.');
+
+test('checkSetup reports the connection and every campus relay URL without sending email', () => {
+  const r = relay([]);
+  const logs = [];
+  r.ctx.Logger = { log: (line) => logs.push(line) };
+  r.ctx.MailApp.getRemainingDailyQuota = () => 97;
+  r.ctx.Utilities.base64Decode = (text) => [...Buffer.from(text, 'base64')];
+  r.ctx.Utilities.newBlob = (bytes) => ({ getDataAsString: () => Buffer.from(bytes).toString('utf8') });
+  r.ctx.SUPABASE_URL = 'https://demo.supabase.co';
+  r.ctx.SERVICE_KEY = jwt('service_role');
+  r.ctx.fetchAppSettings = () => ({ webhook_url: 'https://script.google.com/macros/s/old/exec' });
+  r.ctx.supabaseGet = () => [
+    { id: 'hsc', name: 'HSC', webhook_url: 'https://script.google.com/macros/s/new/exec' },
+    { id: 'hsn', name: 'HSN', webhook_url: null },
+  ];
+  r.ctx.checkSetup();
+  assert.ok(logs.includes('Supabase connection: OK'), logs.join('\n'));
+  assert.ok(logs.includes('Key type: legacy service_role key'));
+  assert.ok(logs.includes('Relay URL for HSC: https://script.google.com/macros/s/new/exec'));
+  assert.ok(logs.includes('Relay URL for HSN: not set, uses the global URL https://script.google.com/macros/s/old/exec'));
+  assert.ok(logs.includes('Email recipients left today: 97'));
+  assert.equal(r.mail.length, 0);
+
+  // Clear messages for the usual setup mistakes. The anon key can read the
+  // campus list, so only the key check catches it.
+  r.ctx.SERVICE_KEY = '';
+  assert.throws(() => r.ctx.checkSetup(), /SERVICE_ROLE_KEY is missing/);
+  for (const [key, kind] of [[jwt('anon'), 'anon'], ['sb_publishable_abc123', 'publishable'], ['not-a-key', 'unknown']]) {
+    r.ctx.SERVICE_KEY = key;
+    assert.throws(() => r.ctx.checkSetup(), new RegExp(`wrong key \\(${kind}\\)`));
+  }
+  r.ctx.SERVICE_KEY = 'sb_secret_abc123';
+  r.ctx.supabaseGet = () => { throw new Error('Supabase error: {"message":"Invalid API key"}'); };
+  assert.throws(() => r.ctx.checkSetup(), /Supabase refused the connection.*Invalid API key/);
 });
