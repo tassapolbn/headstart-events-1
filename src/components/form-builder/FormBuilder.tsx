@@ -53,6 +53,12 @@ function newField(type: FieldType): FormField {
     base.label = 'Choose your menu';
     base.options = ['Menu A', 'Menu B'];
   }
+  if (type === 'yes_no') { base.label = 'Have you completed this step?'; base.options = ['Yes', 'No', 'Not yet']; }
+  if (type === 'picture_choice') { base.label = 'Choose one'; base.options = ['Option 1', 'Option 2']; base.optionImages = []; }
+  if (type === 'slider') { base.label = 'How likely are you to recommend us?'; base.validation = { min: 0, max: 10 }; base.step = 1; base.lowLabel = 'Not likely'; base.highLabel = 'Very likely'; }
+  if (type === 'consent') { base.label = 'I agree to the terms and conditions'; base.required = true; }
+  if (type === 'url') { base.label = 'Website or social media link'; base.placeholder = 'https://'; }
+  if (type === 'callout') { base.content = '<p><strong>Next step:</strong> write the instructions here.</p>'; base.tone = 'info'; }
   if (type === 'heading') base.content = 'Section heading';
   if (type === 'rich_text') base.content = '<p>Write your text here.</p>';
   if (type === 'file' || type === 'photo') base.maxSizeMB = 10;

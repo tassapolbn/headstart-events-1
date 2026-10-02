@@ -12,6 +12,22 @@ import { richToHtml } from '@/components/ui/RichTextArea';
 import { FormattedText } from '@/components/ui/FormattedText';
 import { ensureContentFonts } from '@/lib/fonts';
 
+const calloutTone: Record<string, string> = {
+  info: 'border-sky-500 bg-sky-50 text-sky-950',
+  success: 'border-emerald-500 bg-emerald-50 text-emerald-950',
+  warning: 'border-amber-500 bg-amber-50 text-amber-950',
+  note: 'border-slate-400 bg-slate-50 text-slate-800',
+};
+
+/** The optional picture on a text block or instruction box. */
+function BlockImage({ field }: { field: FormField }) {
+  if (!field.image_url) return null;
+  return (
+    <img src={field.image_url} alt={field.imageAlt || ''} loading="lazy" className="block h-auto max-w-full rounded-lg object-contain"
+      style={{ width: `${Math.min(100, Math.max(25, field.imageWidth ?? 100))}%`, marginLeft: field.textAlign === 'center' || field.textAlign === 'right' ? 'auto' : undefined, marginRight: field.textAlign === 'center' ? 'auto' : undefined }} />
+  );
+}
+
 const inputCls =
   'ev-input w-full border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400';
 
@@ -75,10 +91,20 @@ export function FormRenderer({
         );
       case 'rich_text':
         return (
-          <div
-            className="ev-rich max-w-none text-sm opacity-90"
-            dangerouslySetInnerHTML={{ __html: richToHtml(f.content ?? '') }}
-          />
+          <div className="space-y-3">
+            <div
+              className="ev-rich max-w-none text-sm opacity-90"
+              dangerouslySetInnerHTML={{ __html: richToHtml(f.content ?? '') }}
+            />
+            <BlockImage field={f} />
+          </div>
+        );
+      case 'callout':
+        return (
+          <div className={cn('ev-callout space-y-3 rounded-xl border-l-4 px-4 py-3', calloutTone[f.tone ?? 'info'])} role="note">
+            <div className="ev-rich max-w-none text-sm" dangerouslySetInnerHTML={{ __html: richToHtml(f.content ?? '') }} />
+            <BlockImage field={f} />
+          </div>
         );
       case 'divider':
         return (
@@ -173,6 +199,94 @@ export function FormRenderer({
           </FieldShell>
         );
       }
+      case 'yes_no':
+        return (
+          <FieldShell field={f} error={err}>
+            <div role="radiogroup" aria-label={f.label} aria-required={!!f.required} aria-invalid={!!err} className="flex flex-wrap gap-2">
+              {(f.options ?? []).map((o) => (
+                <label key={o} className="ev-choice ev-pill flex-1 justify-center text-center font-semibold" style={{ minWidth: '6rem' }}>
+                  <input type="radio" value={o} className="sr-only" {...register(f.id)} />
+                  <span>{o}</span>
+                </label>
+              ))}
+            </div>
+          </FieldShell>
+        );
+      case 'picture_choice':
+        return (
+          <FieldShell field={f} error={err}>
+            <div role="radiogroup" aria-label={f.label} aria-required={!!f.required} aria-invalid={!!err} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {(f.options ?? []).map((o, i) => (
+                <label key={o} className="ev-choice ev-picture flex-col items-stretch gap-2 p-2">
+                  {f.optionImages?.[i]
+                    ? <img src={f.optionImages[i]} alt="" loading="lazy" className="aspect-square w-full rounded-lg object-cover" />
+                    : <span className="flex aspect-square w-full items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">No picture</span>}
+                  <span className="flex items-center gap-2 text-sm">
+                    <input type="radio" value={o} className="h-4 w-4" {...register(f.id)} />
+                    <span>{o}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </FieldShell>
+        );
+      case 'slider': {
+        const min = f.validation?.min ?? 0, max = f.validation?.max ?? 10;
+        return (
+          <FieldShell field={f} error={err}>
+            <Controller
+              control={control}
+              name={f.id}
+              defaultValue=""
+              render={({ field: rhf }) => (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <input
+                      id={f.id} type="range" min={min} max={max} step={f.step || 1}
+                      value={rhf.value === '' || rhf.value == null ? Math.round((min + max) / 2) : rhf.value}
+                      onChange={(e) => rhf.onChange(e.target.value)} onBlur={rhf.onBlur}
+                      className={cn('w-full', rhf.value === '' && 'opacity-50')} style={{ accentColor: 'var(--ev-primary)' }}
+                      aria-valuetext={rhf.value === '' ? 'Not chosen yet' : String(rhf.value)} aria-invalid={!!err}
+                    />
+                    <span className="w-12 shrink-0 rounded-lg border border-slate-200 bg-white py-1 text-center text-sm font-bold" aria-hidden="true">
+                      {rhf.value === '' ? '?' : rhf.value}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs opacity-70" aria-hidden="true">
+                    <span>{min}{f.lowLabel ? ` ${f.lowLabel}` : ''}</span>
+                    <span>{max}{f.highLabel ? ` ${f.highLabel}` : ''}</span>
+                  </div>
+                </div>
+              )}
+            />
+          </FieldShell>
+        );
+      }
+      case 'consent':
+        return (
+          <div className="space-y-1.5">
+            <Controller
+              control={control}
+              name={f.id}
+              defaultValue=""
+              render={({ field: rhf }) => (
+                <label className="ev-choice items-start" style={{ textAlign: f.textAlign }}>
+                  <input
+                    id={f.id} type="checkbox" className="mt-0.5 h-4 w-4"
+                    checked={rhf.value === 'Agreed'} onChange={(e) => rhf.onChange(e.target.checked ? 'Agreed' : '')} onBlur={rhf.onBlur}
+                    aria-invalid={!!err} aria-required={!!f.required}
+                  />
+                  <span>
+                    <FormattedText value={f.labelHtml ?? f.label} />
+                    {f.required && <span className="ml-0.5" style={{ color: 'var(--ev-primary)' }} aria-hidden="true">*</span>}
+                  </span>
+                </label>
+              )}
+            />
+            {(f.description ?? f.helpText) && <div className="ev-rich ev-help text-sm" dangerouslySetInnerHTML={{ __html: richToHtml(f.description ?? f.helpText ?? '') }} />}
+            {err && <p role="alert" className="text-xs font-medium text-red-600">{err}</p>}
+          </div>
+        );
       case 'menu_quantity':
         return (
           <FieldShell field={f} error={err}>
@@ -346,12 +460,14 @@ export function FormRenderer({
       }
       case 'date':
       case 'time':
+      case 'datetime':
+      case 'url':
       case 'email':
       case 'phone':
       case 'short_text':
       default: {
         const typeMap: Record<string, string> = {
-          date: 'date', time: 'time', email: 'email', phone: 'tel', short_text: 'text',
+          date: 'date', time: 'time', email: 'email', phone: 'tel', short_text: 'text', url: 'url', datetime: 'datetime-local',
         };
         return (
           <FieldShell field={f} error={err}>
@@ -371,7 +487,7 @@ export function FormRenderer({
   }
 
   function renderField(f: FormField) {
-    if (!isVisible(f, values)) return null;
+    if (!isVisible(f, values, fields)) return null;
     const err = errors[f.id]?.message as string | undefined;
     const control = renderControl(f, err);
     // Headings, dividers and rich text mark out sections, so they are never boxed.

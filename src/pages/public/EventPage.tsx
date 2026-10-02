@@ -130,7 +130,7 @@ export default function EventPage() {
       if (consentRequired && ack) data[POLICY_ACK_KEY] = buildAckRecords([], {}, { accepted: true, text: consentText(event) });
       let name = '', email = '', phone = '';
       for (const f of event.form_schema) {
-        if (isContentField(f) || !isVisible(f, values)) continue;
+        if (isContentField(f) || !isVisible(f, values, event.form_schema)) continue;
         let v = values[f.id];
         if (v === undefined || v === null || v === '') continue;
         if (typeof v === 'object' && !(v instanceof File) && !Array.isArray(v) && Object.keys(v as object).length === 0) continue;
