@@ -33,6 +33,9 @@ export function SortableFieldCard({ field, selected, onSelect, onDuplicate, onDe
       >
         <GripVertical className="h-4 w-4" />
       </button>
+      {field.image_url && (
+        <img src={field.image_url} alt="" aria-hidden="true" className="h-10 w-10 shrink-0 rounded-md border border-slate-200 object-cover" />
+      )}
       <button onClick={onSelect} className="min-w-0 flex-1 text-left">
         <span className="block truncate text-sm font-medium text-slate-700">
           {field.label}

@@ -106,6 +106,28 @@ export function FormRenderer({
             <BlockImage field={f} />
           </div>
         );
+      case 'image': {
+        if (!f.image_url) return null;
+        const picture = (
+          <img src={f.image_url} alt={f.imageAlt || ''} loading="lazy" className="block h-auto w-full rounded-xl" />
+        );
+        const align = f.textAlign ?? 'center';
+        return (
+          <figure className="space-y-2"
+            style={{ width: `${Math.min(100, Math.max(25, f.imageWidth ?? 100))}%`, marginLeft: align === 'left' ? 0 : 'auto', marginRight: align === 'right' ? 0 : 'auto' }}>
+            {f.zoomable !== false
+              ? <a href={f.image_url} target="_blank" rel="noreferrer" className="block" aria-label={`${f.imageAlt || 'Image'} (opens full size in a new tab)`}>{picture}</a>
+              : picture}
+            {(f.caption || f.zoomable !== false) && (
+              <figcaption className="text-center text-xs opacity-70">
+                {f.caption}
+                {f.caption && f.zoomable !== false ? ' · ' : ''}
+                {f.zoomable !== false && 'Tap the picture to view it full size'}
+              </figcaption>
+            )}
+          </figure>
+        );
+      }
       case 'divider':
         return (
           <div className="flex items-center gap-3 py-2" role="separator" aria-label="Section divider">

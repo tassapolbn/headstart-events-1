@@ -38,7 +38,7 @@ export function FieldSettings({ field, allFields, onChange, assetPrefix }: {
       <div className="space-y-4">
         {!isContent && <Field label="Question type" htmlFor="fs-type" hint="Keeps this question and its saved answers. Check options and conditional rules after changing type.">
           <Select id="fs-type" value={field.type} onChange={e => onChange(changeQuestionType(field, e.target.value as FieldType))}>
-            {Object.entries(fieldTypeMeta).filter(([type]) => !['heading', 'rich_text', 'callout', 'divider'].includes(type)).map(([type, meta]) => <option key={type} value={type}>{meta.label}</option>)}
+            {Object.entries(fieldTypeMeta).filter(([type]) => !['heading', 'rich_text', 'callout', 'image', 'divider'].includes(type)).map(([type, meta]) => <option key={type} value={type}>{meta.label}</option>)}
           </Select>
         </Field>}
         {!isContent && (
@@ -70,6 +70,26 @@ export function FieldSettings({ field, allFields, onChange, assetPrefix }: {
               <option value="note">Grey: general note</option>
             </Select>
           </Field>
+        )}
+        {field.type === 'image' && (
+          <>
+            <ImageUpload label="Image or infographic" value={field.image_url} prefix={`${assetPrefix}/questions/${field.id}`} onChange={image_url => onChange({ image_url })} contain
+              hint="PNG or JPG. Tall infographics work well; visitors can tap to see them full size." />
+            <Field label="Name in the builder list" hint="Only staff see this, e.g. Booth layout infographic.">
+              <Input value={field.label} onChange={e => onChange({ label: e.target.value })} />
+            </Field>
+            <Field label="Picture description" hint="Describe the picture for people using a screen reader. For an infographic, summarise its key points.">
+              <Textarea rows={3} value={field.imageAlt ?? ''} onChange={e => onChange({ imageAlt: e.target.value })} />
+            </Field>
+            <Field label="Caption (optional)" hint="A short line shown under the picture.">
+              <Input value={field.caption ?? ''} onChange={e => onChange({ caption: e.target.value || undefined })} />
+            </Field>
+            <Field label={`Width: ${field.imageWidth ?? 100}%`}><input aria-label="Image width" type="range" min={25} max={100} value={field.imageWidth ?? 100} onChange={e => onChange({ imageWidth: Number(e.target.value) })} /></Field>
+            <Field label="Position"><Select aria-label="Image position" value={field.textAlign ?? 'center'} onChange={e => onChange({ textAlign: e.target.value as FormField['textAlign'] })}>
+              <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
+            </Select></Field>
+            <Switch checked={field.zoomable !== false} onChange={(zoomable) => onChange({ zoomable })} label="Tap to view full size" description="Opens the picture in a new tab, useful for detailed infographics on phones." />
+          </>
         )}
         {(field.type === 'rich_text' || field.type === 'callout') && (
           <>

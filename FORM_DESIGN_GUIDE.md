@@ -29,3 +29,13 @@ Show something only after a chosen answer:
 3. In its settings, under **Conditional logic**, choose the question, **equals**, and pick **Not yet** from the list.
 
 The box or question then appears only for that answer. Anything that depends on a hidden question is hidden too, and hidden questions never stop the form being sent.
+
+## Images and infographics between questions
+
+In **Form Builder → Add**, choose **Image / infographic** and drag it to where it should appear.
+
+- Upload a PNG or JPG. Set its width, position, and an optional caption.
+- **Picture description** is read aloud to people using a screen reader. For an infographic, summarise its key points.
+- **Tap to view full size** (on by default) lets visitors open a detailed infographic in a new tab, which helps on phones.
+- The builder list shows a small thumbnail so you can find it among the questions.
+- Like any block, it can appear only after a chosen answer (Conditional logic). It is never exported to CSV, Excel or Google Sheets.

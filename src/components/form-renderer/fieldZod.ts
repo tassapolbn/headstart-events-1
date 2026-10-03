@@ -3,7 +3,7 @@ import type { FieldValues, Resolver } from 'react-hook-form';
 import type { FormField } from '@/lib/types';
 import { gridError, isGridField } from '@/lib/grid';
 
-const CONTENT_TYPES = ['heading', 'rich_text', 'callout', 'divider'];
+const CONTENT_TYPES = ['heading', 'rich_text', 'callout', 'image', 'divider'];
 
 /** Stored in the answer while "Other" is picked; swapped for the typed text on submit. */
 export const OTHER_VALUE = '__other__';

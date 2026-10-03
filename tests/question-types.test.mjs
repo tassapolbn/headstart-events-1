@@ -114,3 +114,30 @@ test('switching to the new types sets sensible defaults', () => {
   assert.equal(m.answerFitsQuestion(slider, '7'), true);
   assert.equal(m.answerFitsQuestion(slider, 'seven'), false);
 });
+
+test('an image or infographic can sit between questions', async () => {
+  const image = { id: 'info', type: 'image', label: 'Booth layout', image_url: 'https://example.com/infographic.png',
+    imageAlt: 'Booth layout: food row on the left, crafts on the right', caption: 'Market layout 2026', imageWidth: 80 };
+  assert.equal(m.isContentField(image), true);
+  assert.ok(m.fieldTypeMeta.image);
+
+  const html = m.render([step, image, slip]);
+  assert.ok(html.indexOf('Have you paid') < html.indexOf('infographic.png'), 'shown in its place in the form');
+  assert.match(html, /alt="Booth layout: food row on the left, crafts on the right"/);
+  assert.match(html, /Market layout 2026/);
+  assert.match(html, /href="https:\/\/example.com\/infographic.png" target="_blank"/);
+  assert.match(html, /width:80%/);
+
+  // Without tap-to-zoom there is no link; with no picture yet nothing is shown.
+  assert.doesNotMatch(m.render([{ ...image, zoomable: false }]), /<a /);
+  assert.doesNotMatch(m.render([{ ...image, image_url: undefined }]), /<img/);
+  // It never needs an answer, and it can be conditional like any block.
+  assert.deepEqual(await errorsFor([image], {}), []);
+  const onlyIfNotYet = { ...image, condition: { fieldId: 'step', operator: 'equals', value: 'Not yet' } };
+  assert.doesNotMatch(m.render([step, onlyIfNotYet]), /infographic.png/);
+});
+
+test('image blocks are left out of the Google Sheets export', async () => {
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync(new URL('../apps-script/GoogleSheets.gs', import.meta.url), 'utf8'), /\['heading', 'rich_text', 'callout', 'image', 'divider'\]/);
+});
