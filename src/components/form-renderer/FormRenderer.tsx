@@ -1,8 +1,8 @@
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Controller, useForm, type FieldValues } from 'react-hook-form';
 import { Paperclip } from 'lucide-react';
 import type { EventTheme, FormField } from '@/lib/types';
-import { buildResolver, isContentField, isVisible, OTHER_VALUE, otherLabelOf } from './fieldZod';
+import { buildResolver, formSections, isContentField, isVisible, OTHER_VALUE, otherLabelOf } from './fieldZod';
 import { SignaturePad } from './SignaturePad';
 import { GridInput, RatingInput } from './ScaleAndGrid';
 import { buttonClass, usesQuestionCards } from '@/lib/theme';
@@ -70,8 +70,34 @@ export function FormRenderer({
   onValuesChange?: (values: FieldValues) => void;
 }) {
   const resolver = useMemo(() => buildResolver(fields), [fields]);
-  const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm({ resolver, mode: 'onBlur' });
+  const { register, control, handleSubmit, watch, setValue, trigger, formState: { errors } } = useForm({ resolver, mode: 'onBlur' });
   const values = watch();
+  // Google Forms style sections: one at a time, checked before moving on.
+  const sections = formSections(fields, values);
+  const [page, setPage] = useState(0);
+  const current = Math.min(page, sections.length - 1);
+  const last = current === sections.length - 1;
+  const topRef = useRef<HTMLDivElement>(null);
+
+  function goTo(next: number) {
+    setPage(next);
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function nextSection() {
+    const ids = sections[current].fields.filter((f) => !isContentField(f) && isVisible(f, values, fields)).map((f) => f.id);
+    if (ids.length === 0 || await trigger(ids)) goTo(current + 1);
+  }
+
+  function submit(e: FormEvent<HTMLFormElement>) {
+    // Enter in an earlier section moves on instead of sending the form.
+    if (!last) { e.preventDefault(); void nextSection(); return; }
+    void handleSubmit((v) => onSubmit(v), (errs) => {
+      // An answer in an earlier section needs fixing: go back to it.
+      const at = sections.findIndex((sec) => sec.fields.some((f) => errs[f.id]));
+      if (at >= 0 && at !== current) goTo(at);
+    })(e);
+  }
   const questionCards = usesQuestionCards(theme);
   useEffect(() => ensureContentFonts(JSON.stringify(fields)), [fields]);
 
@@ -106,6 +132,28 @@ export function FormRenderer({
             <BlockImage field={f} />
           </div>
         );
+      case 'image': {
+        if (!f.image_url) return null;
+        const picture = (
+          <img src={f.image_url} alt={f.imageAlt || ''} loading="lazy" className="block h-auto w-full rounded-xl" />
+        );
+        const align = f.textAlign ?? 'center';
+        return (
+          <figure className="space-y-2"
+            style={{ width: `${Math.min(100, Math.max(25, f.imageWidth ?? 100))}%`, marginLeft: align === 'left' ? 0 : 'auto', marginRight: align === 'right' ? 0 : 'auto' }}>
+            {f.zoomable !== false
+              ? <a href={f.image_url} target="_blank" rel="noreferrer" className="block" aria-label={`${f.imageAlt || 'Image'} (opens full size in a new tab)`}>{picture}</a>
+              : picture}
+            {(f.caption || f.zoomable !== false) && (
+              <figcaption className="text-center text-xs opacity-70">
+                {f.caption}
+                {f.caption && f.zoomable !== false ? ' · ' : ''}
+                {f.zoomable !== false && 'Tap the picture to view it full size'}
+              </figcaption>
+            )}
+          </figure>
+        );
+      }
       case 'divider':
         return (
           <div className="flex items-center gap-3 py-2" role="separator" aria-label="Section divider">
@@ -499,21 +547,64 @@ export function FormRenderer({
     );
   }
 
+  const submitButton = (extra: string) => (
+    <button
+      type="submit"
+      disabled={busy || submitDisabled || preview}
+      className={cn(
+        buttonClass(theme), extra,
+        'flex items-center justify-center gap-2 px-5 py-3.5 text-base font-bold shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0'
+      )}
+    >
+      {busy && <Spinner size={16} />}
+      <FormattedText value={preview ? `${submitLabel} (preview)` : submitLabel} />
+    </button>
+  );
+  const section = sections[current];
+  const multi = sections.length > 1;
+  const sectionDescription = section.title?.content || section.title?.description;
   return (
-    <form onSubmit={handleSubmit((v) => onSubmit(v))} noValidate>
-      <div className="ev-form-stack">{fields.map(renderField)}</div>
-      {beforeSubmit && <div className="mt-5">{beforeSubmit}</div>}
-      <button
-        type="submit"
-        disabled={busy || submitDisabled || preview}
-        className={cn(
-          buttonClass(theme),
-          'mt-5 flex w-full items-center justify-center gap-2 px-5 py-3.5 text-base font-bold shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0'
-        )}
-      >
-        {busy && <Spinner size={16} />}
-        <FormattedText value={preview ? `${submitLabel} (preview)` : submitLabel} />
-      </button>
+    <form onSubmit={submit} noValidate>
+      <div ref={topRef} className="scroll-mt-6" />
+      {multi && (
+        <div className="mb-5 space-y-1.5" aria-live="polite">
+          <div className="flex items-center justify-between text-xs font-semibold opacity-70">
+            <span>Section {current + 1} of {sections.length}</span>
+            <span>{Math.round(((current + 1) / sections.length) * 100)}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuemin={1} aria-valuemax={sections.length} aria-valuenow={current + 1} aria-label="Form progress">
+            <div className="h-full rounded-full transition-all" style={{ width: `${((current + 1) / sections.length) * 100}%`, background: 'var(--ev-primary)' }} />
+          </div>
+        </div>
+      )}
+      {section.title && (
+        <div className="mb-4 rounded-xl border-l-4 px-4 py-3" style={{ borderColor: 'var(--ev-primary)', background: 'color-mix(in srgb, var(--ev-primary) 7%, transparent)' }}>
+          <h3 className="text-lg font-bold" style={{ color: 'var(--ev-heading)', fontFamily: 'var(--ev-heading-font)' }}>
+            <FormattedText value={section.title.labelHtml ?? section.title.label} />
+          </h3>
+          {sectionDescription && <div className="ev-rich mt-1 text-sm opacity-80" dangerouslySetInnerHTML={{ __html: richToHtml(sectionDescription) }} />}
+        </div>
+      )}
+      <div className="ev-form-stack">{section.fields.map(renderField)}</div>
+      {last && beforeSubmit && <div className="mt-5">{beforeSubmit}</div>}
+      {multi && (
+        <div className="mt-5 flex gap-3">
+          {current > 0 && (
+            <button type="button" onClick={() => goTo(current - 1)}
+              className="rounded-xl border border-slate-300 bg-white px-5 py-3.5 text-base font-semibold text-slate-700 hover:bg-slate-50">
+              Back
+            </button>
+          )}
+          {last && submitButton('flex-1')}
+          {!last && (
+            <button type="button" onClick={() => void nextSection()}
+              className={cn(buttonClass(theme), 'flex flex-1 items-center justify-center px-5 py-3.5 text-base font-bold shadow-lg shadow-black/10 transition hover:-translate-y-0.5')}>
+              Next
+            </button>
+          )}
+        </div>
+      )}
+      {!multi && submitButton('mt-5 w-full')}
     </form>
   );
 }

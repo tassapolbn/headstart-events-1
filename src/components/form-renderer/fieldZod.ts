@@ -3,7 +3,7 @@ import type { FieldValues, Resolver } from 'react-hook-form';
 import type { FormField } from '@/lib/types';
 import { gridError, isGridField } from '@/lib/grid';
 
-const CONTENT_TYPES = ['heading', 'rich_text', 'callout', 'divider'];
+const CONTENT_TYPES = ['heading', 'rich_text', 'callout', 'image', 'divider', 'page_break'];
 
 /** Stored in the answer while "Other" is picked; swapped for the typed text on submit. */
 export const OTHER_VALUE = '__other__';
@@ -55,12 +55,39 @@ export function applyOtherAnswer(f: FormField, value: unknown, typedRaw: unknown
   return value === OTHER_VALUE ? label : value;
 }
 
+export interface FormSection { title?: FormField; fields: FormField[] }
+
+/**
+ * Split a form into sections at each "New section" item, like Google Forms
+ * pages. Sections skipped by their rule, and sections with nothing left to
+ * show, are left out, so Next always lands on something to answer or read.
+ */
+export function formSections(fields: FormField[], values: FieldValues): FormSection[] {
+  const sections: FormSection[] = [{ fields: [] }];
+  for (const f of fields) {
+    if (f.type === 'page_break') sections.push({ title: f, fields: [] });
+    else sections[sections.length - 1].fields.push(f);
+  }
+  const shown = sections.filter((s) =>
+    (!s.title || isVisible(s.title, values, fields)) && s.fields.some((f) => isVisible(f, values, fields)));
+  return shown.length ? shown : [sections[0]];
+}
+
 /**
  * Evaluate a conditional question or block against the current answers.
  * With the whole form passed in, a rule also fails when the question it
  * depends on is itself hidden, so follow-up steps disappear together.
  */
 export function isVisible(field: FormField, values: FieldValues, fields?: FormField[], depth = 0): boolean {
+  // Everything in a section is skipped when that section's rule says so.
+  if (fields && depth < 20 && field.type !== 'page_break') {
+    const at = fields.findIndex((f) => f.id === field.id);
+    for (let i = at - 1; i >= 0; i--) {
+      if (fields[i].type !== 'page_break') continue;
+      if (!isVisible(fields[i], values, fields, depth + 1)) return false;
+      break;
+    }
+  }
   const c = field.condition;
   if (!c || !c.fieldId) return true;
   if (fields && depth < 20) {

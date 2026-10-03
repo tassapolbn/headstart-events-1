@@ -21,6 +21,7 @@ export function SortableFieldCard({ field, selected, onSelect, onDuplicate, onDe
       style={style}
       className={cn(
         'flex items-center gap-2 rounded-xl border bg-white px-2 py-2 transition',
+        field.type === 'page_break' && 'mt-4 border-dashed border-navy-300 bg-navy-50',
         selected ? 'border-navy-500 ring-2 ring-navy-100' : 'border-slate-200 hover:border-slate-300',
         isDragging && 'z-10 opacity-80 shadow-lg'
       )}
@@ -33,6 +34,9 @@ export function SortableFieldCard({ field, selected, onSelect, onDuplicate, onDe
       >
         <GripVertical className="h-4 w-4" />
       </button>
+      {field.image_url && (
+        <img src={field.image_url} alt="" aria-hidden="true" className="h-10 w-10 shrink-0 rounded-md border border-slate-200 object-cover" />
+      )}
       <button onClick={onSelect} className="min-w-0 flex-1 text-left">
         <span className="block truncate text-sm font-medium text-slate-700">
           {field.label}
