@@ -295,6 +295,7 @@ export const fieldTypeMeta: Record<string, { label: string; group: 'Basic' | 'Se
   rich_text: { label: 'Rich Text Block', group: 'Advanced' },
   callout: { label: 'Instruction box (text and image)', group: 'Advanced' },
   image: { label: 'Image / infographic', group: 'Advanced' },
+  page_break: { label: 'New section (Next button)', group: 'Advanced' },
   divider: { label: 'Section Divider', group: 'Advanced' },
   heading: { label: 'Heading', group: 'Advanced' },
 };

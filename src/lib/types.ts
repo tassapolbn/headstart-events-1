@@ -7,7 +7,7 @@ export type FieldType =
   | 'rating' | 'evaluation' | 'dropdown' | 'radio' | 'checkboxes' | 'multiple_choice' | 'menu_quantity'
   | 'grid' | 'checkbox_grid' | 'ranking'
   | 'yes_no' | 'picture_choice' | 'slider' | 'consent' | 'url' | 'datetime'
-  | 'file' | 'photo' | 'signature' | 'rich_text' | 'callout' | 'image' | 'divider' | 'heading';
+  | 'file' | 'photo' | 'signature' | 'rich_text' | 'callout' | 'image' | 'divider' | 'heading' | 'page_break';
 
 export interface FieldCondition {
   fieldId: string;

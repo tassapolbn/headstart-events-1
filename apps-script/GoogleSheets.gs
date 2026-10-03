@@ -197,7 +197,7 @@ function sheetsColumns(sheet, event) {
     { key: 'phone', label: 'Phone' }, { key: 'booth', label: 'Booth' }, { key: 'status', label: 'Status' },
   ];
   var questions = (event.form_schema || []).filter(function (f) {
-    return ['heading', 'rich_text', 'callout', 'image', 'divider'].indexOf(f.type) === -1;
+    return ['heading', 'rich_text', 'callout', 'image', 'divider', 'page_break'].indexOf(f.type) === -1;
   }).map(function (f) { return { key: 'answer:' + f.id, label: f.label, type: f.type }; });
   var columns = [];
   if (sheet.getLastRow()) {

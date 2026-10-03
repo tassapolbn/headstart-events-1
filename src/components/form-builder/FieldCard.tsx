@@ -21,6 +21,7 @@ export function SortableFieldCard({ field, selected, onSelect, onDuplicate, onDe
       style={style}
       className={cn(
         'flex items-center gap-2 rounded-xl border bg-white px-2 py-2 transition',
+        field.type === 'page_break' && 'mt-4 border-dashed border-navy-300 bg-navy-50',
         selected ? 'border-navy-500 ring-2 ring-navy-100' : 'border-slate-200 hover:border-slate-300',
         isDragging && 'z-10 opacity-80 shadow-lg'
       )}

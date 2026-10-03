@@ -60,6 +60,7 @@ function newField(type: FieldType): FormField {
   if (type === 'url') { base.label = 'Website or social media link'; base.placeholder = 'https://'; }
   if (type === 'callout') { base.content = '<p><strong>Next step:</strong> write the instructions here.</p>'; base.tone = 'info'; }
   if (type === 'image') { base.label = 'Image'; base.imageWidth = 100; base.textAlign = 'center'; base.zoomable = true; }
+  if (type === 'page_break') { base.label = 'New section'; base.content = ''; }
   if (type === 'heading') base.content = 'Section heading';
   if (type === 'rich_text') base.content = '<p>Write your text here.</p>';
   if (type === 'file' || type === 'photo') base.maxSizeMB = 10;

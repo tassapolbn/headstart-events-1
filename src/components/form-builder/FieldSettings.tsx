@@ -38,7 +38,7 @@ export function FieldSettings({ field, allFields, onChange, assetPrefix }: {
       <div className="space-y-4">
         {!isContent && <Field label="Question type" htmlFor="fs-type" hint="Keeps this question and its saved answers. Check options and conditional rules after changing type.">
           <Select id="fs-type" value={field.type} onChange={e => onChange(changeQuestionType(field, e.target.value as FieldType))}>
-            {Object.entries(fieldTypeMeta).filter(([type]) => !['heading', 'rich_text', 'callout', 'image', 'divider'].includes(type)).map(([type, meta]) => <option key={type} value={type}>{meta.label}</option>)}
+            {Object.entries(fieldTypeMeta).filter(([type]) => !['heading', 'rich_text', 'callout', 'image', 'divider', 'page_break'].includes(type)).map(([type, meta]) => <option key={type} value={type}>{meta.label}</option>)}
           </Select>
         </Field>}
         {!isContent && (
@@ -70,6 +70,17 @@ export function FieldSettings({ field, allFields, onChange, assetPrefix }: {
               <option value="note">Grey: general note</option>
             </Select>
           </Field>
+        )}
+        {field.type === 'page_break' && (
+          <>
+            <p className="rounded-lg bg-navy-50 px-3 py-2 text-xs text-navy-700">
+              Everything below this item, up to the next section, appears on its own page. Visitors press <strong>Next</strong> to reach it,
+              and each section is checked before they can move on, like Google Forms.
+            </p>
+            <RichTextArea inline rows={2} label="Section title" id="fs-section-title" value={field.labelHtml ?? field.label}
+              onChange={labelHtml => onChange({ labelHtml, label: plainText(labelHtml) || 'New section' })} />
+            <RichTextArea label="Section description (optional)" rows={3} value={field.content ?? ''} onChange={(content) => onChange({ content })} />
+          </>
         )}
         {field.type === 'image' && (
           <>
@@ -355,7 +366,7 @@ export function FieldSettings({ field, allFields, onChange, assetPrefix }: {
         {earlier.length > 0 && (
           <div className="space-y-3 rounded-xl bg-slate-50 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Conditional logic</p>
-            <Field label={isContent ? 'Show this block only when' : 'Show this question only when'}
+            <Field label={field.type === 'page_break' ? 'Show this whole section only when' : isContent ? 'Show this block only when' : 'Show this question only when'}
               hint="Example: show an instruction box only when someone answers 'Not yet'.">
               <Select value={cond.fieldId} onChange={(e) => setCondition({ fieldId: e.target.value })} aria-label="Condition question">
                 <option value="">Always show</option>

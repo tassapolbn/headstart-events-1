@@ -18,7 +18,7 @@ try {
       import React from 'react';
       import { renderToStaticMarkup } from 'react-dom/server';
       import { FormRenderer } from './src/components/form-renderer/FormRenderer';
-      export { buildResolver, isVisible, isContentField } from './src/components/form-renderer/fieldZod';
+      export { buildResolver, isVisible, isContentField, formSections } from './src/components/form-renderer/fieldZod';
       export { changeQuestionType, answerFitsQuestion } from './src/lib/questionTypes';
       export { fieldTypeMeta } from './src/lib/defaults';
       export const render = (fields) => renderToStaticMarkup(React.createElement(FormRenderer, { fields, onSubmit: () => {} }));
@@ -139,5 +139,43 @@ test('an image or infographic can sit between questions', async () => {
 
 test('image blocks are left out of the Google Sheets export', async () => {
   const { readFileSync } = await import('node:fs');
-  assert.match(readFileSync(new URL('../apps-script/GoogleSheets.gs', import.meta.url), 'utf8'), /\['heading', 'rich_text', 'callout', 'image', 'divider'\]/);
+  assert.match(readFileSync(new URL('../apps-script/GoogleSheets.gs', import.meta.url), 'utf8'), /\['heading', 'rich_text', 'callout', 'image', 'divider', 'page_break'\]/);
+});
+
+// Google Forms style sections.
+const about = { id: 'about', type: 'short_text', label: 'Your name', required: true };
+const kind = { id: 'kind', type: 'yes_no', label: 'Are you selling food?', options: ['Yes', 'No'], required: true };
+const foodBreak = { id: 'sec-food', type: 'page_break', label: 'Food safety', content: '<p>Only for food stalls.</p>',
+  condition: { fieldId: 'kind', operator: 'equals', value: 'Yes' } };
+const permit = { id: 'permit', type: 'short_text', label: 'Food permit number', required: true };
+const lastBreak = { id: 'sec-end', type: 'page_break', label: 'Final check' };
+const agree = { id: 'agree', type: 'consent', label: 'I agree', required: true };
+const sectioned = [about, kind, foodBreak, permit, lastBreak, agree];
+const titles = (values) => m.formSections(sectioned, values).map((s) => s.title?.label ?? 'start');
+
+test('a form splits into sections at each New section item', () => {
+  assert.ok(m.fieldTypeMeta.page_break);
+  assert.deepEqual(titles({ kind: 'Yes' }), ['start', 'Food safety', 'Final check']);
+  // A form without sections is one page, exactly as before.
+  assert.equal(m.formSections([about, kind], {}).length, 1);
+});
+
+test('a whole section can be skipped by an answer, and its questions never block sending', async () => {
+  assert.deepEqual(titles({ kind: 'No' }), ['start', 'Final check']);
+  assert.equal(m.isVisible(permit, { kind: 'No' }, sectioned), false);
+  assert.deepEqual(await errorsFor(sectioned, { about: 'Ann', kind: 'No', agree: 'Agreed' }), []);
+  assert.deepEqual(await errorsFor(sectioned, { about: 'Ann', kind: 'Yes', agree: 'Agreed' }), ['permit']);
+});
+
+test('only the first section is shown, with progress and a Next button instead of Submit', () => {
+  const html = m.render(sectioned);
+  // The food section only counts once someone answers Yes.
+  assert.match(html, /Section 1 of 2/);
+  assert.match(html, />Next</);
+  assert.match(html, /Your name/);
+  assert.doesNotMatch(html, /Food permit number|I agree|Submit registration/);
+  // Single-section forms keep their submit button and show no progress.
+  const single = m.render([about]);
+  assert.match(single, /Submit registration/);
+  assert.doesNotMatch(single, /Section 1 of/);
 });

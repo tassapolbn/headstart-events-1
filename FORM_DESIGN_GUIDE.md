@@ -39,3 +39,12 @@ In **Form Builder → Add**, choose **Image / infographic** and drag it to where
 - **Tap to view full size** (on by default) lets visitors open a detailed infographic in a new tab, which helps on phones.
 - The builder list shows a small thumbnail so you can find it among the questions.
 - Like any block, it can appear only after a chosen answer (Conditional logic). It is never exported to CSV, Excel or Google Sheets.
+
+## Sections with a Next button (like Google Forms)
+
+In **Form Builder → Add**, choose **New section (Next button)** and drag it to where the new page should begin. Everything below it, up to the next section, appears on its own page.
+
+- Give each section a title and an optional description. They appear in a highlighted box at the top of that page.
+- Visitors see "Section 2 of 4" and a progress bar. **Next** checks the answers on the current page first, and **Back** keeps everything already typed. The submit button appears only on the last section.
+- To skip a whole section, use **Conditional logic** on the section item, for example: show "Food safety" only when "Are you selling food?" equals Yes. Questions in a skipped section are never required and are not saved.
+- Forms without sections work exactly as before, on one page.
