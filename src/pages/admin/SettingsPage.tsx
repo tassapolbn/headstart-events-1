@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Mail, Plus, Save, Send, Trash2, Palette, Building2, Users } from 'lucide-react';
+import { Mail, Plus, Save, Send, Trash2, Palette, Building2, Users, Images } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Campus } from '@/lib/types';
 import { useCampus } from '@/context/CampusContext';
@@ -10,6 +10,7 @@ import { useToast } from '@/context/ToastContext';
 import { Button, Card, PageLoader } from '@/components/ui/basics';
 import { ColorInput, Field, Input } from '@/components/ui/inputs';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { ShrinkImagesPanel } from '@/components/settings/ShrinkImagesPanel';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -117,8 +118,10 @@ export default function SettingsPage() {
       </div>
 
       <nav className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Settings sections">
-        {[{ id: 'identity', label: 'Campus identity', icon: Building2 }, { id: 'email', label: 'Email & notifications', icon: Mail }, { id: 'design', label: 'Page customization', icon: Palette }, ...(isOwner ? [{ id: 'accounts', label: 'Accounts', icon: Users }] : [])].map(item => <button type="button" key={item.id} aria-pressed={section === item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold ${section === item.id ? 'bg-navy-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`}><item.icon className="h-4 w-4" />{item.label}</button>)}
+        {[{ id: 'identity', label: 'Campus identity', icon: Building2 }, { id: 'email', label: 'Email & notifications', icon: Mail }, { id: 'design', label: 'Page customization', icon: Palette }, { id: 'images', label: 'Images', icon: Images }, ...(isOwner ? [{ id: 'accounts', label: 'Accounts', icon: Users }] : [])].map(item => <button type="button" key={item.id} aria-pressed={section === item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold ${section === item.id ? 'bg-navy-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`}><item.icon className="h-4 w-4" />{item.label}</button>)}
       </nav>
+
+      {section === 'images' && <ShrinkImagesPanel />}
 
       {section === 'design' && <Card title="Design each public page"><p className="text-sm leading-relaxed text-slate-600">Each event or survey can have its own appearance. Open a form and choose Page Design to adjust its layout and wording, or Branding & Theme for images, colours and typography. Preview your changes before saving.</p><Link to="/admin/events" className="mt-5 inline-flex rounded-xl bg-navy-800 px-5 py-3 text-sm font-semibold text-white">Choose an event or form</Link></Card>}
 

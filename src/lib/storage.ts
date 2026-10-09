@@ -1,5 +1,12 @@
 import { supabase } from './supabase';
 import { uid } from './utils';
+import { renameForType, shrinkPicture } from './imageShrink';
+
+/**
+ * How long browsers may keep a public picture (a year). Each upload gets a
+ * name of its own, so a stored picture never changes behind its address.
+ */
+export const PUBLIC_CACHE_CONTROL = '31536000';
 
 function cleanName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
@@ -7,8 +14,12 @@ function cleanName(name: string): string {
 
 /** Upload a public asset (poster, banner, logo, floor plan background). Returns a public URL. */
 export async function uploadPublicAsset(file: File | Blob, prefix: string, name?: string): Promise<string> {
-  const fileName = `${prefix}/${Date.now()}-${cleanName(name || (file instanceof File ? file.name : 'asset.png'))}`;
-  const { error } = await supabase.storage.from('event-assets').upload(fileName, file, { upsert: false });
+  const original = name || (file instanceof File ? file.name : 'asset.png');
+  // Big pictures are shrunk first: every visitor and every confirmation email downloads them
+  const shrunk = await shrinkPicture(file);
+  const body = shrunk?.blob ?? file;
+  const fileName = `${prefix}/${Date.now()}-${cleanName(shrunk ? renameForType(original, shrunk.type) : original)}`;
+  const { error } = await supabase.storage.from('event-assets').upload(fileName, body, { upsert: false, cacheControl: PUBLIC_CACHE_CONTROL });
   if (error) throw error;
   const { data } = supabase.storage.from('event-assets').getPublicUrl(fileName);
   return data.publicUrl;
