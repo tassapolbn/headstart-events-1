@@ -6,13 +6,23 @@ export type FieldType =
   | 'short_text' | 'paragraph' | 'email' | 'phone' | 'number' | 'date' | 'time'
   | 'rating' | 'evaluation' | 'dropdown' | 'radio' | 'checkboxes' | 'multiple_choice' | 'menu_quantity'
   | 'grid' | 'checkbox_grid' | 'ranking'
-  | 'yes_no' | 'picture_choice' | 'slider' | 'consent' | 'url' | 'datetime'
+  | 'yes_no' | 'picture_choice' | 'slider' | 'consent' | 'url' | 'datetime' | 'repeat_group'
   | 'file' | 'photo' | 'signature' | 'rich_text' | 'callout' | 'image' | 'divider' | 'heading' | 'page_break';
 
 export interface FieldCondition {
   fieldId: string;
   operator: 'equals' | 'not_equals' | 'contains' | 'answered';
   value?: string;
+}
+
+/** One detail asked for each entry of a repeating question, e.g. "Year" for each child. */
+export interface SubField {
+  id: string;
+  label: string;
+  type: 'short_text' | 'paragraph' | 'number' | 'date' | 'dropdown';
+  options?: string[];
+  required?: boolean;
+  placeholder?: string;
 }
 
 export interface FormField {
@@ -49,6 +59,15 @@ export interface FormField {
   rows?: string[];
   /** Multiple choice grid: each column may be chosen in one row only (e.g. 1st, 2nd, 3rd) */
   onePerColumn?: boolean;
+  /** Repeating question: the details asked for each entry. */
+  subFields?: SubField[];
+  /** Repeating question: what one entry is called, e.g. Child, Sibling. */
+  itemLabel?: string;
+  /** Repeating question: 'add' = an "Add another" button, 'number' = type how many first. */
+  countMode?: 'add' | 'number';
+  /** Repeating question: fewest entries when required, and most allowed. */
+  minItems?: number;
+  maxItems?: number;
   /** Picture choice: one image per option, in the same order as options. */
   optionImages?: string[];
   /** Slider: the step between values (min and max live in validation). */

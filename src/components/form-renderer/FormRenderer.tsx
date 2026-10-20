@@ -5,6 +5,8 @@ import type { EventTheme, FormField } from '@/lib/types';
 import { buildResolver, formSections, isContentField, isVisible, OTHER_VALUE, otherLabelOf } from './fieldZod';
 import { SignaturePad } from './SignaturePad';
 import { GridInput, RatingInput } from './ScaleAndGrid';
+import { RepeatGroupInput } from './RepeatGroupInput';
+import { initialRepeatValue } from '@/lib/repeatGroup';
 import { buttonClass, usesQuestionCards } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { Spinner } from '@/components/ui/basics';
@@ -247,6 +249,19 @@ export function FormRenderer({
           </FieldShell>
         );
       }
+      case 'repeat_group':
+        return (
+          <FieldShell field={f} error={err}>
+            <Controller
+              control={control}
+              name={f.id}
+              defaultValue={initialRepeatValue(f)}
+              render={({ field: rhf }) => (
+                <RepeatGroupInput field={f} value={rhf.value} onChange={rhf.onChange} onBlur={rhf.onBlur} invalid={!!err} inputClassName={inputCls} />
+              )}
+            />
+          </FieldShell>
+        );
       case 'yes_no':
         return (
           <FieldShell field={f} error={err}>

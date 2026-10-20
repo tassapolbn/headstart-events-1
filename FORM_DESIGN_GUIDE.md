@@ -48,3 +48,18 @@ In **Form Builder → Add**, choose **New section (Next button)** and drag it to
 - Visitors see "Section 2 of 4" and a progress bar. **Next** checks the answers on the current page first, and **Back** keeps everything already typed. The submit button appears only on the last section.
 - To skip a whole section, use **Conditional logic** on the section item, for example: show "Food safety" only when "Are you selling food?" equals Yes. Questions in a skipped section are never required and are not saved.
 - Forms without sections work exactly as before, on one page.
+
+## Repeating details: each child, sibling or guest
+
+In **Form Builder → Add**, choose **Repeating details (each child)**. It starts with Full name, Year (a dropdown from Nursery to Year 13) and Class. Rename, reorder or remove these details, or add more such as Date of birth or Allergies. Each detail can be a short answer, dropdown list, number, date or paragraph, and can be required.
+
+Two styles, chosen under **How people give the number of entries**:
+
+- **Add another** (for example, children at the school): parents fill in Child 1, then press **Add another child** for each extra child, up to the maximum you set.
+- **How many first** (for example, "Number of additional siblings attending"): parents type a number such as 2, and Sibling 1 and Sibling 2 appear, each asking for the details you chose, such as Age. 0 is a valid answer.
+
+Shortcuts:
+- **Insert "how many" with ages** (below the question list) adds a ready-made siblings question.
+- On any **Number** question, **Ask details for each one** turns it into a "how many" question.
+
+Answers show as one card per child in Registrations, and as one line per child in CSV, Excel and Google Sheets.

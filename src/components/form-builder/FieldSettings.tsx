@@ -9,6 +9,8 @@ import { canAllowOther, isContentField } from '@/components/form-renderer/fieldZ
 import { Card } from '@/components/ui/basics';
 import { Field, Input, Select, Switch, Textarea } from '@/components/ui/inputs';
 import { RichTextArea } from '@/components/ui/RichTextArea';
+import { addLabel, defaultRepeatGroup, itemLabelOf } from '@/lib/repeatGroup';
+import { SubFieldsEditor } from './SubFieldsEditor';
 
 const selectionTypes = ['evaluation', 'dropdown', 'radio', 'checkboxes', 'multiple_choice', 'menu_quantity', 'yes_no', 'picture_choice'];
 /** Questions whose answers are fixed choices, so a rule can pick the answer from a list. */
@@ -21,8 +23,9 @@ export function FieldSettings({ field, allFields, onChange, assetPrefix }: {
   allFields: FormField[];
   onChange: (patch: Partial<FormField>) => void;
 }) {
+  // Rules compare one answer, so repeating questions cannot drive them.
   const earlier = allFields.slice(0, allFields.findIndex((f) => f.id === field.id))
-    .filter((f) => !isContentField(f));
+    .filter((f) => !isContentField(f) && f.type !== 'repeat_group');
   const isContent = isContentField(field);
   const cond: FieldCondition = field.condition ?? { fieldId: '', operator: 'equals', value: '' };
   const source = earlier.find((f) => f.id === cond.fieldId);
@@ -114,9 +117,9 @@ export function FieldSettings({ field, allFields, onChange, assetPrefix }: {
 
         {!isContent && (
           <>
-            <Field label="Placeholder" htmlFor="fs-ph">
+            {field.type !== 'repeat_group' && <Field label="Placeholder" htmlFor="fs-ph">
               <Input id="fs-ph" value={field.placeholder ?? ''} onChange={(e) => onChange({ placeholder: e.target.value })} />
-            </Field>
+            </Field>}
             <RichTextArea label="Description / instructions" rows={3} value={field.description ?? field.helpText ?? ''} onChange={description => onChange({ description })} />
             <ImageUpload label="Question photo" value={field.image_url} prefix={`${assetPrefix}/questions/${field.id}`} onChange={image_url => onChange({ image_url })} contain />
             {field.image_url && <>
@@ -290,12 +293,51 @@ export function FieldSettings({ field, allFields, onChange, assetPrefix }: {
           </>
         )}
 
+        {field.type === 'repeat_group' && (
+          <>
+            <Field label="How people give the number of entries">
+              <Select aria-label="How people give the number of entries" value={field.countMode ?? 'add'}
+                onChange={(e) => onChange({ countMode: e.target.value as FormField['countMode'], maxItems: e.target.value === 'number' ? 10 : 6 })}>
+                <option value="add">They press "Add another" for each one (e.g. each child)</option>
+                <option value="number">They type how many first, then fill in each one (e.g. siblings' ages)</option>
+              </Select>
+            </Field>
+            <Field label="Name for each one" hint={`Shown as "${itemLabelOf(field)} 1" and "${addLabel(field, false)}".`}>
+              <Input value={field.itemLabel ?? ''} placeholder="Child" onChange={(e) => onChange({ itemLabel: e.target.value || undefined })} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              {(field.countMode ?? 'add') === 'add' && (
+                <Field label="Fewest" hint="When Required is on.">
+                  <Input type="number" min={1} max={50} value={field.minItems ?? 1} onChange={(e) => onChange({ minItems: Math.max(1, Number(e.target.value) || 1) })} />
+                </Field>
+              )}
+              <Field label={(field.countMode ?? 'add') === 'add' ? 'Most they can add' : 'Highest number allowed'}>
+                <Input type="number" min={1} max={50} value={field.maxItems ?? ((field.countMode ?? 'add') === 'add' ? 6 : 10)}
+                  onChange={(e) => onChange({ maxItems: Math.min(50, Math.max(1, Number(e.target.value) || 1)) })} />
+              </Field>
+            </div>
+            <SubFieldsEditor subFields={field.subFields ?? []} onChange={(subFields) => onChange({ subFields })} />
+          </>
+        )}
+
         {field.type === 'consent' && (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
             The label is shown next to a single tick box. With Required on, the form cannot be sent until it is ticked. The answer is saved as "Agreed".
           </p>
         )}
 
+        {field.type === 'number' && (
+          <button
+            type="button"
+            onClick={() => onChange({
+              ...changeQuestionType(field, 'repeat_group'), ...defaultRepeatGroup('number'),
+              maxItems: Math.min(50, Math.max(1, field.validation?.max ?? 10)),
+            })}
+            className="w-full rounded-lg border border-dashed border-navy-300 bg-navy-50 px-3 py-2 text-left text-xs font-medium text-navy-700 hover:bg-navy-100"
+          >
+            Ask details for each one, e.g. if they answer 2, ask the age of each child. This turns the question into "Repeating details".
+          </button>
+        )}
         {field.type === 'number' && (
           <Switch
             checked={!!field.collectNames}

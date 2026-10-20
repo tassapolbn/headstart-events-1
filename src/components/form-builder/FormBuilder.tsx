@@ -11,6 +11,7 @@ import type { EventTheme, FieldType, FormField } from '@/lib/types';
 import { countryDropdownPreset, fieldTypeMeta, vendorFormPreset } from '@/lib/defaults';
 import { COUNTRIES } from '@/lib/countries';
 import { uid } from '@/lib/utils';
+import { defaultRepeatGroup } from '@/lib/repeatGroup';
 import { Button, Card, EmptyState } from '@/components/ui/basics';
 import { Modal } from '@/components/ui/overlays';
 import { FormRenderer } from '@/components/form-renderer/FormRenderer';
@@ -57,6 +58,7 @@ function newField(type: FieldType): FormField {
   if (type === 'picture_choice') { base.label = 'Choose one'; base.options = ['Option 1', 'Option 2']; base.optionImages = []; }
   if (type === 'slider') { base.label = 'How likely are you to recommend us?'; base.validation = { min: 0, max: 10 }; base.step = 1; base.lowLabel = 'Not likely'; base.highLabel = 'Very likely'; }
   if (type === 'consent') { base.label = 'I agree to the terms and conditions'; base.required = true; }
+  if (type === 'repeat_group') { base.label = 'Full name of your child (Children)'; base.required = true; Object.assign(base, defaultRepeatGroup('add')); }
   if (type === 'url') { base.label = 'Website or social media link'; base.placeholder = 'https://'; }
   if (type === 'callout') { base.content = '<p><strong>Next step:</strong> write the instructions here.</p>'; base.tone = 'info'; }
   if (type === 'image') { base.label = 'Image'; base.imageWidth = 100; base.textAlign = 'center'; base.zoomable = true; }
@@ -114,6 +116,15 @@ export function FormBuilder({ fields, onChange, theme, assetPrefix = 'forms' }: 
   function insertVendorPack() {
     onChange([...fields, ...vendorFormPreset()]);
   }
+  /** "How many …?" with the age of each one, e.g. siblings coming along. */
+  function insertCountWithAges() {
+    const f: FormField = {
+      ...newField('repeat_group'), ...defaultRepeatGroup('number'),
+      label: 'Number of additional siblings attending', itemLabel: 'Sibling', required: true,
+    };
+    onChange([...fields, f]);
+    setSelectedId(f.id);
+  }
   function insertCountryQuestion() {
     const f = countryDropdownPreset(COUNTRIES.map((c) => c.name));
     onChange([...fields, f]);
@@ -148,6 +159,9 @@ export function FormBuilder({ fields, onChange, theme, assetPrefix = 'forms' }: 
           </Button>
           <Button variant="outline" size="sm" className="w-full" icon={<PackagePlus className="h-3.5 w-3.5" />} onClick={insertCountryQuestion}>
             Insert country dropdown
+          </Button>
+          <Button variant="outline" size="sm" className="w-full" icon={<PackagePlus className="h-3.5 w-3.5" />} onClick={insertCountWithAges}>
+            Insert "how many" with ages
           </Button>
         </div>
       </Card>
