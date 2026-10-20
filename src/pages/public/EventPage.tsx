@@ -14,6 +14,7 @@ import { formatDate } from '@/lib/utils';
 import { friendlyError } from '@/lib/errors';
 import { formCopy } from '@/lib/formCopy';
 import { wantsRelayEmail } from '@/lib/notificationEmails';
+import { cleanRepeatValue } from '@/lib/repeatGroup';
 import { googleSheetId } from '@/lib/googleSheets';
 import { uploadVendorFile, dataUrlToBlob } from '@/lib/storage';
 import { applyOtherAnswer, canAllowOther, isContentField, isVisible } from '@/components/form-renderer/fieldZod';
@@ -141,6 +142,11 @@ export default function EventPage() {
           v = await uploadVendorFile(dataUrlToBlob(v), event.id, 'signature.png');
         } else if (f.allowOther && canAllowOther(f)) {
           v = applyOtherAnswer(f, v, values[`${f.id}__other`]);
+        } else if (f.type === 'repeat_group') {
+          // Only the form's own details, with untouched extra entries left out.
+          const entries = cleanRepeatValue(f, v);
+          if (entries === undefined) continue;
+          v = entries;
         } else if (f.type === 'number' && f.collectNames) {
           const names = String(values[`${f.id}__names`] ?? '')
             .split('\n').map((x) => x.trim()).filter(Boolean).join(', ');

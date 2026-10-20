@@ -5,11 +5,13 @@ import { isStoredFileRef } from '@/lib/storage';
 import { download } from '@/lib/utils';
 import { boothText } from '@/lib/regBooths';
 import { gridRows, isGridField } from '@/lib/grid';
+import { formatRepeatValue } from '@/lib/repeatGroup';
 import type { FormField } from '@/lib/types';
 
 /** One export column per question, or per row for grid and ranking questions. */
 function exportColumns(fields: FormField[]): Array<{ header: string; get: (data: Record<string, unknown>) => string }> {
   return fields.flatMap((f) => {
+    if (f.type === 'repeat_group') return [{ header: f.label, get: (d: Record<string, unknown>) => formatRepeatValue(f, d?.[f.id]) }];
     if (!isGridField(f)) return [{ header: f.label, get: (d: Record<string, unknown>) => cellValue(d?.[f.id]) }];
     return gridRows(f).map((row) => ({
       header: `${f.label} [${row}]`,

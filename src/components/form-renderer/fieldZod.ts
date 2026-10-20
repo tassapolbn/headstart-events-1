@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { FieldValues, Resolver } from 'react-hook-form';
 import type { FormField } from '@/lib/types';
 import { gridError, isGridField } from '@/lib/grid';
+import { repeatError } from '@/lib/repeatGroup';
 
 const CONTENT_TYPES = ['heading', 'rich_text', 'callout', 'image', 'divider', 'page_break'];
 
@@ -182,6 +183,11 @@ function schemaForField(f: FormField): z.ZodTypeAny {
         }
       });
     }
+    case 'repeat_group':
+      return z.any().superRefine((val, ctx) => {
+        const msg = repeatError(f, val);
+        if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
+      });
     case 'yes_no':
     case 'picture_choice':
       return z.string().refine((value) => (!f.required && value === '') || (f.options ?? []).includes(value), 'Please choose one of the answers.');

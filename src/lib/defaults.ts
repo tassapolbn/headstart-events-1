@@ -292,6 +292,7 @@ export const fieldTypeMeta: Record<string, { label: string; group: 'Basic' | 'Se
   photo: { label: 'Photo Upload', group: 'Advanced' },
   signature: { label: 'Signature', group: 'Advanced' },
   consent: { label: 'Agreement checkbox', group: 'Advanced' },
+  repeat_group: { label: 'Repeating details (each child)', group: 'Advanced' },
   rich_text: { label: 'Rich Text Block', group: 'Advanced' },
   callout: { label: 'Instruction box (text and image)', group: 'Advanced' },
   image: { label: 'Image / infographic', group: 'Advanced' },

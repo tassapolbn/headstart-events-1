@@ -238,11 +238,28 @@ function sheetsValue(column, event, reg) {
   }
   if (column.key.indexOf('answer:') !== 0) return reg[column.key];
   var value = (reg.data || {})[column.key.slice(7)];
+  var field = (event.form_schema || []).filter(function (f) { return f.id === column.key.slice(7); })[0];
+  if (field && field.type === 'repeat_group') return sheetsRepeatText(field, value);
   if (typeof value === 'string' && /^data:image\//i.test(value)) return 'Signature captured (view in app)';
   if (value && typeof value === 'object' && 'bucket' in value && 'path' in value) return value.name || 'File (view in app)';
   if (Array.isArray(value)) return value.map(function (v) { return typeof v === 'object' ? JSON.stringify(v) : String(v); }).join(', ');
   if (value && typeof value === 'object') return JSON.stringify(value);
   return value;
+}
+
+// Repeating details (e.g. each child): one line per entry. Mirrors
+// formatRepeatValue in src/lib/repeatGroup.ts.
+function sheetsRepeatText(field, value) {
+  if (!Array.isArray(value)) return '';
+  var label = String(field.itemLabel || '').trim() || 'Entry';
+  var lines = value.map(function (entry, i) {
+    var parts = (field.subFields || []).map(function (sub) {
+      var v = entry && entry[sub.id] !== null && entry[sub.id] !== undefined ? String(entry[sub.id]).trim() : '';
+      return v ? sub.label + ': ' + v : '';
+    }).filter(Boolean);
+    return label + ' ' + (i + 1) + ': ' + (parts.length ? parts.join('; ') : '(no details)');
+  });
+  return (field.countMode === 'number' ? [String(value.length)].concat(lines) : lines).join('\n');
 }
 
 function sheetsText(value) {

@@ -2,10 +2,11 @@ import { ExternalLink } from 'lucide-react';
 import type { FormField } from '@/lib/types';
 import { isStoredFileRef } from '@/lib/storage';
 import { gridAnswerLines, gridRows, isGridField } from '@/lib/grid';
+import { itemLabelOf, repeatEntries } from '@/lib/repeatGroup';
 
 /** Answers that read better across the full width of the panel. */
 export function isWideAnswer(field: FormField, value: unknown): boolean {
-  if (['paragraph', 'checkboxes', 'menu_quantity', 'file', 'photo', 'signature', 'grid', 'checkbox_grid', 'ranking'].includes(field.type)) return true;
+  if (['paragraph', 'checkboxes', 'menu_quantity', 'file', 'photo', 'signature', 'grid', 'checkbox_grid', 'ranking', 'repeat_group'].includes(field.type)) return true;
   return typeof value === 'string' && value.length > 64;
 }
 
@@ -37,6 +38,30 @@ export function AnswerView({ field, value, onOpenFile }: {
           <ExternalLink className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{fileRef.name}</span>
         </button>
+      );
+    }
+
+    const entries = field.type === 'repeat_group' ? repeatEntries(value) : undefined;
+    if (entries) {
+      const counted = field.countMode === 'number';
+      if (entries.length === 0) return counted ? <p className="text-sm font-semibold text-slate-800">0</p> : <Empty />;
+      return (
+        <div className="space-y-2">
+          {counted && <p className="text-sm font-semibold text-slate-800">{entries.length}</p>}
+          {entries.map((e, i) => (
+            <div key={i} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <p className="mb-1 text-xs font-bold text-navy-700">{itemLabelOf(field)} {i + 1}</p>
+              <ul className="space-y-0.5">
+                {(field.subFields ?? []).map((s) => (
+                  <li key={s.id} className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="min-w-0 text-slate-500">{s.label}</span>
+                    <span className="min-w-0 break-words text-right font-semibold text-slate-800">{e[s.id] || '-'}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       );
     }
 

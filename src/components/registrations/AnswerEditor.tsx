@@ -6,6 +6,8 @@ import { ExternalLink } from 'lucide-react';
 import { gridColumns, gridRows, limitOnePerColumn } from '@/lib/grid';
 import { answerFitsQuestion } from '@/lib/questionTypes';
 import { AnswerView } from './AnswerView';
+import { RepeatGroupInput } from '@/components/form-renderer/RepeatGroupInput';
+import { baseInput } from '@/components/ui/inputs';
 
 /**
  * Edit one registration answer using the same control type as the original
@@ -189,6 +191,13 @@ export function AnswerEditor({ field, value, onChange, onOpenFile }: {
       return (
         <Field label={label}>
           <Input type="time" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
+        </Field>
+      );
+
+    case 'repeat_group':
+      return (
+        <Field label={label}>
+          <RepeatGroupInput field={field} value={value ?? (field.countMode === 'number' ? undefined : [])} onChange={(v) => onChange(v ?? null)} inputClassName={baseInput} />
         </Field>
       );
 

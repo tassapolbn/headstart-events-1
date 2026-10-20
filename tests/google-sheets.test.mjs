@@ -273,3 +273,17 @@ test('a styling failure never stops a registration reaching the sheet', () => {
   assert.equal(h.send(e, registration('a', 'a1', { q1: 'Apple' })).added, 1);
   assert.equal(sheet.values[1].at(-1), 'Apple');
 });
+
+test('repeating details export as one readable line per child', () => {
+  const h = harness();
+  const e = { ...event('kids'), form_schema: [
+    { id: 'kids', type: 'repeat_group', label: 'Children', itemLabel: 'Child', countMode: 'add',
+      subFields: [{ id: 'n', label: 'Full name' }, { id: 'y', label: 'Year' }] },
+    { id: 'sibs', type: 'repeat_group', label: 'Siblings', itemLabel: 'Sibling', countMode: 'number',
+      subFields: [{ id: 'a', label: 'Age' }] },
+  ] };
+  h.send(e, registration('kids', 'k1', { kids: [{ n: 'Ann', y: 'Year 2' }, { n: 'Tom' }], sibs: [] }));
+  const row = h.book('sheet-kids').sheet.values[1];
+  assert.equal(row.at(-2), 'Child 1: Full name: Ann; Year: Year 2\nChild 2: Full name: Tom');
+  assert.equal(row.at(-1), '0');
+});
