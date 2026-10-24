@@ -9,6 +9,7 @@ import { copyForType, formCopy } from '@/lib/formCopy';
 import type { FormType } from '@/lib/types';
 import { googleSheetId } from '@/lib/googleSheets';
 import { RefreshGoogleSheet } from '@/components/registrations/RefreshGoogleSheet';
+import { GoogleSheetColumns } from '@/components/settings/GoogleSheetColumns';
 import type { TabProps } from '../EventEditorPage';
 
 export default function SettingsTab({ draft, update }: TabProps) {
@@ -118,7 +119,7 @@ export default function SettingsTab({ draft, update }: TabProps) {
       <Card title="Google Sheets">
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Send this form’s submissions to its own Google spreadsheet. Use a different spreadsheet for each event.
+            Send this form’s submissions to Google Sheets. One spreadsheet can hold several events, each in its own tab.
           </p>
           <Field label="Google Sheet link" htmlFor="google-sheet-url"
             hint="Leave blank to disconnect. Save the event to apply changes."
@@ -130,6 +131,7 @@ export default function SettingsTab({ draft, update }: TabProps) {
           </Field>
           {sheetId && <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noreferrer"
             className="inline-block text-sm font-medium text-navy-700 underline">Open spreadsheet</a>}
+          <GoogleSheetColumns event={draft} onChange={set} />
           <p className="text-xs text-slate-500">
             One-time setup: update the school’s Apps Script relay and give its Google account
             Editor access to this spreadsheet. Keep sharing restricted to your team.

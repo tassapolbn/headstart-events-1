@@ -79,6 +79,9 @@ export const defaultSettings: EventSettings = {
   showQrOnSuccess: true,
   boothSelection: 'none',
   boothSelectionLabel: 'Select your booth',
+  // Google Sheet: no totals and every column, as before these settings existed.
+  googleSheetTotals: [],
+  googleSheetExclude: [],
 };
 
 export const defaultFloorPlan: FloorPlanSettings = {
