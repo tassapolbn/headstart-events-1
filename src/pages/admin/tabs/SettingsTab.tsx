@@ -17,6 +17,7 @@ export default function SettingsTab({ draft, update }: TabProps) {
   const copy = formCopy(draft);
   const isSurvey = copy.isSurvey;
   const sheetId = googleSheetId(s.googleSheetUrl);
+  const hasEmailQuestion = draft.form_schema.some((f) => f.type === 'email' || f.mapTo === 'email');
 
   function switchType(next: FormType) {
     if (next === (isSurvey ? 'survey' : 'registration')) return;
@@ -94,6 +95,21 @@ export default function SettingsTab({ draft, update }: TabProps) {
               ? 'Blocks a second response from the same email. Anonymous responses (no email) are always accepted.'
               : 'Usually off, which blocks duplicate submissions from the same address.'}
           />
+          <Switch
+            checked={!!s.verifyEmail}
+            onChange={(verifyEmail) => set({ verifyEmail })}
+            label="Confirm email with a 6-digit code"
+            description="Before submitting, people type a code we email them, so every address is real and spelled correctly. Each code uses one email from the school’s daily Gmail allowance."
+          />
+          {s.verifyEmail && (
+            <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="note">
+              <p>
+                One-time setup: run <code className="font-mono">supabase/migration-008-email-codes.sql</code> in the Supabase SQL Editor,
+                and update the Apps Script email relay to <span className="whitespace-nowrap">version 2026-10-24</span> or later (Deploy, Manage deployments, New version).
+              </p>
+              {!hasEmailQuestion && <p className="font-semibold">This form has no email question yet, so there is nothing to confirm.</p>}
+            </div>
+          )}
           <RichTextArea
             id="conf-msg"
             label="Thank you message"

@@ -70,6 +70,7 @@ export const defaultSettings: EventSettings = {
   formType: 'registration',
   maxBooths: 1,
   allowDuplicateEmail: false,
+  verifyEmail: false,
   requireApproval: false,
   waitlistEnabled: true,
   minSubmitSeconds: 3,
