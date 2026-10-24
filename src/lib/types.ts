@@ -249,6 +249,8 @@ export interface EventSettings {
   /** How many booths one registration may hold (1 to 3) */
   maxBooths: number;
   allowDuplicateEmail: boolean;
+  /** People confirm their email with a 6-digit code before they can submit (needs migration-008 and the October 2026 relay). */
+  verifyEmail?: boolean;
   requireApproval: boolean;
   waitlistEnabled: boolean;
   minSubmitSeconds: number;

@@ -110,6 +110,8 @@ The architecture is modular by design. New modules (volunteer registration, pare
 - Sign in fails: confirm the user exists in Supabase Authentication and was auto confirmed.
 - No confirmation emails: open Settings and press "Send a test to all recipients"; run `checkSetup` in Apps Script and read the Execution log; confirm the three Script Properties.
 - Staff not notified about a form: check that form's **Email -> Notification recipients**. An empty list notifies nobody.
+- Email codes never arrive: open the relay URL and check it shows version `2026-10-24` or later, then look in the
+  parent's Junk or Spam folder. A message starting with "ADMIN:" on the form names the missing setup step.
 - Run `npm test` for the notification and relay regression tests, and `npm run build` for the TypeScript check and production build.
 - Booth map not showing publicly: the floor plan toggle must be on, the event saved, and at least one booth drawn and saved.
 - Changed the form after registrations arrived: old answers are kept and matched by question, new questions simply show empty for old rows.
@@ -127,6 +129,31 @@ Every form now has a **form type** (Events -> Create, or Event -> Settings -> Fo
 Setup: run `supabase/migration-007-survey-forms.sql` once in the Supabase SQL Editor (allows an
 empty email for survey forms only), and redeploy `apps-script/EmailRelay.gs` so administrator
 notifications say "New response" and anonymous responses still notify the team.
+
+## Confirm email with a 6-digit code (October 2026)
+
+People sometimes mistype their email address, and then the school cannot reach them. A form can now ask
+people to confirm their address before they submit: under the email question they press **Send code**,
+receive a 6-digit code by email and type it in. The form cannot be sent until the code matches, and the
+database refuses a public submission without a valid confirmation, so the check cannot be skipped.
+
+Turn it on per form: **Event -> Settings -> Confirm email with a 6-digit code**.
+
+Setup (once):
+1. Run `supabase/migration-008-email-codes.sql` in the Supabase SQL Editor.
+2. Update the Apps Script relay with the latest `apps-script/EmailRelay.gs` (Deploy -> Manage deployments ->
+   Edit -> New version). Opening the relay URL should then show version `2026-10-24`.
+
+Notes:
+- Parents never sign in or create accounts. A signed-in account is treated as staff by the database, so
+  sign-in is kept for staff only.
+- A code lasts 15 minutes. Each address can ask for one code a minute and five an hour, and each form for
+  300 an hour. Five wrong tries lock a code.
+- Each code uses one email from the school's daily Gmail allowance (about 1,500 recipients a day for Google
+  Workspace, about 100 for a free Gmail account). The relay stops sending codes when 50 or fewer are left
+  for the day, so confirmations and staff notifications keep working.
+- Staff can still add or duplicate registrations by hand without a code, and a survey answered without an
+  email needs no code.
 
 ## Flexible forms and on-demand Sheets
 

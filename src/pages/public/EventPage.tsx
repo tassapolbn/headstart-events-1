@@ -11,13 +11,15 @@ import { fetchCampus } from '@/context/CampusContext';
 import type { Campus } from '@/lib/types';
 import { themeStyle } from '@/lib/theme';
 import { formatDate } from '@/lib/utils';
-import { friendlyError } from '@/lib/errors';
+import { friendlyError, messageOf } from '@/lib/errors';
+import { makeEmailCheck } from '@/lib/emailCodes';
 import { formCopy } from '@/lib/formCopy';
 import { wantsRelayEmail } from '@/lib/notificationEmails';
 import { cleanRepeatValue } from '@/lib/repeatGroup';
 import { googleSheetId } from '@/lib/googleSheets';
 import { uploadVendorFile, dataUrlToBlob } from '@/lib/storage';
 import { applyOtherAnswer, canAllowOther, isContentField, isVisible } from '@/components/form-renderer/fieldZod';
+import { registrantEmail } from '@/components/form-renderer/emailCode';
 import { FormRenderer } from '@/components/form-renderer/FormRenderer';
 import { BoothPicker } from '@/components/floor-plan/BoothPicker';
 import { useToast } from '@/context/ToastContext';
@@ -48,6 +50,8 @@ export default function EventPage() {
   const [liveValues, setLiveValues] = useState<Record<string, unknown>>({});
   const handleValuesChange = useCallback((v: Record<string, unknown>) => setLiveValues(v), []);
   const [busy, setBusy] = useState(false);
+  // Bumped when the database no longer accepts an email confirmation.
+  const [emailResetKey, setEmailResetKey] = useState(0);
   const startedAt = useRef(Date.now());
   const hpRef = useRef<HTMLInputElement>(null);
 
@@ -99,6 +103,13 @@ export default function EventPage() {
   const vendorTypeValue = vendorTypeField ? String(liveValues[vendorTypeField] ?? '') : '';
   const activePolicies = event.settings.policyDisplay === 'checkbox' ? [] : event.policies.filter((p) => p.enabled && (p.title || p.content || p.image_url));
   const consentRequired = needsConsent(event);
+  const relayUrl = campus?.webhook_url || appSettings?.webhook_url || '';
+  const emailCheck = event.settings.verifyEmail
+    ? makeEmailCheck({
+        rpc: (fn, args) => supabase.rpc(fn, args), eventId: event.id, relayUrl,
+        kind: isSurvey ? 'survey' : 'registration', resetKey: emailResetKey,
+      })
+    : undefined;
   const logo = event.branding.logo_url ?? campus?.logo_url ?? appSettings?.logo_url ?? '/logo.svg';
   const anim = t.animations
     ? { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 } }
@@ -129,7 +140,10 @@ export default function EventPage() {
       // 1. Upload any files, photos and signatures.
       const data: Record<string, unknown> = {};
       if (consentRequired && ack) data[POLICY_ACK_KEY] = buildAckRecords([], {}, { accepted: true, text: consentText(event) });
-      let name = '', email = '', phone = '';
+      let name = '', phone = '';
+      // The same address the form confirmed with a code, when it asks for one.
+      const email = registrantEmail(event.form_schema, values);
+      if (typeof values.__email_token === 'string') data.__email_token = values.__email_token;
       for (const f of event.form_schema) {
         if (isContentField(f) || !isVisible(f, values, event.form_schema)) continue;
         let v = values[f.id];
@@ -156,12 +170,7 @@ export default function EventPage() {
         data[f.id] = v;
         const str = typeof v === 'string' ? v : '';
         if (f.mapTo === 'name' && !name) name = str;
-        if (f.mapTo === 'email' && !email) email = str;
         if (f.mapTo === 'phone' && !phone) phone = str;
-      }
-      if (!email) {
-        const emailField = event.form_schema.find((f) => f.type === 'email');
-        email = emailField ? String(values[emailField.id] ?? '').trim() : '';
       }
       if (!name) {
         const firstText = event.form_schema.find((f) => f.type === 'short_text');
@@ -186,7 +195,6 @@ export default function EventPage() {
       const res = result as unknown as SubmitResult;
 
       // 3. Reuse one relay request for email and this registration's sheet row.
-      const relayUrl = campus?.webhook_url || appSettings?.webhook_url;
       const wantsRelay = wantsRelayEmail(event.email_template) || !!googleSheetId(event.settings.googleSheetUrl);
       if (wantsRelay && relayUrl) {
         void fetch(relayUrl, {
@@ -210,6 +218,8 @@ export default function EventPage() {
       navigate(`/e/${event.slug}/success/${res.reference}`, { state: { result: res, menu } });
     } catch (err) {
       console.error('Form submit failed:', err);
+      // The confirmation was used or is too old: ask for a fresh code.
+      if (messageOf(err).includes('EMAIL_NOT_VERIFIED')) setEmailResetKey((k) => k + 1);
       toast(friendlyError(err, isSurvey ? 'survey' : 'registration'), 'error');
     } finally {
       setBusy(false);
@@ -343,6 +353,7 @@ export default function EventPage() {
                   <ConsentCheckbox event={event} checked={ack} onChange={setAck} />
                 }
                 submitDisabled={consentRequired && !ack}
+                emailCheck={emailCheck}
               />
               {boothsEnabled && boothInfos.length > 0 && (
                 <p className="mt-3 text-center text-xs opacity-70">

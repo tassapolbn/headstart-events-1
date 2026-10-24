@@ -63,3 +63,13 @@ Shortcuts:
 - On any **Number** question, **Ask details for each one** turns it into a "how many" question.
 
 Answers show as one card per child in Registrations, and as one line per child in CSV, Excel and Google Sheets.
+
+## Confirm the email address with a 6-digit code
+
+In **Event → Settings**, turn on **Confirm email with a 6-digit code** so a mistyped address is caught before it is saved. A box appears under the form's email question (the question marked as the email, or else the first email question):
+
+1. The person types their email and presses **Send code**.
+2. A 6-digit code arrives by email within a minute. The subject starts with the code, so a phone shows it straight away.
+3. They type the code (some phones offer to fill it in from the email). The box turns green: **Email confirmed**.
+
+The form will not move past that section, or submit, until the email is confirmed. Changing the email afterwards asks for a new code. A new code can be sent after 60 seconds. One-time setup is in the README: run `supabase/migration-008-email-codes.sql` and update the Apps Script relay.

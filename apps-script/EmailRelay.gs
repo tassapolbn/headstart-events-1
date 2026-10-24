@@ -12,6 +12,8 @@
  * website), renders the event's email template, and sends it
  * with MailApp. It then marks the registration as emailed so
  * duplicates are not sent.
+ * For forms with "Confirm email with a 6-digit code" switched on,
+ * it also emails the code (action send_code), once per code.
  *
  * SETUP (one time, about 5 minutes)
  * 1. Go to https://script.google.com and create a new project
@@ -47,6 +49,8 @@
  * NOTE ON QUOTAS: MailApp counts every recipient. Google Workspace
  * accounts may email about 1,500 recipients per day, free Gmail
  * accounts about 100. checkSetup shows what is left today.
+ * Each 6-digit code is one recipient. Codes stop when 50 or fewer
+ * are left, so confirmations and staff notifications keep working.
  * ============================================================
  */
 
@@ -58,7 +62,7 @@ var SERVICE_KEY = (PROPS.getProperty('SERVICE_ROLE_KEY') || '').trim();
 var FROM_NAME = PROPS.getProperty('FROM_NAME') || 'HeadStart Events';
 
 // Change this whenever the file changes, so the deployed copy can be checked.
-var RELAY_VERSION = '2026-10-02';
+var RELAY_VERSION = '2026-10-24';
 
 // ------------------------------------------------------------
 // Web app entry points
@@ -73,6 +77,7 @@ function doPost(e) {
   try {
     var payload = JSON.parse((e.parameter && e.parameter.request) || e.postData.contents || '{}');
     if (payload.action === 'google_sheet_refresh') return sheetRefreshPage(payload);
+    if (payload.action === 'send_code') return jsonOut(sendEmailCode(payload.requestId));
     var cache = CacheService.getScriptCache();
 
     if (payload.test) {
@@ -365,6 +370,51 @@ function formNotifyList(template) {
       seen[email] = true;
       return true;
     });
+}
+
+// ------------------------------------------------------------
+// "Confirm email with a 6-digit code": the database creates the code
+// (request_email_code) and only this relay can read it. It is sent once;
+// asking again creates a new code, which the database limits to one a
+// minute and five an hour per address.
+// ------------------------------------------------------------
+// Codes never use the last emails of the day, so confirmations and staff
+// notifications keep going even if a form is flooded with code requests.
+var CODE_EMAIL_RESERVE = 50;
+
+function sendEmailCode(requestId) {
+  var id = String(requestId || '');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return { ok: false, error: 'missing request' };
+  var rows = supabaseGet('/rest/v1/email_codes?select=id,email,code,expires_at,sent_at,events(name)&id=eq.' + encodeURIComponent(id));
+  var row = rows && rows[0];
+  if (!row) return { ok: false, error: 'not found' };
+  if (row.sent_at) return { ok: true, skipped: 'already sent' };
+  if (new Date(row.expires_at).getTime() < Date.now()) return { ok: false, error: 'expired' };
+  if (MailApp.getRemainingDailyQuota() <= CODE_EMAIL_RESERVE) return { ok: false, error: 'daily email limit reached' };
+  var eventName = (row.events && row.events.name) || 'HeadStart Events';
+  MailApp.sendEmail({
+    to: row.email,
+    // The code leads the subject, so a phone shows it in the notification.
+    subject: row.code + ' is your code for ' + eventName,
+    htmlBody:
+      '<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#14202e;">' +
+      '<p style="margin:0 0 12px;">Your code to confirm your email address for <strong>' + esc(eventName) + '</strong> is:</p>' +
+      '<p style="margin:16px 0;font-size:34px;font-weight:bold;letter-spacing:8px;color:#1a3c5e;">' + esc(row.code) + '</p>' +
+      '<p style="margin:0 0 12px;">Type it into the form. It expires in 15 minutes.</p>' +
+      '<p style="margin:24px 0 0;font-size:12px;color:#64748b;">If you did not ask for this code, you can ignore this email.</p>' +
+      '</div>',
+    name: FROM_NAME,
+  });
+  var headers = supabaseHeaders();
+  headers.Prefer = 'return=minimal';
+  UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/email_codes?id=eq.' + encodeURIComponent(id), {
+    method: 'patch',
+    contentType: 'application/json',
+    headers: headers,
+    payload: JSON.stringify({ sent_at: new Date().toISOString() }),
+    muteHttpExceptions: true,
+  });
+  return { ok: true };
 }
 
 function markEmailSent(id) {

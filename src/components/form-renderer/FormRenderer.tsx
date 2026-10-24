@@ -6,6 +6,8 @@ import { buildResolver, formSections, isContentField, isVisible, OTHER_VALUE, ot
 import { SignaturePad } from './SignaturePad';
 import { GridInput, RatingInput } from './ScaleAndGrid';
 import { RepeatGroupInput } from './RepeatGroupInput';
+import { EmailCodeBox } from './EmailCodeBox';
+import { normalEmail, registrantEmailField, type EmailCheck } from './emailCode';
 import { initialRepeatValue } from '@/lib/repeatGroup';
 import { buttonClass, usesQuestionCards } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -58,7 +60,7 @@ function FieldShell({ field, error, children }: { field: FormField; error?: stri
 
 export function FormRenderer({
   fields, onSubmit, busy, theme, submitLabel = 'Submit registration',
-  beforeSubmit, submitDisabled, preview, onValuesChange,
+  beforeSubmit, submitDisabled, preview, onValuesChange, emailCheck,
 }: {
   fields: FormField[];
   onSubmit: (values: FieldValues) => void | Promise<void>;
@@ -70,6 +72,8 @@ export function FormRenderer({
   preview?: boolean;
   /** Live answers, e.g. so the booth picker can react to the vendor type */
   onValuesChange?: (values: FieldValues) => void;
+  /** "Confirm email with a 6-digit code": a code box under the email question, and the form waits for it. */
+  emailCheck?: EmailCheck;
 }) {
   const resolver = useMemo(() => buildResolver(fields), [fields]);
   const { register, control, handleSubmit, watch, setValue, trigger, formState: { errors } } = useForm({ resolver, mode: 'onBlur' });
@@ -81,6 +85,26 @@ export function FormRenderer({
   const last = current === sections.length - 1;
   const topRef = useRef<HTMLDivElement>(null);
 
+  // "Confirm email with a 6-digit code": the address confirmed so far, and
+  // whether the form has just been held up for it.
+  const [confirmedEmail, setConfirmedEmail] = useState<{ email: string; token: string } | null>(null);
+  const [emailAttention, setEmailAttention] = useState(0);
+  const resetKey = emailCheck?.resetKey;
+  useEffect(() => setConfirmedEmail(null), [resetKey]);
+  const emailField = emailCheck ? registrantEmailField(fields, values) : undefined;
+  const typedEmail = emailField ? normalEmail(values[emailField.id]) : '';
+  const emailConfirmed = !!typedEmail && confirmedEmail?.email === typedEmail;
+  // Nothing to confirm while the email is left empty (an anonymous survey answer).
+  const emailWaiting = !!emailCheck && !preview && !!typedEmail && !emailConfirmed;
+  const emailBoxId = emailField ? `${emailField.id}-email-code` : '';
+  useEffect(() => setEmailAttention(0), [typedEmail]);
+  useEffect(() => {
+    if (!emailAttention || !emailBoxId) return;
+    const box = document.getElementById(emailBoxId);
+    box?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    box?.querySelector<HTMLElement>('input:not([disabled]), button:not([disabled])')?.focus({ preventScroll: true });
+  }, [emailAttention, emailBoxId]);
+
   function goTo(next: number) {
     setPage(next);
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -88,13 +112,25 @@ export function FormRenderer({
 
   async function nextSection() {
     const ids = sections[current].fields.filter((f) => !isContentField(f) && isVisible(f, values, fields)).map((f) => f.id);
-    if (ids.length === 0 || await trigger(ids)) goTo(current + 1);
+    if (ids.length > 0 && !(await trigger(ids))) return;
+    // The email on this page is confirmed before moving on.
+    if (emailWaiting && emailField && ids.includes(emailField.id)) { setEmailAttention((n) => n + 1); return; }
+    goTo(current + 1);
   }
 
   function submit(e: FormEvent<HTMLFormElement>) {
     // Enter in an earlier section moves on instead of sending the form.
     if (!last) { e.preventDefault(); void nextSection(); return; }
-    void handleSubmit((v) => onSubmit(v), (errs) => {
+    void handleSubmit((v) => {
+      if (emailWaiting && emailField) {
+        // Back to the email question, where the code box is waiting.
+        const at = sections.findIndex((sec) => sec.fields.some((f) => f.id === emailField.id));
+        if (at >= 0 && at !== current) goTo(at);
+        setEmailAttention((n) => n + 1);
+        return;
+      }
+      return onSubmit(emailConfirmed && confirmedEmail ? { ...v, __email_token: confirmedEmail.token } : v);
+    }, (errs) => {
       // An answer in an earlier section needs fixing: go back to it.
       const at = sections.findIndex((sec) => sec.fields.some((f) => errs[f.id]));
       if (at >= 0 && at !== current) goTo(at);
@@ -558,6 +594,16 @@ export function FormRenderer({
     return (
       <div key={f.id} className={boxed ? 'ev-q-card' : undefined}>
         {control}
+        {emailCheck && emailField?.id === f.id && (
+          <EmailCodeBox
+            // Starts afresh when the database refuses an earlier confirmation.
+            key={resetKey ?? 0}
+            id={emailBoxId} email={typedEmail} check={emailCheck} inputClassName={inputCls}
+            confirmed={emailConfirmed} attention={emailAttention > 0}
+            onConfirmed={(email, token) => { setConfirmedEmail({ email, token }); setEmailAttention(0); }}
+            onSent={() => setEmailAttention(0)}
+          />
+        )}
       </div>
     );
   }
