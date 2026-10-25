@@ -348,7 +348,7 @@ test('opening the relay URL shows the deployed version', () => {
   const r = relay([]);
   const out = r.ctx.doGet();
   assert.equal(out.ok, true);
-  assert.match(out.version, /^\d{4}-\d{2}-\d{2}$/);
+  assert.match(out.version, /^\d{4}-\d{2}-\d{2}(?:-sheets)?$/);
   assert.equal(out.version, r.ctx.RELAY_VERSION);
 });
 

@@ -58,7 +58,7 @@ var SERVICE_KEY = (PROPS.getProperty('SERVICE_ROLE_KEY') || '').trim();
 var FROM_NAME = PROPS.getProperty('FROM_NAME') || 'HeadStart Events';
 
 // Change this whenever the file changes, so the deployed copy can be checked.
-var RELAY_VERSION = '2026-10-02';
+var RELAY_VERSION = '2026-10-24-sheets';
 
 // ------------------------------------------------------------
 // Web app entry points
