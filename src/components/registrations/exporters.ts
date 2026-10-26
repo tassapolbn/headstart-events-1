@@ -3,7 +3,7 @@ import type { EventRecord, Registration } from '@/lib/types';
 import { isContentField } from '@/components/form-renderer/fieldZod';
 import { isStoredFileRef } from '@/lib/storage';
 import { download } from '@/lib/utils';
-import { boothText } from '@/lib/regBooths';
+import { boothExportNumber, boothVendorText } from '@/lib/regBooths';
 import { gridRows, isGridField } from '@/lib/grid';
 import { formatRepeatValue } from '@/lib/repeatGroup';
 import type { FormField } from '@/lib/types';
@@ -37,10 +37,10 @@ function cellValue(v: unknown): string {
   return String(v);
 }
 
-export function buildRows(event: EventRecord, regs: Registration[]): string[][] {
+export function buildRows(event: EventRecord, regs: Registration[]): Array<Array<string | number>> {
   const questionFields = exportColumns(event.form_schema.filter((f) => !isContentField(f)));
   const header = [
-    'Reference', 'Status', 'Name', 'Email', 'Phone', 'Booth', 'Checked in', 'Submitted',
+    'Reference', 'Status', 'Name', 'Email', 'Phone', 'Booth', 'Type of vendor', 'Checked in', 'Submitted',
     ...questionFields.map((c) => c.header),
   ];
   const rows = regs.map((r) => [
@@ -49,7 +49,8 @@ export function buildRows(event: EventRecord, regs: Registration[]): string[][] 
     r.name ?? '',
     r.email ?? '',
     r.phone ?? '',
-    boothText(r),
+    boothExportNumber(r),
+    boothVendorText(r),
     r.checked_in_at ? new Date(r.checked_in_at).toLocaleString() : '',
     new Date(r.created_at).toLocaleString(),
     ...questionFields.map((c) => c.get(r.data ?? {})),
