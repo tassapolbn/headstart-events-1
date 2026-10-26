@@ -48,6 +48,15 @@ class Sheet extends MetadataOwner {
   getMaxRows() { return this.rows; } getMaxColumns() { return this.columns; }
   insertRowsAfter(_, count) { this.rows += count; }
   insertColumnsAfter(_, count) { this.columns += count; }
+  insertColumnsBefore(col, count) {
+    this.fail?.('insertColumnsBefore', { col, count });
+    for (const store of [this.values, this.notes, this.formats, this.formulas]) store.forEach(row => {
+      while (row.length < col - 1) row.push('');
+      row.splice(col - 1, 0, ...Array(count).fill(''));
+    });
+    this.hidden = this.hidden.map(c => c >= col ? c + count : c);
+    this.columns += count;
+  }
   insertRowsBefore(row, count) {
     this.fail?.('insertRowsBefore', { row, count });
     for (const store of [this.values, this.notes, this.formats, this.formulas]) {
@@ -507,7 +516,7 @@ test('fingerprints use deterministic nested key order and cover every formatting
   }
 });
 const header = s => s.notes.findIndex(row => row?.[0]?.startsWith('headstart:') && JSON.parse(row[0].slice(10)).key === 'id');
-const column = (s, key) => s.notes[header(s)].findIndex(n => n && JSON.parse(n.slice(10)).key === key);
+const column = (s, key) => s.notes[header(s)].findIndex(n => n && n.startsWith('headstart:') && JSON.parse(n.slice(10)).key === key);
 const cell = (s, id, key) => s.values.find(r => r?.[0] === id)?.[column(s, key)];
 const flags = (s, key) => JSON.parse(s.notes[header(s)][column(s, key)].slice(10)).flags || {};
 const dataRows = s => s.values.slice(header(s) + 1).filter(r => r?.[0]);
@@ -1082,6 +1091,43 @@ test('header diagnostics identify the exact tab, cell and duplicate source witho
     });
     assert.deepEqual(plain([tab.values, tab.notes]), before);
     const html = h.ctx.sheetRefreshPage({});
-    assert.ok(html.includes('Sheets version: 2026-10-26-header-diagnostics'));
+    assert.ok(html.includes('Sheets version: 2026-10-26-custom-columns'));
   }
+});
+
+
+test('staff checkbox, status, note and formula columns survive refresh and new questions', () => {
+  const h = harness(), e = event('custom');
+  const r = registration(e.id, 'r1', { q1: 'Before' }); h.send(e, r);
+  const tab = tabFor(h, e), width = h.ctx.sheetsDiscover(tab).columns.length;
+  tab.values[3].push('Shirt collected', 'Status', 'Note', 'Formula');
+  tab.values[4].push(true, 'Ready', 'Blue shirt', '=1+1');
+  tab.notes[3][width + 2] = 'Staff instructions';
+  tab.formulas[4][width + 3] = '=1+1'; tab.formats[4][width] = 'checkbox-format';
+  const customRules = tab.rules; tab.filter.remove(); tab.getRange(4, 1, tab.rows - 3, width + 4).createFilter(); tab.filter.setColumnFilterCriteria(width + 2, { hiddenValues: ['Done'] });
+  r.data.q1 = 'After'; h.ctx.writeEventRows(e, [r], true);
+  assert.equal(cell(tab, 'r1', 'answer:q1'), 'After');
+  assert.deepEqual(tab.values[4].slice(width), [true, 'Ready', 'Blue shirt', '=1+1']);
+  assert.equal(tab.rules, customRules);
+  assert.equal(tab.filter.getColumnFilterCriteria(width + 2).hiddenValues[0], 'Done');
+  e.form_schema.push({ id: 'q2', type: 'long_text', label: 'New question' }); r.data.q2 = 'New answer';
+  h.ctx.writeEventRows(e, [r], true);
+  assert.equal(cell(tab, 'r1', 'answer:q2'), 'New answer');
+  assert.deepEqual(tab.values[4].slice(width + 1), [true, 'Ready', 'Blue shirt', '=1+1']);
+  assert.equal(tab.formulas[4][width + 4], '=1+1');
+  assert.equal(tab.formats[4][width + 1], 'checkbox-format');
+  assert.equal(tab.notes[3][width + 3], 'Staff instructions');
+  tab.values[9] = []; tab.values[9][width + 1] = false;
+  h.send(e, registration(e.id, 'r2', { q1: 'Second' }));
+  assert.equal(tab.values[5][0], 'r2');
+  assert.equal(tab.values[9][width + 1], false);
+  assert.deepEqual(tab.values[4].slice(width + 1), [true, 'Ready', 'Blue shirt', '=1+1']);
+});
+
+test('a manual column inserted inside the managed block still stops without writing', () => {
+  const h = harness(), e = event('custom'); h.send(e, registration(e.id, 'r1'));
+  const tab = tabFor(h, e); tab.insertColumnsBefore(5, 1); tab.values[3][4] = 'Staff note';
+  const before = plain([tab.values, tab.notes]);
+  assert.throws(() => h.ctx.writeEventRows(e, [], true), /cell E4: missing note/);
+  assert.deepEqual(plain([tab.values, tab.notes]), before);
 });

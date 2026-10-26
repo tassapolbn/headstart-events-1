@@ -1,7 +1,7 @@
 // Event tabs are updated only by registrations and explicit admin refreshes.
 var SHEETS_OWNER_KEY = 'headstart_event';
 var SHEETS_BATCH_SIZE = 100;
-var SHEETS_FORMAT_VERSION = '2026-10-26-header-diagnostics';
+var SHEETS_FORMAT_VERSION = '2026-10-26-custom-columns';
 
 function sheetsDestination(value) {
   var match = String(value || '').trim().match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([A-Za-z0-9_-]+)(?:\/[^?#\s]*)?(?:[?#]\S*)?$/);
@@ -248,8 +248,13 @@ function sheetsDiscover(tab) {
     throw new Error('Managed header notes are missing. Restore them or connect a blank tab.');
   }
   var row = found[0], notes = tab.getRange(row, 1, 1, tab.getMaxColumns()).getNotes()[0];
-  var width = tab.getLastColumn();
-  notes.forEach(function (n, i) { if (n) width = Math.max(width, i + 1); });
+  // Only the contiguous HeadStart block belongs to the exporter. Staff may
+  // append arbitrary columns (including their own notes) to its right.
+  var width = 0, occupiedWidth = tab.getLastColumn();
+  notes.forEach(function (n, i) {
+    if (n) occupiedWidth = Math.max(occupiedWidth, i + 1);
+    if (n.indexOf('headstart:') === 0) width = i + 1;
+  });
   var keys = Object.create(null);
   var columns = notes.slice(0, width).map(function (note, i) {
     var c, problem;
@@ -268,7 +273,7 @@ function sheetsDiscover(tab) {
     keys[c.key] = address;
     return { key: c.key, label: c.label || '', flags: c.flags || {} };
   });
-  return { headerRow: row, columns: columns, notes: notes.slice(0, width) };
+  return { headerRow: row, columns: columns, notes: notes.slice(0, width), hasCustomColumns: occupiedWidth > width };
 }
 
 function sheetsEnsureSize(tab, rows, columns) {
@@ -292,6 +297,9 @@ function sheetsLayout(tab, event, plan) {
   var hasRows = tab.getLastRow() > header;
   var added = plan.columns.filter(function (c) { return !columns.some(function (old) { return old.key === c.key; }); });
   if (hasRows && added.some(function (c) { return !c.excluded; })) sheetsRefreshNeeded(tab);
+  // Native insertion moves staff checkboxes, formulas, validation and notes
+  // together. Never overwrite the custom block when a question is added.
+  if (added.length && layout.hasCustomColumns) tab.insertColumnsBefore(columns.length + 1, added.length);
   sheetsEnsureSize(tab, header + 1, columns.length + added.length);
   added.forEach(function (c) { columns.push({ key: c.key, label: c.label, flags: {} }); });
   // Persist appended notes together, before labels, so partial header writes can recover.
@@ -446,8 +454,12 @@ function sheetsWriteRows(destination, event, rows, updateExisting, deferDecorati
   });
   if (expanded) destination.layout = sheetsLayout(destination.tab, event, sheetsPlan(Object.assign({}, event, { form_schema: schema })));
   var tab = destination.tab, layout = destination.layout, columns = layout.columns, header = layout.headerRow;
-  var last = Math.max(header, tab.getLastRow()), seen = Object.create(null), pending = Object.create(null), added = [], updates = [];
-  if (last > header) tab.getRange(header + 1, 1, last - header, 1).getValues().forEach(function (r, i) { if (r[0]) seen[String(r[0])] = header + i + 1; });
+  var scanLast = Math.max(header, tab.getLastRow()), last = header, seen = Object.create(null), pending = Object.create(null), added = [], updates = [];
+  // Staff may prefill checkboxes down the entire sheet. Append after the last
+  // registration ID, not after unrelated staff cells or checkbox defaults.
+  if (scanLast > header) tab.getRange(header + 1, 1, scanLast - header, 1).getValues().forEach(function (r, i) {
+    if (r[0]) { last = header + i + 1; seen[String(r[0])] = last; }
+  });
   rows.forEach(function (reg) {
     if (reg.event_id !== event.id) throw new Error('Registration event mismatch.');
     if (!reg.id) throw new Error('Registration ID missing.');
@@ -656,14 +668,16 @@ function styleRegistrationsSheet(tab, columns, rows, header) {
   if (banding) banding.setRange(table);
   else banding = table.applyRowBanding(SpreadsheetApp.BandingTheme.BLUE, true, false);
   banding.setHeaderRowColor(s.navy).setFirstRowColor(s.white).setSecondRowColor(s.band);
-  var filterRange = tab.getRange(header, 1, tab.getMaxRows() - header + 1, width), filter = tab.getFilter(), criteria = [];
+  var filter = tab.getFilter(), criteria = [];
+  var filterWidth = Math.max(width, tab.getLastColumn(), filter ? filter.getRange().getNumColumns() : 0);
+  var filterRange = tab.getRange(header, 1, tab.getMaxRows() - header + 1, filterWidth);
   if (filter && filter.getRange().getA1Notation() !== filterRange.getA1Notation()) {
     for (var i = 1; i <= filter.getRange().getNumColumns(); i++) criteria[i] = filter.getColumnFilterCriteria(i);
     filter.remove(); filter = null;
   }
   if (!filter) {
     filter = filterRange.createFilter();
-    criteria.forEach(function (criterion, i) { if (criterion && i <= width) filter.setColumnFilterCriteria(i, criterion); });
+    criteria.forEach(function (criterion, i) { if (criterion && i <= filterWidth) filter.setColumnFilterCriteria(i, criterion); });
   }
   columns.forEach(function (c, i) {
     tab.setColumnWidth(i + 1, c.key === 'id' ? 90 : SHEETS_WIDTHS[c.key] || 240);
@@ -671,7 +685,7 @@ function styleRegistrationsSheet(tab, columns, rows, header) {
   });
   tab.hideColumns(1);
   var status = columns.map(function (c) { return c.key; }).indexOf('status');
-  if (status !== -1) {
+  if (status !== -1 && tab.getLastColumn() <= width) {
     var range = tab.getRange(header + 1, status + 1, tab.getMaxRows() - header, 1).setHorizontalAlignment('center').setFontWeight('bold');
     tab.setConditionalFormatRules(Object.keys(s.status).map(function (name) {
       return SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(name).setBackground(s.status[name][0]).setFontColor(s.status[name][1]).setRanges([range]).build();

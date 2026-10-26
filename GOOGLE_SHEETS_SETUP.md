@@ -79,3 +79,11 @@ Use test events and a restricted spreadsheet:
 7. If a refresh needs Continue, change an export setting, save, and continue the old request. Confirm it restarts safely. With no submissions or refresh clicks, there should be no sheet-sync executions.
 
 Automated tests simulate Apps Script, Sheets and database responses. Live permissions, deployment and school credentials still need this setup check. Google's deployment and POST parameter documentation: https://developers.google.com/apps-script/guides/web
+
+## Staff columns beside the export
+
+You can add your own columns to the right of the last exported column, with headers on the same header row. Examples: `Shirt collected` (Insert > Checkbox), `Staff status`, and `Note`. Refresh updates only the HeadStart columns and retains staff values, formulas, notes, validation, and formatting. Use the full table filter when sorting so staff entries stay with the same registration.
+
+When new questions or additional child entries require more exported columns, the script inserts them before the staff columns; Google Sheets moves the staff columns intact. Checkboxes prefilled down the sheet do not cause new registrations to skip empty rows.
+
+Keep custom columns at the right edge, not between managed columns. Do not copy the `headstart:` header notes into custom headers or remove them from system columns. Custom headers may have ordinary notes. Install the latest `GoogleSheets.gs` and deploy a new Apps Script version before using this feature.
