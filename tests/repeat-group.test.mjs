@@ -112,3 +112,10 @@ test('the form shows one child card with an "Add another" button, or a "how many
   assert.match(count, /Enter a number from 0 to 5/);
   assert.doesNotMatch(count, /Sibling 1/);
 });
+
+test('exports separate booth numbers as numbers from vendor labels', () => {
+  const rows = m.buildRows({ form_schema: [] }, [{ reference: 'HS-2', status: 'confirmed',
+    created_at: '2026-10-26T00:00:00Z', booths: { number: '21', label: 'Outside Provider' } }]);
+  assert.equal(rows[1][rows[0].indexOf('Booth')], 21);
+  assert.equal(rows[1][rows[0].indexOf('Type of vendor')], 'Outside Provider');
+});
