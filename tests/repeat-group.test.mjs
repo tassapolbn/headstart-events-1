@@ -122,3 +122,14 @@ test('exports separate booth numbers as numbers from vendor labels', () => {
   assert.equal(rows[1][rows[0].indexOf('Booth')], 21);
   assert.equal(rows[1][rows[0].indexOf('Type of vendor')], 'Outside Provider');
 });
+
+test('downloaded exports size repeating columns from actual answers including empty events', () => {
+  const field = { ...children, maxItems: 10 };
+  const empty = m.buildRows({ form_schema: [field] }, []);
+  assert.ok(empty[0].includes(`${field.label} — Count`));
+  assert.ok(!empty[0].some(label => label.includes('Child 1 —')));
+  const rows = m.buildRows({ form_schema: [field] }, [{ reference: 'A', status: 'confirmed',
+    created_at: '2026-10-26T00:00:00Z', data: { [field.id]: [{ name: 'Ann' }, { name: 'Tom' }] } }]);
+  assert.ok(rows[0].some(label => label.includes('Child 2 —')));
+  assert.ok(!rows[0].some(label => label.includes('Child 3 —')));
+});
