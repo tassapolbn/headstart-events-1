@@ -347,7 +347,7 @@ function sheetsValue(column, event, reg) {
   if (column.key === 'event') return event.name;
   if (column.key === 'booth') {
     var booths = reg.registration_booths && reg.registration_booths.length ? reg.registration_booths.map(function (r) { return r.booths; }) : [reg.booths];
-    return booths.filter(Boolean).map(function (b) { return [b.label, b.number].filter(function (v) { return v !== null && v !== undefined && v !== ''; }).join(' '); }).join(' + ');
+    return booths.filter(Boolean).map(function (b) { return [b.number, b.label].filter(function (v) { return v !== null && v !== undefined && v !== ''; }).join(' '); }).join(' + ');
   }
   if (SHEETS_CONTACT_KEYS.indexOf(column.key) !== -1) {
     var source = column.source;

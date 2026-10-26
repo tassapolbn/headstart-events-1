@@ -13,7 +13,7 @@ export function boothList(reg: Registration): Array<{ label: string; number: str
 
 export function boothText(reg: Registration): string {
   return boothList(reg)
-    .map((b) => `${b.label} ${b.number}`.trim())
+    .map((b) => `${b.number} ${b.label}`.trim())
     .join(' + ');
 }
 
