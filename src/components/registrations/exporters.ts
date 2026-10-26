@@ -5,13 +5,22 @@ import { isStoredFileRef } from '@/lib/storage';
 import { download } from '@/lib/utils';
 import { boothExportNumber, boothVendorText } from '@/lib/regBooths';
 import { gridRows, isGridField } from '@/lib/grid';
-import { formatRepeatValue } from '@/lib/repeatGroup';
+import { repeatMax, itemLabelOf, repeatEntries } from '@/lib/repeatGroup';
 import type { FormField } from '@/lib/types';
 
 /** One export column per question, or per row for grid and ranking questions. */
-function exportColumns(fields: FormField[]): Array<{ header: string; get: (data: Record<string, unknown>) => string }> {
+function exportColumns(fields: FormField[], regs: Registration[]): Array<{ header: string; get: (data: Record<string, unknown>) => string }> {
   return fields.flatMap((f) => {
-    if (f.type === 'repeat_group') return [{ header: f.label, get: (d: Record<string, unknown>) => formatRepeatValue(f, d?.[f.id]) }];
+    if (f.type === 'repeat_group') return [
+      { header: `${f.label} — Count`, get: (d: Record<string, unknown>) => {
+        const entries = repeatEntries(d[f.id]);
+        return entries ? String(entries.length) : '';
+      } },
+      ...Array.from({ length: Math.max(repeatMax(f), ...regs.map(r => repeatEntries(r.data?.[f.id])?.length ?? 0)) }, (_, i) => (f.subFields ?? []).map((sub) => ({
+        header: `${f.label} — ${itemLabelOf(f)} ${i + 1} — ${sub.label}`,
+        get: (d: Record<string, unknown>) => cellValue(repeatEntries(d[f.id])?.[i]?.[sub.id]),
+      }))).flat(),
+    ];
     if (!isGridField(f)) return [{ header: f.label, get: (d: Record<string, unknown>) => cellValue(d?.[f.id]) }];
     return gridRows(f).map((row) => ({
       header: `${f.label} [${row}]`,
@@ -38,7 +47,7 @@ function cellValue(v: unknown): string {
 }
 
 export function buildRows(event: EventRecord, regs: Registration[]): Array<Array<string | number>> {
-  const questionFields = exportColumns(event.form_schema.filter((f) => !isContentField(f)));
+  const questionFields = exportColumns(event.form_schema.filter((f) => !isContentField(f)), regs);
   const header = [
     'Reference', 'Status', 'Name', 'Email', 'Phone', 'Booth', 'Type of vendor', 'Checked in', 'Submitted',
     ...questionFields.map((c) => c.header),
