@@ -1031,3 +1031,38 @@ test('refresh splits legacy repeating cells and grid rows while preserving the a
   assert.equal(cell(tab, 'live', 'answer:kids'), old);
   assert.equal(dataRows(tab).length, 1);
 });
+
+test('repeat columns grow from actual answers across registrations, never the form limit', () => {
+  const h = harness(), e = event('used');
+  e.form_schema = [{ id: 'kids', type: 'repeat_group', label: 'Children', maxItems: 10,
+    subFields: [{ id: 'age', label: 'Age', type: 'number' }] }];
+  h.ctx.writeEventRows(e, [], false);
+  const tab = tabFor(h, e), key = i => 'detail:' + JSON.stringify(['kids', 'entry', i, 'age']);
+  assert.equal(column(tab, key(0)), -1);
+  h.send(e, registration(e.id, 'one', { kids: [{ age: '7' }] }));
+  assert.equal(cell(tab, 'one', key(0)), 7); assert.equal(column(tab, key(1)), -1);
+  h.send(e, registration(e.id, 'three', { kids: [{ age: '4' }, { age: '5' }, { age: '6' }] }));
+  h.send(e, registration(e.id, 'two', { kids: [{ age: '8' }, { age: '9' }] }));
+  assert.equal(cell(tab, 'three', key(2)), 6); assert.equal(column(tab, key(3)), -1);
+  assert.ok(!tab.hidden.includes(column(tab, key(2)) + 1));
+});
+
+test('refresh hides unused preallocated columns and reveals them again without shifting data', () => {
+  const h = harness(), e = event('old');
+  const f = { id: 'kids', type: 'repeat_group', label: 'Children', maxItems: 10,
+    subFields: [{ id: 'age', label: 'Age', type: 'number' }] };
+  e.form_schema = [f];
+  h.ctx.sheetsResolve({ ...e, form_schema: [{ ...f, exportEntries: 10 }] });
+  const tab = tabFor(h, e), key = i => 'detail:' + JSON.stringify(['kids', 'entry', i, 'age']);
+  const tenth = column(tab, key(9));
+  // Sheets returns actual blank rows; the sparse in-memory fixture needs them materialized.
+  for (let i = 0; i < 3; i++) tab.values[i] = [];
+  const r = registration(e.id, 'a', { kids: [{ age: '7' }, { age: '8' }] });
+  h.ctx.writeEventRows(e, [r], true);
+  for (let i = 0; i < 10; i++) assert.equal(tab.hidden.includes(column(tab, key(i)) + 1), i >= 2);
+  r.data.kids.push({ age: '0' }); h.ctx.writeEventRows(e, [r], true);
+  assert.equal(cell(tab, 'a', key(2)), 0); assert.ok(!tab.hidden.includes(column(tab, key(2)) + 1));
+  assert.equal(column(tab, key(9)), tenth);
+  r.data.kids = []; h.ctx.writeEventRows(e, [r], true);
+  for (let i = 0; i < 10; i++) assert.ok(tab.hidden.includes(column(tab, key(i)) + 1));
+});
