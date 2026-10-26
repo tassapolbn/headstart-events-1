@@ -5,7 +5,7 @@ import { isStoredFileRef } from '@/lib/storage';
 import { download } from '@/lib/utils';
 import { boothExportNumber, boothVendorText } from '@/lib/regBooths';
 import { gridRows, isGridField } from '@/lib/grid';
-import { repeatMax, itemLabelOf, repeatEntries } from '@/lib/repeatGroup';
+import { itemLabelOf, repeatEntries } from '@/lib/repeatGroup';
 import type { FormField } from '@/lib/types';
 
 /** One export column per question, or per row for grid and ranking questions. */
@@ -16,7 +16,7 @@ function exportColumns(fields: FormField[], regs: Registration[]): Array<{ heade
         const entries = repeatEntries(d[f.id]);
         return entries ? String(entries.length) : '';
       } },
-      ...Array.from({ length: Math.max(repeatMax(f), ...regs.map(r => repeatEntries(r.data?.[f.id])?.length ?? 0)) }, (_, i) => (f.subFields ?? []).map((sub) => ({
+      ...Array.from({ length: Math.max(0, ...regs.map(r => repeatEntries(r.data?.[f.id])?.length ?? 0)) }, (_, i) => (f.subFields ?? []).map((sub) => ({
         header: `${f.label} — ${itemLabelOf(f)} ${i + 1} — ${sub.label}`,
         get: (d: Record<string, unknown>) => cellValue(repeatEntries(d[f.id])?.[i]?.[sub.id]),
       }))).flat(),
