@@ -1066,3 +1066,22 @@ test('refresh hides unused preallocated columns and reveals them again without s
   r.data.kids = []; h.ctx.writeEventRows(e, [r], true);
   for (let i = 0; i < 10; i++) assert.ok(tab.hidden.includes(column(tab, key(i)) + 1));
 });
+
+test('header diagnostics identify the exact tab, cell and duplicate source without writes', () => {
+  for (const issue of ['missing', 'json', 'duplicate']) {
+    const h = harness(), e = event('diag'); h.send(e, registration(e.id, 'r1'));
+    const tab = tabFor(h, e);
+    tab.notes[3][4] = issue === 'missing' ? '' : issue === 'json' ? 'headstart:{broken' : tab.notes[3][3];
+    const before = plain([tab.values, tab.notes]);
+    assert.throws(() => h.ctx.sheetsDiscover(tab), error => {
+      assert.ok(error.message.includes('tab "' + tab.name + '"'));
+      assert.ok(error.message.includes('gid=' + tab.id));
+      assert.ok(error.message.includes('cell E4'));
+      assert.ok(error.message.includes(issue === 'duplicate' ? 'also found at D4' : issue === 'json' ? 'invalid JSON' : 'missing note'));
+      return true;
+    });
+    assert.deepEqual(plain([tab.values, tab.notes]), before);
+    const html = h.ctx.sheetRefreshPage({});
+    assert.ok(html.includes('Sheets version: 2026-10-26-header-diagnostics'));
+  }
+});
