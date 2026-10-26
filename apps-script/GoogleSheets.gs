@@ -1,7 +1,7 @@
 // Event tabs are updated only by registrations and explicit admin refreshes.
 var SHEETS_OWNER_KEY = 'headstart_event';
 var SHEETS_BATCH_SIZE = 100;
-var SHEETS_FORMAT_VERSION = '2026-10-25-sheets-r3';
+var SHEETS_FORMAT_VERSION = '2026-10-26-booth-columns';
 
 function sheetsDestination(value) {
   var match = String(value || '').trim().match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([A-Za-z0-9_-]+)(?:\/[^?#\s]*)?(?:[?#]\S*)?$/);
@@ -102,7 +102,8 @@ function sheetsPlan(event) {
     { key: 'id', label: 'Registration ID' }, { key: 'reference', label: 'Reference' },
     { key: 'created_at', label: 'Submitted (UTC)' }, { key: 'name', label: 'Name' },
     { key: 'email', label: 'Email' }, { key: 'phone', label: 'Phone' },
-    { key: 'booth', label: 'Booth' }, { key: 'status', label: 'Status' }
+    { key: 'booth', label: 'Booth', kind: 'number' },
+    { key: 'vendor_type', label: 'Type of vendor' }, { key: 'status', label: 'Status' }
   ];
   var merged = Object.create(null);
   SHEETS_CONTACT_KEYS.forEach(function (key) { if (sources[key]) merged['answer:' + sources[key].id] = key; });
@@ -345,9 +346,12 @@ function sheetsCell(value, numeric) {
 
 function sheetsValue(column, event, reg) {
   if (column.key === 'event') return event.name;
-  if (column.key === 'booth') {
+  if (column.key === 'booth' || column.key === 'vendor_type') {
     var booths = reg.registration_booths && reg.registration_booths.length ? reg.registration_booths.map(function (r) { return r.booths; }) : [reg.booths];
-    return booths.filter(Boolean).map(function (b) { return [b.number, b.label].filter(function (v) { return v !== null && v !== undefined && v !== ''; }).join(' '); }).join(' + ');
+    var values = booths.filter(Boolean).map(function (b) { return column.key === 'booth' ? b.number : b.label; })
+      .filter(function (v) { return v !== null && v !== undefined && v !== ''; });
+    if (column.key === 'vendor_type') values = values.filter(function (v, i) { return values.indexOf(v) === i; });
+    return values.join(' + ');
   }
   if (SHEETS_CONTACT_KEYS.indexOf(column.key) !== -1) {
     var source = column.source;

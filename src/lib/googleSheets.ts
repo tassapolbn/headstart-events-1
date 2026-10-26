@@ -34,6 +34,7 @@ export const SHEET_BUILTIN_COLUMNS: ReadonlyArray<{ key: string; label: string }
   { key: 'email', label: DEFAULT_CONTACT_LABELS.email },
   { key: 'phone', label: DEFAULT_CONTACT_LABELS.phone },
   { key: 'booth', label: 'Booth' },
+  { key: 'vendor_type', label: 'Type of vendor' },
   { key: 'status', label: 'Status' },
 ];
 

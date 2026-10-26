@@ -222,7 +222,7 @@ test('manual refresh fills missed registrations and updates answers and status f
   const result = h.refresh(e);
   assert.equal(result.added, 1); assert.equal(result.updated, 1); assert.equal(result.complete, true);
   const sheet = h.book('sheet-' + e.id).sheet;
-  assert.equal(sheet.values[4][7], 'approved'); assert.equal(sheet.values[4][8], 'After'); assert.equal(sheet.values.length, 6);
+  assert.equal(cell(sheet, regs[0].id, 'status'), 'approved'); assert.equal(cell(sheet, regs[0].id, 'answer:q1'), 'After'); assert.equal(sheet.values.length, 6);
   assert.ok(h.queries.every(q => q.includes(e.id))); assert.equal(h.book('sheet-' + other.id).sheet, null);
   assert.equal(h.refresh(e).added, 0);
 });
@@ -254,7 +254,7 @@ test('question reorder, rename, type changes and removal preserve column identit
   h.send(e, registration('a', 'a2', { q1: 'Second', q2: ['A', 'B'] }));
   const sheet = h.book('sheet-a').sheet; assert.deepEqual(sheet.values[5].slice(-2), ['Second', 'A, B']);
   e.form_schema = []; h.send(e, registration('a', 'a3', { q1: 'Stored old answer' }));
-  assert.equal(sheet.values[6][8], 'Stored old answer');
+  assert.equal(cell(sheet, 'a3', 'answer:q1'), 'Stored old answer');
   sheet.notes[3][0] = ''; assert.throws(() => h.send(e, registration('a', 'a4')), /notes/);
 });
 test('formula-like answers are literal, private uploads stay private, and sheet capacity grows', () => {
@@ -264,9 +264,9 @@ test('formula-like answers are literal, private uploads stay private, and sheet 
   const h = harness(); h.send(e, registration('a', 'a1', { q1: '=IMPORTXML("bad")',
     file: { bucket: 'private', path: 'secret/path', name: 'menu.pdf' }, sig: 'data:image/png;base64,secret' }));
   const sheet = h.book('sheet-a').sheet;
-  assert.equal(sheet.formulas[3][8], ''); assert.equal(sheet.formulas[4][8], ''); assert.equal(sheet.values[4][8], '=IMPORTXML("bad")');
-  assert.equal(sheet.values[4][9], 'menu.pdf'); assert.equal(sheet.values[4][10], 'Signature captured (view in app)');
-  assert.equal(sheet.columns, 36);
+  assert.equal(sheet.formulas[3][column(sheet, 'answer:q1')], ''); assert.equal(sheet.formulas[4][column(sheet, 'answer:q1')], ''); assert.equal(cell(sheet, 'a1', 'answer:q1'), '=IMPORTXML("bad")');
+  assert.equal(cell(sheet, 'a1', 'answer:file'), 'menu.pdf'); assert.equal(cell(sheet, 'a1', 'answer:sig'), 'Signature captured (view in app)');
+  assert.equal(sheet.columns, 37);
   for (const value of ['+123', '-1', '@SUM(A1)', ' \n=HYPERLINK("bad")']) assert.ok(h.ctx.sheetsText(value).startsWith("'"));
   assert.match(h.ctx.sheetsText('x'.repeat(50001)), /truncated; view full answer in app/);
 });
@@ -298,7 +298,7 @@ class StyledSheet extends Sheet {}
 test('the export sheet carries HeadStart branding and grows its formatting with new rows', () => {
   const h = harness(), e = event('a'); const sheet = h.book('sheet-a').sheet = new StyledSheet();
   h.send(e, registration('a', 'a1', { q1: 'Apple' }));
-  const header = '4,1,1,9';
+  const header = '4,1,1,10';
   assert.ok(sheet.calls.some(c => c[0] === 'setBackground' && c[1] === header && c[2] === '#1a3c5e'));
   assert.ok(sheet.calls.some(c => c[0] === 'setFontColor' && c[1] === header && c[2] === '#ffffff'));
   assert.ok(sheet.calls.some(c => c[0] === 'setBorder' && c[1] === header && c.includes('#f0b323')));
@@ -306,15 +306,15 @@ test('the export sheet carries HeadStart branding and grows its formatting with 
   assert.deepEqual(sheet.hidden.slice(0, 1), [1]);
   assert.equal(sheet.bandings.length, 1);
   assert.equal(sheet.bandings[0].second, '#eef3f8');
-  assert.equal(sheet.filter.range, '4,1,997,9');
+  assert.equal(sheet.filter.range, '4,1,997,10');
   assert.deepEqual(plain(sheet.rules.map(r => r.text)), ['confirmed', 'pending', 'waitlist', 'rejected', 'cancelled']);
   // Status formatting covers every available data row.
-  assert.equal(sheet.rules[0].ranges[0].getA1Notation(), '5,8,996,1');
+  assert.equal(sheet.rules[0].ranges[0].getA1Notation(), '5,9,996,1');
 
   h.send(e, registration('a', 'a2'));
   assert.equal(sheet.bandings.length, 1, 'the banding is extended, not stacked');
-  assert.equal(sheet.bandings[0].range, '4,1,3,9');
-  assert.equal(sheet.filter.range, '4,1,997,9');
+  assert.equal(sheet.bandings[0].range, '4,1,3,10');
+  assert.equal(sheet.filter.range, '4,1,997,10');
   assert.equal(sheet.values.length, 6);
 });
 
@@ -439,7 +439,7 @@ test('numeric transition and exclusion operate on every archived row and never r
 
 test('last-column fallback preserves Reference, summary avoids totals and respects staff-hidden columns', () => {
   const h = harness(), e = event('a'); e.form_schema = [{ id: 'n', type: 'number', label: 'Count' }]; e.settings.googleSheetTotals = ['n'];
-  e.settings.googleSheetExclude = ['reference', 'created_at', 'name', 'email', 'phone', 'booth', 'status'];
+  e.settings.googleSheetExclude = ['reference', 'created_at', 'name', 'email', 'phone', 'booth', 'vendor_type', 'status'];
   h.send(e, registration('a', 'a1', { n: '3' })); const tab = tabFor(h, e), n = column(tab, 'answer:n');
   assert.equal(tab.values[0][n], e.name); assert.equal(tab.formulas[2].filter(Boolean).length, 1); assert.match(tab.formulas[2][n], /^=SUBTOTAL/);
   e.settings.googleSheetExclude.push('id', 'answer:n'); h.ctx.writeEventRows(e, [], false);
@@ -468,7 +468,7 @@ test('filter criteria survive width/capacity changes while the filter stays stab
   assert.notEqual(tab.filter, first); assert.equal(tab.filter.getColumnFilterCriteria(8), criteria);
   tab.rows = tab.getLastRow() + 1; h.send(e, registration('a', 'a4'));
   assert.ok(tab.rows >= tab.getLastRow() + 1); assert.equal(tab.filter.getColumnFilterCriteria(8), criteria);
-  assert.equal(tab.filter.range, `4,1,${tab.rows - 3},10`); assert.equal(tab.bandings.length, 1);
+  assert.equal(tab.filter.range, `4,1,${tab.rows - 3},11`); assert.equal(tab.bandings.length, 1);
 });
 
 test('menu quantities, grids in field order with unknown rows, booleans and booth text', () => {
@@ -481,7 +481,7 @@ test('menu quantities, grids in field order with unknown rows, booleans and boot
   assert.equal(answer('grid', { Second: 'B', Other: 'C', First: 'A' }), 'First: A; Second: B; Other: C');
   assert.equal(answer('checks', { First: ['A', 'B'], Other: ['C'] }), 'First: A, B; Other: C');
   assert.equal(answer('bool', true), 'Yes'); assert.equal(answer('bool', false), 'No');
-  assert.equal(h.ctx.sheetsValue({ key: 'booth' }, e, { registration_booths: [{ booths: { label: 'A', number: 1 } }, { booths: { label: 'B', number: 2 } }] }), '1 A + 2 B');
+  assert.equal(h.ctx.sheetsValue({ key: 'booth' }, e, { registration_booths: [{ booths: { label: 'A', number: 1 } }, { booths: { label: 'B', number: 2 } }] }), '1 + 2');
 });
 
 test('fingerprints use deterministic nested key order and cover every formatting input', () => {
@@ -604,7 +604,7 @@ test('duplicate header discovery fails, and headers moved below row 4 drive all 
   tab.notes[7] = tab.notes[3].slice(); assert.throws(() => h.send(e, registration('a', 'a2')), /Multiple managed/);
   tab.notes[7] = []; tab.insertRowsBefore(4, 3); h.send(e, registration('a', 'a2'));
   assert.equal(header(tab), 6); assert.equal(tab.frozen, 7); assert.equal(tab.values[8][0], 'a2');
-  assert.match(tab.formulas[5][1], /A8:A/); assert.equal(tab.filter.range, `7,1,${tab.rows - 6},9`);
+  assert.match(tab.formulas[5][1], /A8:A/); assert.equal(tab.filter.range, `7,1,${tab.rows - 6},10`);
 });
 
 test('notes-first header write and failure after old-row insertion both recover', () => {
@@ -732,7 +732,7 @@ test('header flags are saved in one changed-notes batch and unchanged writes ski
   const tab = legacy(h, e, [{ ...registration('a', 'archived', { mail: 'answer@example.com', n: '3' }), email: 'base@example.com' }]);
   h.ctx.writeEventRows(e, [], false);
   const writes = tab.calls.filter(c => c[0] === 'notes');
-  assert.equal(writes.length, 1); assert.equal(writes[0][4], tab.getLastColumn());
+  assert.equal(writes.length, 2); assert.equal(writes.at(-1)[4], tab.getLastColumn());
   tab.calls = []; h.send(e, registration('a', 'next'));
   assert.equal(tab.calls.filter(c => c[0] === 'notes').length, 0);
   e.form_schema[1].label = 'Tickets'; tab.calls = []; h.ctx.writeEventRows(e, [], false);
@@ -762,7 +762,7 @@ test('heading visibility probes stop after finding the title and non-total summa
   assert.deepEqual(tab.calls.filter(c => c[0] === 'isColumnHiddenByUser'), [['isColumnHiddenByUser', 2], ['isColumnHiddenByUser', 3]]);
   assert.equal(tab.formats[2][2], '#,##0');
   e.form_schema = [{ id: 'n', type: 'number', label: 'Count' }, { id: 'text', type: 'paragraph', label: 'Notes' }];
-  e.settings.googleSheetExclude = oldColumns.filter(k => !['id', 'event'].includes(k)).concat('answer:q1');
+  e.settings.googleSheetExclude = oldColumns.filter(k => !['id', 'event'].includes(k)).concat('vendor_type', 'answer:q1');
   e.settings.googleSheetTotals = ['n']; tab.calls = []; h.ctx.writeEventRows(e, [], false);
   assert.deepEqual(tab.calls.filter(c => c[0] === 'isColumnHiddenByUser').map(c => c[1]), [column(tab, 'answer:n') + 1, column(tab, 'answer:text') + 1]);
   assert.equal(tab.values[0][column(tab, 'answer:n')], e.name);
@@ -784,7 +784,7 @@ test('refresh decorates once per request, including partial and empty batches; r
 test('refresh-needed notes exclude unmerges and excluded appends but include sent appends and reinclusions', () => {
   const h = harness(), e = event('a'); e.form_schema = [{ id: 'c', type: 'paragraph', label: 'Contact', mapTo: 'email' }];
   const tab = legacy(h, e, [registration('a', 'archived', { c: 'answer@example.com' })]);
-  h.ctx.writeEventRows(e, [], false); delete e.form_schema[0].mapTo; h.ctx.writeEventRows(e, [], false);
+  h.ctx.writeEventRows(e, [], false); h.ctx.sheetsMetaSet(tab, 'headstart_refresh_needed', null); delete e.form_schema[0].mapTo; h.ctx.writeEventRows(e, [], false);
   assert.equal(metadata(tab, 'headstart_refresh_needed'), undefined); assert.equal(cell(tab, 'archived', 'answer:c'), 'answer@example.com');
   e.form_schema.push({ id: 'private', type: 'paragraph', label: 'Private' });
   e.settings.googleSheetExclude = ['answer:private']; h.ctx.writeEventRows(e, [], false);
@@ -911,7 +911,7 @@ test('legacy notes with missing labels and old type properties upgrade without b
   h.send(e, registration('a', 'next')); assert.equal(cell(tab, 'live', 'answer:new'), 'New answer');
   const fresh = event('fresh'); fresh.form_schema = [{ id: 'blank', type: 'paragraph' }];
   h.send(fresh, registration('fresh', 'f1')); h.send(fresh, registration('fresh', 'f2'));
-  assert.equal(tabFor(h, fresh).values[3][8], '');
+  assert.equal(tabFor(h, fresh).values[3][column(tabFor(h, fresh), 'answer:blank')], '');
 });
 
 test('missing-label compatibility still rejects malformed keys, explicit labels and flags without mutation', () => {
@@ -975,4 +975,30 @@ test('tab ownership uses one finder on existing claims and recovery skips unrela
   const recovered = freshBook.insertSheet(other.name);
   assert.equal(h.ctx.sheetsEventTab(freshBook, other), recovered);
   assert.equal(freshBook.finderCalls.length, 2);
+});
+
+test('booth export separates numeric numbers and vendor labels on refresh', () => {
+  const h = harness(), e = event('a');
+  const r = { ...registration('a', 'a1'), booths: { number: '21', label: 'Outside Provider' } };
+  h.send(e, r);
+  const tab = tabFor(h, e);
+  assert.equal(cell(tab, 'a1', 'booth'), 21);
+  assert.equal(cell(tab, 'a1', 'vendor_type'), 'Outside Provider');
+  r.registration_booths = [{ booths: { number: '2', label: 'Outside Provider' } }, { booths: { number: '10', label: 'Outside Provider' } }];
+  h.ctx.writeEventRows(e, [r], true);
+  assert.equal(cell(tab, 'a1', 'booth'), '2 + 10');
+  assert.equal(cell(tab, 'a1', 'vendor_type'), 'Outside Provider');
+  assert.equal(h.ctx.sheetsValue({ key: 'booth' }, e, {}), '');
+  assert.equal(h.ctx.sheetsValue({ key: 'vendor_type' }, e, {}), '');
+});
+
+test('refresh upgrades combined booth cells without duplicating registrations', () => {
+  const h = harness(), e = event('a');
+  const r = { ...registration('a', 'live'), booths: { number: '21', label: 'Outside Provider' } };
+  const tab = legacy(h, e, [r]);
+  tab.values[1][oldColumns.indexOf('booth')] = '21 Outside Provider';
+  h.ctx.writeEventRows(e, [r], true);
+  assert.equal(cell(tab, 'live', 'booth'), 21);
+  assert.equal(cell(tab, 'live', 'vendor_type'), 'Outside Provider');
+  assert.equal(dataRows(tab).length, 1);
 });

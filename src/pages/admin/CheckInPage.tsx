@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import type { Registration } from '@/lib/types';
 import { useEvent } from '@/hooks/useEvent';
 import { formatDateTime, download, cn } from '@/lib/utils';
-import { boothText } from '@/lib/regBooths';
+import { boothText, boothExportNumber, boothVendorText } from '@/lib/regBooths';
 import { useToast } from '@/context/ToastContext';
 import { Badge, Button, Card, EmptyState, PageLoader, StatCard } from '@/components/ui/basics';
 import { Input } from '@/components/ui/inputs';
@@ -140,9 +140,9 @@ export default function CheckInPage() {
 
   function exportAttendance() {
     const rows = [
-      ['Reference', 'Name', 'Email', 'Booth', 'Status', 'Checked in at', 'Late'],
+      ['Reference', 'Name', 'Email', 'Booth', 'Type of vendor', 'Status', 'Checked in at', 'Late'],
       ...regs.map((r) => [
-        r.reference, r.name ?? '', r.email ?? '', boothText(r),
+        r.reference, r.name ?? '', r.email ?? '', boothExportNumber(r), boothVendorText(r),
         r.checked_in_at ? 'Present' : 'Not arrived',
         r.checked_in_at ? new Date(r.checked_in_at).toLocaleString() : '',
         isLate(r) ? 'Late' : '',

@@ -21,3 +21,14 @@ export function boothNumbersText(reg: Registration): string {
   const list = boothList(reg);
   return list.map((b) => b.number || b.label).join(', ');
 }
+
+/** Export numbers separately so a single numeric booth sorts as a number. */
+export function boothExportNumber(reg: Registration): string | number {
+  const numbers = boothList(reg).map((b) => b.number).filter((n) => n !== '' && n != null);
+  if (numbers.length === 1 && /^\d+$/.test(String(numbers[0]))) return Number(numbers[0]);
+  return numbers.join(' + ');
+}
+
+export function boothVendorText(reg: Registration): string {
+  return [...new Set(boothList(reg).map((b) => b.label).filter(Boolean))].join(' + ');
+}
