@@ -334,9 +334,21 @@ test('repeating details export as one readable line per child', () => {
       subFields: [{ id: 'a', label: 'Age' }] },
   ] };
   h.send(e, registration('kids', 'k1', { kids: [{ n: 'Ann', y: 'Year 2' }, { n: 'Tom' }], sibs: [] }));
-  const row = h.book('sheet-kids').sheet.values[4];
-  assert.equal(row.at(-2), 'Child 1: Full name: Ann; Year: Year 2\nChild 2: Full name: Tom');
-  assert.equal(row.at(-1), '0');
+  const tab = h.book('sheet-kids').sheet;
+  const key = (...parts) => 'detail:' + JSON.stringify(parts);
+  assert.equal(cell(tab, 'k1', key('kids', 'entry', 0, 'n')), 'Ann');
+  assert.equal(cell(tab, 'k1', key('kids', 'entry', 1, 'n')), 'Tom');
+  assert.equal(cell(tab, 'k1', key('kids', 'entry', 1, 'y')), '');
+  assert.equal(cell(tab, 'k1', key('sibs', 'count')), 0);
+  assert.ok(tab.hidden.includes(column(tab, 'answer:kids') + 1));
+  const oldIndex = column(tab, key('kids', 'entry', 0, 'n'));
+  e.form_schema[0].subFields.reverse(); e.form_schema[0].label = 'Renamed';
+  h.ctx.writeEventRows(e, [registration('kids', 'k1', { kids: [{ n: 'Updated' }] })], true);
+  assert.equal(column(tab, key('kids', 'entry', 0, 'n')), oldIndex);
+  assert.equal(cell(tab, 'k1', key('kids', 'entry', 0, 'n')), 'Updated');
+  e.settings.googleSheetExclude = ['answer:kids']; h.ctx.writeEventRows(e, [], false);
+  assert.equal(cell(tab, 'k1', key('kids', 'entry', 0, 'n')), '');
+  assert.ok(tab.hidden.includes(oldIndex + 1));
 });
 
 const metadata = (s, key) => s.metadata.find(m => m.getKey() === key)?.getValue();
@@ -1000,5 +1012,22 @@ test('refresh upgrades combined booth cells without duplicating registrations', 
   h.ctx.writeEventRows(e, [r], true);
   assert.equal(cell(tab, 'live', 'booth'), 21);
   assert.equal(cell(tab, 'live', 'vendor_type'), 'Outside Provider');
+  assert.equal(dataRows(tab).length, 1);
+});
+
+test('refresh splits legacy repeating cells and grid rows while preserving the archived source', () => {
+  const h = harness(), e = event('split');
+  e.form_schema = [{ id: 'kids', label: 'Children', type: 'repeat_group', maxItems: 1,
+    subFields: [{ id: 'age', label: 'Age', type: 'number' }] },
+    { id: 'grid', label: 'Choices', type: 'checkbox_grid', rows: ['Monday', 'Tuesday'] }];
+  const r = registration(e.id, 'live', { kids: [{ age: '7' }, { age: '9' }], grid: { Monday: ['A', 'B'] } });
+  const tab = legacy(h, e, [r]);
+  const old = h.ctx.sheetsRepeatText(e.form_schema[0], r.data.kids);
+  tab.values[1][column(tab, 'answer:kids')] = old;
+  h.ctx.writeEventRows(e, [r], true);
+  assert.equal(cell(tab, 'live', 'detail:["kids","entry",1,"age"]'), 9);
+  assert.equal(cell(tab, 'live', 'detail:["grid","row","Monday"]'), 'A, B');
+  assert.equal(cell(tab, 'live', 'detail:["grid","row","Tuesday"]'), '');
+  assert.equal(cell(tab, 'live', 'answer:kids'), old);
   assert.equal(dataRows(tab).length, 1);
 });
