@@ -111,7 +111,7 @@ export default function RegistrationsPage() {
     for (const r of regs) {
       for (const b of boothList(r)) {
         const key = (b.number || b.label).trim();
-        if (key) seen.set(key, `${b.label} ${b.number}`.trim());
+        if (key) seen.set(key, `${b.number} ${b.label}`.trim());
       }
     }
     return [...seen.keys()].sort((a, b) => {
