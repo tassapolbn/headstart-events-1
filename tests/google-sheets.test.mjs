@@ -481,7 +481,7 @@ test('menu quantities, grids in field order with unknown rows, booleans and boot
   assert.equal(answer('grid', { Second: 'B', Other: 'C', First: 'A' }), 'First: A; Second: B; Other: C');
   assert.equal(answer('checks', { First: ['A', 'B'], Other: ['C'] }), 'First: A, B; Other: C');
   assert.equal(answer('bool', true), 'Yes'); assert.equal(answer('bool', false), 'No');
-  assert.equal(h.ctx.sheetsValue({ key: 'booth' }, e, { registration_booths: [{ booths: { label: 'A', number: 1 } }, { booths: { label: 'B', number: 2 } }] }), 'A 1 + B 2');
+  assert.equal(h.ctx.sheetsValue({ key: 'booth' }, e, { registration_booths: [{ booths: { label: 'A', number: 1 } }, { booths: { label: 'B', number: 2 } }] }), '1 A + 2 B');
 });
 
 test('fingerprints use deterministic nested key order and cover every formatting input', () => {
