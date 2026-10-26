@@ -1,7 +1,7 @@
 // Event tabs are updated only by registrations and explicit admin refreshes.
 var SHEETS_OWNER_KEY = 'headstart_event';
 var SHEETS_BATCH_SIZE = 100;
-var SHEETS_FORMAT_VERSION = '2026-10-26-used-details';
+var SHEETS_FORMAT_VERSION = '2026-10-26-header-diagnostics';
 
 function sheetsDestination(value) {
   var match = String(value || '').trim().match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([A-Za-z0-9_-]+)(?:\/[^?#\s]*)?(?:[?#]\S*)?$/);
@@ -252,13 +252,20 @@ function sheetsDiscover(tab) {
   notes.forEach(function (n, i) { if (n) width = Math.max(width, i + 1); });
   var keys = Object.create(null);
   var columns = notes.slice(0, width).map(function (note, i) {
-    var c;
-    try { if (note.indexOf('headstart:') === 0) c = JSON.parse(note.slice(10)); } catch (err) { c = null; }
-    if (!c || typeof c.key !== 'string' || !c.key || (c.label !== undefined && typeof c.label !== 'string') || keys[c.key] || (i === 0 && c.key !== 'id') ||
-      (c.flags !== undefined && (!c.flags || typeof c.flags !== 'object' || Array.isArray(c.flags)))) {
-      throw new Error('Managed column notes are invalid or duplicated. Restore the header notes.');
+    var c, problem;
+    if (!note) problem = 'missing note';
+    else if (note.indexOf('headstart:') !== 0) problem = 'note does not have the HeadStart prefix';
+    else { try { c = JSON.parse(note.slice(10)); } catch (err) { problem = 'note contains invalid JSON'; } }
+    if (!problem) {
+      if (!c || typeof c !== 'object' || Array.isArray(c) || typeof c.key !== 'string' || !c.key) problem = 'invalid column identifier';
+      else if (c.label !== undefined && typeof c.label !== 'string') problem = 'invalid column label';
+      else if (keys[c.key]) problem = 'duplicate identifier also found at ' + keys[c.key];
+      else if (i === 0 && c.key !== 'id') problem = 'first column is not Registration ID';
+      else if (c.flags !== undefined && (!c.flags || typeof c.flags !== 'object' || Array.isArray(c.flags))) problem = 'invalid column flags';
     }
-    keys[c.key] = true;
+    var address = sheetsColumnLetter(i + 1) + row;
+    if (problem) throw new Error('Managed column notes are invalid or duplicated: tab "' + tab.getName() + '" (gid=' + tab.getSheetId() + '), cell ' + address + ': ' + problem + '. Refresh stopped to protect existing data.');
+    keys[c.key] = address;
     return { key: c.key, label: c.label || '', flags: c.flags || {} };
   });
   return { headerRow: row, columns: columns, notes: notes.slice(0, width) };
@@ -543,6 +550,7 @@ function sheetRefreshPage(payload) {
     }
     body += '<p><a target="_blank" rel="noopener noreferrer" href="https://docs.google.com/spreadsheets/d/' + sheetsDestination(result.url) + '/edit#gid=' + escape(result.gid) + '">Open Google Sheet: ' + escape(result.tabName) + '</a></p>';
   } catch (err) { body = '<h1>Sheet refresh failed</h1><p>' + escape(String(err)) + '</p><p>Return to the app and try again after correcting the problem. Saved registrations are retained.</p>'; }
+  body += '<p style="font-size:12px;color:#64748b">Sheets version: ' + escape(SHEETS_FORMAT_VERSION) + '</p>';
   return HtmlService.createHtmlOutput('<!doctype html><html><head><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font:16px Arial,sans-serif;max-width:640px;margin:48px auto;padding:24px;color:#1a3c5e">' + body + '</body></html>');
 }
 
