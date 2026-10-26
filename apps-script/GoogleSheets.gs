@@ -1,7 +1,7 @@
 // Event tabs are updated only by registrations and explicit admin refreshes.
 var SHEETS_OWNER_KEY = 'headstart_event';
 var SHEETS_BATCH_SIZE = 100;
-var SHEETS_FORMAT_VERSION = '2026-10-26-booth-columns';
+var SHEETS_FORMAT_VERSION = '2026-10-26-detail-columns';
 
 function sheetsDestination(value) {
   var match = String(value || '').trim().match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([A-Za-z0-9_-]+)(?:\/[^?#\s]*)?(?:[?#]\S*)?$/);
@@ -95,6 +95,30 @@ function sheetsTabName(settings, eventName) {
   return clean(settings && settings.googleSheetTab) || clean(eventName) || 'Event';
 }
 
+// Stable keys use field/subfield IDs and entry positions, never editable labels.
+function sheetsDetailColumns(f) {
+  var parent = 'answer:' + f.id;
+  function detail(parts, label, kind) {
+    return { key: 'detail:' + JSON.stringify([f.id].concat(parts)), parent: parent,
+      label: String(f.label || '') + ' — ' + label, kind: kind || 'text', parts: parts, fieldId: f.id };
+  }
+  if (f.type === 'repeat_group') {
+    var fallback = f.countMode === 'number' ? 10 : 6;
+    var max = Math.max(1, Math.min(50, Math.floor(f.maxItems == null ? fallback : f.maxItems) || fallback));
+    var columns = [detail(['count'], 'Count', 'number')];
+    for (var i = 0; i < max; i++) (f.subFields || []).forEach(function (sub) {
+      columns.push(detail(['entry', i, sub.id], (String(f.itemLabel || '').trim() || 'Entry') + ' ' + (i + 1) + ' — ' + sub.label, sub.type === 'number' ? 'number' : 'text'));
+    });
+    return columns;
+  }
+  if (['grid', 'checkbox_grid', 'ranking'].indexOf(f.type) !== -1) {
+    return (f.type === 'ranking' ? f.options || [] : f.rows || []).map(function (row) {
+      return detail(['row', row], row);
+    });
+  }
+  return [];
+}
+
 function sheetsPlan(event) {
   var settings = event.settings || {}, sources = sheetsContactSources(event.form_schema);
   var exclude = settings.googleSheetExclude || [], totals = settings.googleSheetTotals || [];
@@ -107,13 +131,14 @@ function sheetsPlan(event) {
   ];
   var merged = Object.create(null);
   SHEETS_CONTACT_KEYS.forEach(function (key) { if (sources[key]) merged['answer:' + sources[key].id] = key; });
-  columns = columns.concat(sheetsQuestions(event.form_schema).map(function (f) {
+  columns = columns.concat(sheetsQuestions(event.form_schema).flatMap(function (f) {
     var total = sheetsCanTotal(f) && totals.indexOf(f.id) !== -1;
-    return { key: 'answer:' + f.id, label: String(f.label || ''), kind: total ? 'number' : 'text', total: total };
+    var details = sheetsDetailColumns(f);
+    return [{ key: 'answer:' + f.id, label: String(f.label || ''), kind: total ? 'number' : 'text', total: total, legacyDetails: details.length > 0 }].concat(details);
   }));
   columns.forEach(function (c) {
     var contact = sources[c.key] ? c.key : merged[c.key];
-    c.excluded = c.key !== 'id' && (exclude.indexOf(c.key) !== -1 || !!(contact &&
+    c.excluded = c.key !== 'id' && (exclude.indexOf(c.key) !== -1 || (c.parent && exclude.indexOf(c.parent) !== -1) || !!(contact &&
       (exclude.indexOf(contact) !== -1 || exclude.indexOf('answer:' + sources[contact].id) !== -1)));
     if (sources[c.key]) { c.source = sources[c.key]; c.label = sheetsContactLabel(c.key, c.source); }
     c.merged = merged[c.key];
@@ -272,13 +297,13 @@ function sheetsLayout(tab, event, plan) {
     var merged = c.key.indexOf('answer:') === 0 && SHEETS_CONTACT_KEYS.indexOf(c.flags.merged) !== -1 ? c.flags.merged : undefined;
     var contact = merged && plan.all.filter(function (p) { return p.key === merged; })[0];
     c.target = target || { key: c.key, label: c.label, merged: merged,
-      excluded: c.key !== 'id' && (plan.exclude.indexOf(c.key) !== -1 || !!(contact && contact.excluded)) };
+      excluded: c.key !== 'id' && (plan.exclude.indexOf(c.key) !== -1 || (c.key.indexOf('detail:') === 0 && plan.exclude.indexOf('answer:' + JSON.parse(c.key.slice(7))[0]) !== -1) || !!(contact && contact.excluded)) };
     c.label = c.target.label;
   });
   var count = Math.max(0, tab.getLastRow() - header);
   columns.forEach(function (c, i) {
     var target = c.target, flags = c.flags;
-    var hidden = c.key === 'id' || c.key === 'event' || !!target.merged;
+    var hidden = c.key === 'id' || c.key === 'event' || !!target.merged || !!target.legacyDetails;
     var decimals = flags.decimals;
     var data = count ? tab.getRange(header + 1, i + 1, count, 1) : null;
     if (target.excluded) {
@@ -345,6 +370,13 @@ function sheetsCell(value, numeric) {
 }
 
 function sheetsValue(column, event, reg) {
+  if (column.key.indexOf('detail:') === 0) {
+    var path = JSON.parse(column.key.slice(7)), entries = (reg.data || {})[path[0]], value;
+    if (path[1] === 'count') return Array.isArray(entries) ? entries.length : '';
+    if (path[1] === 'entry') value = Array.isArray(entries) && entries[path[2]] ? entries[path[2]][path[3]] : '';
+    if (path[1] === 'row') value = entries && typeof entries === 'object' ? entries[path[2]] : '';
+    return Array.isArray(value) ? value.join(', ') : value == null ? '' : value;
+  }
   if (column.key === 'event') return event.name;
   if (column.key === 'booth' || column.key === 'vendor_type') {
     var booths = reg.registration_booths && reg.registration_booths.length ? reg.registration_booths.map(function (r) { return r.booths; }) : [reg.booths];
@@ -389,6 +421,17 @@ function writeEventRows(event, rows, updateExisting) {
 }
 
 function sheetsWriteRows(destination, event, rows, updateExisting, deferDecoration) {
+  // Older answers can exceed a subsequently reduced form limit.
+  var expanded = false;
+  var schema = (event.form_schema || []).map(function (f) {
+    if (f.type !== 'repeat_group') return f;
+    var max = Math.max.apply(null, [f.maxItems || (f.countMode === 'number' ? 10 : 6)].concat(rows.map(function (r) {
+      var value = (r.data || {})[f.id]; return Array.isArray(value) ? value.length : 0;
+    })));
+    if (max <= (f.maxItems || (f.countMode === 'number' ? 10 : 6))) return f;
+    expanded = true; return Object.assign({}, f, { maxItems: max });
+  });
+  if (expanded) destination.layout = sheetsLayout(destination.tab, event, sheetsPlan(Object.assign({}, event, { form_schema: schema })));
   var tab = destination.tab, layout = destination.layout, columns = layout.columns, header = layout.headerRow;
   var last = Math.max(header, tab.getLastRow()), seen = Object.create(null), pending = Object.create(null), added = [], updates = [];
   if (last > header) tab.getRange(header + 1, 1, last - header, 1).getValues().forEach(function (r, i) { if (r[0]) seen[String(r[0])] = header + i + 1; });
@@ -429,7 +472,7 @@ function sheetsFingerprint(event) {
   var s = event.settings || {};
   var fields = (event.form_schema || []).map(function (f) {
     return [f.id, f.type, f.label, f.mapTo, f.collectNames, sheetsStable(f.options), sheetsStable(f.rows),
-      sheetsStable(f.subFields), f.itemLabel, f.countMode];
+      sheetsStable(f.subFields), f.itemLabel, f.countMode, f.maxItems];
   });
   var serialized = JSON.stringify([SHEETS_FORMAT_VERSION, event.name, event.event_date, event.start_time, event.end_time, event.location,
     s.formType, sheetsTabName(s, event.name), (s.googleSheetTotals || []).slice().sort(), (s.googleSheetExclude || []).slice().sort(), fields]);
