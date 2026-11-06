@@ -124,10 +124,11 @@ export default function PlanPrintPage() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-xl font-bold text-navy-800">Print floor plan</h1>
-          <p className="text-sm text-slate-500">{event.name} - {bookedCount} of {booths.length} booths taken</p>
+          <h1 className="truncate font-display text-xl font-bold text-navy-800 sm:text-2xl">Print floor plan</h1>
+          <p className="truncate text-sm text-slate-500">{event.name}</p>
+          <p className="text-xs text-slate-500">{bookedCount} of {booths.length} booths taken</p>
         </div>
-        <Button icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Print</Button>
+        <Button className="w-full sm:w-auto" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Print</Button>
       </div>
 
       <div className="no-print grid gap-5 lg:grid-cols-[300px_1fr]">

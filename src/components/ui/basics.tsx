@@ -142,7 +142,7 @@ export function StatCard({ label, value, hint, icon, tone = 'navy' }: {
     slate: 'bg-slate-100 text-slate-600',
   };
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-card sm:flex-row sm:items-center sm:gap-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-card min-[400px]:p-4 sm:flex-row sm:items-center sm:gap-4">
       {icon && <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11', tones[tone])}>{icon}</div>}
       <div className="min-w-0">
         <p className="text-xs font-medium text-slate-500 sm:truncate sm:uppercase sm:tracking-wide">{label}</p>

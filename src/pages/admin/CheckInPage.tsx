@@ -160,14 +160,18 @@ export default function CheckInPage() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-xl font-bold text-navy-800">Event check in</h1>
-          <p className="text-sm text-slate-500">{event.name}</p>
+          <h1 className="truncate font-display text-xl font-bold text-navy-800 sm:text-2xl">Event check in</h1>
+          <p className="truncate text-sm text-slate-500">{event.name}</p>
         </div>
-        <Button variant="outline" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Print check sheet</Button>
-        <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={exportAttendance}>Export</Button>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <Button variant="outline" className="flex-1 sm:flex-none" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>
+            <span className="sm:hidden">Print sheet</span><span className="hidden sm:inline">Print check sheet</span>
+          </Button>
+          <Button variant="outline" className="flex-1 sm:flex-none" icon={<Download className="h-4 w-4" />} onClick={exportAttendance}>Export</Button>
+        </div>
       </div>
 
-      <div className="no-print grid grid-cols-3 gap-3">
+      <div className="no-print grid grid-cols-3 gap-2 sm:gap-3">
         <StatCard label="Expected" value={regs.length} tone="navy" />
         <StatCard label="Checked in" value={checkedIn.length} tone="green" />
         <StatCard label="Not arrived" value={regs.length - checkedIn.length} tone="slate" />

@@ -104,10 +104,10 @@ export default function SignsPage() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-xl font-bold text-navy-800">Vendor sign generator</h1>
-          <p className="text-sm text-slate-500">{event.name}</p>
+          <h1 className="truncate font-display text-xl font-bold text-navy-800 sm:text-2xl">Vendor sign generator</h1>
+          <p className="truncate text-sm text-slate-500">{event.name}</p>
         </div>
-        <Button icon={<Printer className="h-4 w-4" />} onClick={() => window.print()} disabled={chosen.length === 0}>
+        <Button className="w-full sm:w-auto" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()} disabled={chosen.length === 0}>
           Print {chosen.length} sign{chosen.length === 1 ? '' : 's'}
         </Button>
       </div>
