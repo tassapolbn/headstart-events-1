@@ -129,13 +129,13 @@ export default function EventEditorPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <Link to="/admin/events" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200" aria-label="Back to events">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
+        <Link to="/admin/events" className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 sm:h-10 sm:w-10" aria-label="Back to events">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate font-display text-xl font-bold text-navy-800">{draft.name}</h1>
+            <h1 className="min-w-0 max-w-full truncate font-display text-xl font-bold text-navy-800 sm:text-2xl">{draft.name}</h1>
             {campusTag && (
               <span className="rounded-full px-2.5 py-0.5 text-xs font-bold text-white" style={{ background: campusTag.accent }}>
                 {campusTag.name}
@@ -146,11 +146,11 @@ export default function EventEditorPage() {
           </div>
           <p className="truncate text-xs text-slate-500">/e/{draft.slug}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 sm:flex sm:w-auto">
           <Select
             value={draft.status}
             onChange={(e) => update({ status: e.target.value as EventRecord['status'] })}
-            className="w-32"
+            className="sm:w-32"
             aria-label="Event status"
           >
             <option value="draft">Draft</option>
@@ -161,9 +161,10 @@ export default function EventEditorPage() {
           </Select>
           <a
             href={publicEventUrl(draft.slug)} target="_blank" rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            title="View saved page"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:min-h-10"
           >
-            <ExternalLink className="h-4 w-4" /> View saved page
+            <ExternalLink className="h-4 w-4" /> <span className="hidden sm:inline">View saved page</span><span className="sm:hidden">View</span>
           </a>
           <Button onClick={() => void save()} loading={saving} disabled={!dirty} icon={<Save className="h-4 w-4" />}>
             Save
@@ -171,25 +172,26 @@ export default function EventEditorPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Link to={`/admin/events/${id}/registrations`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
-          <ClipboardList className="h-3.5 w-3.5" /> {copy.entries}
-        </Link>
-        <Link to={`/admin/events/${id}/analytics`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
-          <BarChart3 className="h-3.5 w-3.5" /> Analytics
-        </Link>
-        {!copy.isSurvey && (<>
-        <Link to={`/admin/events/${id}/checkin`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
-          <QrCode className="h-3.5 w-3.5" /> Check in
-        </Link>
-        <Link to={`/admin/events/${id}/signs`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
-          <Tag className="h-3.5 w-3.5" /> Vendor signs
-        </Link>
-        <Link to={`/admin/events/${id}/plan`} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-100">
-          <Map className="h-3.5 w-3.5" /> Print floor plan
-        </Link>
-        </>)}
-      </div>
+      {/* Shortcuts to the event's other pages: one sideways row on phones */}
+      <nav aria-label="Event pages" className="no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
+          {[
+            { to: 'registrations', icon: ClipboardList, label: copy.entries, show: true },
+            { to: 'analytics', icon: BarChart3, label: 'Analytics', show: true },
+            { to: 'checkin', icon: QrCode, label: 'Check in', show: !copy.isSurvey },
+            { to: 'signs', icon: Tag, label: 'Vendor signs', show: !copy.isSurvey },
+            { to: 'plan', icon: Map, label: 'Print floor plan', show: !copy.isSurvey },
+          ].filter((l) => l.show).map(({ to, icon: Icon, label }) => (
+            <Link
+              key={to}
+              to={`/admin/events/${id}/${to}`}
+              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-navy-100 bg-white px-3.5 text-xs font-medium text-navy-700 transition hover:border-navy-200 hover:bg-navy-50 sm:min-h-8"
+            >
+              <Icon className="h-3.5 w-3.5" /> {label}
+            </Link>
+          ))}
+        </div>
+      </nav>
 
       <Tabs tabs={visibleTabs} active={activeTab} onChange={setTab} />
 
@@ -207,9 +209,8 @@ export default function EventEditorPage() {
       </fieldset>
 
       {dirty && (
-        <div className="no-print sticky bottom-3 z-20 flex justify-center">
-          <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-card">
-            <span className="text-xs text-slate-500">You have unsaved changes</span>
+        <div className="no-print sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 flex justify-center">
+          <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 py-1.5 pl-4 pr-1.5 shadow-lg backdrop-blur">            <span className="text-xs text-slate-500">You have unsaved changes</span>
             <Button size="sm" onClick={() => void save()} loading={saving}>Save now</Button>
           </div>
         </div>

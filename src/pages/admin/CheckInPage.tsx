@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
+import { referenceFromScan } from '@/lib/scanReference';
 import {
   ArrowLeft, BadgeCheck, Camera, CameraOff, Download, Printer, Search, TicketCheck, TicketX, Undo2, X,
 } from 'lucide-react';
@@ -120,9 +121,7 @@ export default function CheckInPage() {
           { facingMode: 'environment' },
           { fps: 8, qrbox: { width: 220, height: 220 } },
           (text) => {
-            const match = text.match(/HS-[A-Z0-9]{6}/i)?.[0]?.toUpperCase()
-              ?? new URLSearchParams(text.split('?')[1] ?? '').get('ref')?.toUpperCase()
-              ?? text.trim().toUpperCase();
+            const match = referenceFromScan(text);
             const now = Date.now();
             if (match && (match !== lastScan.current.ref || now - lastScan.current.at > 4000)) {
               lastScan.current = { ref: match, at: now };
@@ -157,7 +156,7 @@ export default function CheckInPage() {
   return (
     <div className="space-y-5">
       <div className="no-print flex flex-wrap items-center gap-3">
-        <Link to={`/admin/events/${id}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200" aria-label="Back to event">
+        <Link to={`/admin/events/${id}`} className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 sm:h-10 sm:w-10" aria-label="Back to event">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
@@ -256,7 +255,7 @@ export default function CheckInPage() {
                     <div className="flex items-center gap-1.5">
                       {isLate(r) && <Badge color="amber">Late</Badge>}
                       <Badge color="green"><BadgeCheck className="h-3.5 w-3.5" /> Present</Badge>
-                      <button title="Undo check in" aria-label={`Undo check in for ${r.reference}`} onClick={() => void undoCheckIn(r)} className="rounded p-1.5 text-slate-400 hover:bg-slate-100">
+                      <button title="Undo check in" aria-label={`Undo check in for ${r.reference}`} onClick={() => void undoCheckIn(r)} className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 sm:h-8 sm:w-8">
                         <Undo2 className="h-4 w-4" />
                       </button>
                     </div>

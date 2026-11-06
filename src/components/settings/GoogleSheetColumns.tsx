@@ -79,14 +79,14 @@ export function GoogleSheetColumns({ event, onChange }: {
                   <p className="text-xs text-slate-500">Shown in the {contactLabel} column. {choice.sent ? 'Follows that column’s selection.' : 'That column is not sent.'}</p>
                 ) : (
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-600">
-                    <label className="inline-flex items-center gap-2">
+                    <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 sm:min-h-0">
                       <input type="checkbox" className={checkbox} checked={choice.sent} disabled={last}
                         aria-label={`${choice.label}: Send to sheet`}
                         onChange={e => onChange({ googleSheetExclude: sheetColumnExclusions(event.form_schema, settings, choice.key, e.target.checked) })} />
                       Send to sheet
                     </label>
                     {field && canTotal(field) && (
-                      <label className="inline-flex items-center gap-2">
+                      <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 sm:min-h-0">
                         <input type="checkbox" className={checkbox} checked={totals.includes(field.id)} disabled={!choice.sent}
                           aria-label={`${choice.label}: Total`}
                           onChange={e => onChange({ googleSheetTotals: e.target.checked ? [...new Set([...totals, field.id])] : totals.filter(key => key !== field.id) })} />

@@ -186,7 +186,7 @@ export function FieldSettings({ field, allFields, onChange, assetPrefix }: {
                     options: (field.rows ?? []).map((_, i) => ordinal(i + 1)),
                     onePerColumn: true,
                   })}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-navy-300 hover:text-navy-600"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed sm:min-h-8 border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-navy-300 hover:text-navy-600"
                 >
                   Make columns 1st, 2nd, 3rd... (one per row)
                 </button>
@@ -472,16 +472,16 @@ function OptionsEditor({ options, onChange, title = 'Options', itemLabel = 'Opti
           <div key={i} className="flex items-center gap-1.5">
             <span className="w-16 shrink-0 text-xs text-slate-400">{itemLabel} {i + 1}:</span>
             <Textarea rows={2} value={o} onChange={(e) => setAt(i, e.target.value)} aria-label={`${itemLabel} ${i + 1}`} />
-            <button type="button" aria-label={`Move ${itemLabel.toLowerCase()} ${i + 1} up`} disabled={i === 0} onClick={() => move(i, -1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
-            <button type="button" aria-label={`Move option ${i + 1} down`} disabled={i === options.length - 1} onClick={() => move(i, 1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
-            <button type="button" aria-label={`Remove option ${i + 1}`} onClick={() => removeAt(i)} className="rounded p-1 text-red-300 hover:text-red-500"><X className="h-4 w-4" /></button>
+            <button type="button" aria-label={`Move ${itemLabel.toLowerCase()} ${i + 1} up`} disabled={i === 0} onClick={() => move(i, -1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded sm:h-8 sm:w-7 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
+            <button type="button" aria-label={`Move option ${i + 1} down`} disabled={i === options.length - 1} onClick={() => move(i, 1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded sm:h-8 sm:w-7 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
+            <button type="button" aria-label={`Remove option ${i + 1}`} onClick={() => removeAt(i)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded sm:h-8 sm:w-7 text-red-300 hover:text-red-500"><X className="h-4 w-4" /></button>
           </div>
         ))}
       </div>
       <button
         type="button"
         onClick={() => onChange([...options, ''], [...same, -1])}
-        className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-navy-300 hover:text-navy-600"
+        className="mt-1 inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed sm:min-h-8 border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-navy-300 hover:text-navy-600"
       >
         <Plus className="h-3.5 w-3.5" /> Add {itemLabel.toLowerCase()}
       </button>

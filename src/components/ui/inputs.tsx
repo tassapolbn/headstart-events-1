@@ -1,8 +1,10 @@
 import { forwardRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
+// 16px text on phones stops iOS zooming into a field when it is tapped.
 export const baseInput =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm ' +
+  'block w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-800 shadow-sm transition-colors ' +
+  'min-h-11 sm:min-h-10 sm:text-sm hover:border-slate-400 ' +
   'placeholder:text-slate-400 focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-200 ' +
   'disabled:cursor-not-allowed disabled:bg-slate-50 aria-[invalid=true]:border-red-400';
 
@@ -50,7 +52,7 @@ export function Switch({ checked, onChange, label, disabled, description }: {
   checked: boolean; onChange: (v: boolean) => void; label?: string; disabled?: boolean; description?: string;
 }) {
   return (
-    <label className={cn('flex cursor-pointer items-start gap-3', disabled && 'cursor-not-allowed opacity-60')}>
+    <label className={cn('flex min-h-11 cursor-pointer items-start gap-3 py-1 sm:min-h-0 sm:py-0', disabled && 'cursor-not-allowed opacity-60')}>
       <button
         type="button"
         role="switch"
@@ -92,7 +94,7 @@ export function ColorInput({ value, onChange, label }: {
           aria-label={label ? `${label} colour picker` : 'Colour picker'}
           value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000'}
           onChange={(e) => onChange(e.target.value)}
-          className="h-9 w-10 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
+          className="h-11 w-12 shrink-0 cursor-pointer rounded-lg border border-slate-300 bg-white p-1 sm:h-10 sm:w-11"
         />
         <Input
           value={value}

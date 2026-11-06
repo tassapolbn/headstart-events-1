@@ -97,17 +97,17 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-2xl font-bold text-navy-800">{greeting()}, Boss</h1>
             <CampusBadge />
           </div>
-          <p className="text-sm text-slate-500">
-            {format(new Date(), 'EEEE d MMMM yyyy')} - events for {campus?.name ?? 'this campus'}.
+          <p className="mt-0.5 text-sm text-slate-500">
+            {format(new Date(), 'EEEE d MMMM yyyy')} · events for {campus?.name ?? 'this campus'}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
           <Button icon={<CalendarPlus className="h-4 w-4" />} onClick={() => navigate('/admin/events?new=1')}>
             Create New Event
           </Button>
@@ -148,7 +148,7 @@ export default function DashboardPage() {
                     <stop offset="100%" stopColor="#1a3c5e" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="day" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} interval={1} />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={16} />
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip />
                 <Area type="monotone" dataKey="count" name="Registrations" stroke="#1a3c5e" strokeWidth={2} fill="url(#trendFill)" />
@@ -168,7 +168,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Upcoming events" actions={<Link to="/admin/events" className="text-xs font-medium text-navy-600 hover:underline">View all</Link>}>
+        <Card title="Upcoming events" actions={<Link to="/admin/events" className="-my-2 inline-flex min-h-10 items-center px-1 text-xs font-medium text-navy-600 hover:underline sm:min-h-0">View all</Link>}>
           {upcoming.length === 0 ? (
             <EmptyState title="No upcoming events" hint="Create an event and publish it to see it here." />
           ) : (

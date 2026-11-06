@@ -15,7 +15,7 @@ import { isStoredFileRef } from '@/lib/storage';
 import { useToast } from '@/context/ToastContext';
 import { Badge, Button, Card, EmptyState, PageLoader } from '@/components/ui/basics';
 import { Input, Select } from '@/components/ui/inputs';
-import { ConfirmDialog, Modal } from '@/components/ui/overlays';
+import { ActionMenu, ConfirmDialog, Modal, SegmentedControl } from '@/components/ui/overlays';
 import { Switch } from '@/components/ui/inputs';
 import { isContentField } from '@/components/form-renderer/fieldZod';
 import { RegistrationModal } from '@/components/registrations/RegistrationModal';
@@ -26,6 +26,19 @@ const statusBadge: Record<RegistrationStatus, 'blue' | 'green' | 'amber' | 'red'
   pending: 'blue', confirmed: 'green', waitlist: 'amber', rejected: 'red', cancelled: 'gray',
 };
 const filterTabs: Array<'all' | RegistrationStatus> = ['all', 'pending', 'confirmed', 'waitlist', 'rejected', 'cancelled'];
+
+/** True while the media query matches; follows window resizes. */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
+}
 
 export default function RegistrationsPage() {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +56,7 @@ export default function RegistrationsPage() {
   const [openReg, setOpenReg] = useState<Registration | null>(null);
   const [campusWebhook, setCampusWebhook] = useState<string | null>(null);
   const [deleteReg, setDeleteReg] = useState<Registration | null>(null);
+  const wide = useMediaQuery('(min-width: 768px)');
 
   // Print options
   const [printOpen, setPrintOpen] = useState(false);
@@ -197,54 +211,54 @@ export default function RegistrationsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="no-print flex flex-wrap items-center gap-3">
-        <Link to={`/admin/events/${id}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200" aria-label="Back to event">
+      <div className="no-print flex flex-wrap items-center gap-x-3 gap-y-3">
+        <Link to={`/admin/events/${id}`} className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 sm:h-10 sm:w-10" aria-label="Back to event">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-xl font-bold text-navy-800">{formCopy(event).entries}</h1>
-          <p className="text-sm text-slate-500">{event.name}</p>
+          <h1 className="truncate font-display text-xl font-bold text-navy-800 sm:text-2xl">{formCopy(event).entries}</h1>
+          <p className="truncate text-sm text-slate-500">{event.name}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={() => exportCsv(event, visible)}>CSV</Button>
-          <Button variant="outline" icon={<FileSpreadsheet className="h-4 w-4" />} onClick={() => exportXlsx(event, visible)}>Excel</Button>
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <RefreshGoogleSheet event={event} />
-          <Button variant="outline" icon={<Printer className="h-4 w-4" />} onClick={() => setPrintOpen(true)}>Print</Button>
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" icon={<Printer className="h-4 w-4" />} onClick={() => setPrintOpen(true)}>Print</Button>
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" icon={<Download className="h-4 w-4" />} onClick={() => exportCsv(event, visible)}>CSV</Button>
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" icon={<FileSpreadsheet className="h-4 w-4" />} onClick={() => exportXlsx(event, visible)}>Excel</Button>
         </div>
       </div>
 
-      <div className="no-print flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-1 rounded-xl bg-slate-200/70 p-1">
-          {filterTabs.map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition ${filter === f ? 'bg-white text-navy-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              {f} ({counts[f] ?? 0})
-            </button>
-          ))}
-        </div>
-        <div className="relative w-full sm:w-56">
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, booth" className="pl-9" aria-label="Search registrations" />
+      <div className="no-print space-y-3">
+        <SegmentedControl
+          label="Filter by status"
+          value={filter}
+          onChange={setFilter}
+          options={filterTabs.map((f) => ({
+            id: f,
+            label: <>{f} <span className="tabular-nums opacity-60">{counts[f] ?? 0}</span></>,
+          }))}
+        />
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+        <div className="relative col-span-2 sm:w-64">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, booth" className="pl-9" aria-label="Search registrations" />
         </div>
         <Select
           value={boothFilter}
           onChange={(e) => setBoothFilter(e.target.value)}
-          className="w-44"
+          className="sm:w-44"
           aria-label="Filter by booth number"
         >
           <option value="all">All booths</option>
           <option value="__none__">No booth assigned</option>
           {boothOptions.map((b) => <option key={b} value={b}>Booth {b}</option>)}
         </Select>
-        <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="w-36" aria-label="Sort registrations">
+        <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="sm:w-40" aria-label="Sort registrations">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
           <option value="name">By name</option>
           <option value="booth">By booth number</option>
         </Select>
+        </div>
       </div>
 
       {visible.length === 0 ? (
@@ -253,11 +267,54 @@ export default function RegistrationsPage() {
           hint={boothFilter !== 'all' ? 'No one has taken that booth yet. Try "All booths".' : 'Try a different filter or search term.'}
         />
       ) : (
-        <Card padded={false} className="print:hidden">
+        <>
+        {/* Phones: one card per registration. Only one of the two views is
+            rendered, since a long list would otherwise be built twice. */}
+        {!wide && (
+        <ul className="space-y-2.5 md:hidden print:hidden" aria-label={formCopy(event).entries}>
+          {visible.map((r) => (
+            <li key={r.id} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-card">
+              <div className="flex items-start justify-between gap-3">
+                <button onClick={() => setOpenReg(r)} className="min-w-0 text-left">
+                  <span className="block truncate font-medium text-slate-800">{r.name ?? 'Unnamed'}</span>
+                  <span className="block font-mono text-xs font-semibold text-navy-600">{r.reference}</span>
+                </button>
+                <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                  <Badge color={statusBadge[r.status]} className="capitalize">{r.status}</Badge>
+                  {r.checked_in_at && <Badge color="navy">In</Badge>}
+                </div>
+              </div>
+              <dl className="mt-2.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                {r.email && (<><dt className="text-slate-400">Email</dt><dd className="truncate text-slate-600">{r.email}</dd></>)}
+                {boothText(r) && (<><dt className="text-slate-400">Booth</dt><dd className="text-slate-600">{boothText(r)}</dd></>)}
+                <dt className="text-slate-400">Submitted</dt><dd className="text-slate-600">{formatDateTime(r.created_at)}</dd>
+              </dl>
+              <div className="mt-3 flex items-center gap-2">
+                <Button size="sm" className="flex-1" icon={<Eye className="h-4 w-4" />} onClick={() => setOpenReg(r)}>View</Button>
+                {r.status !== 'confirmed' && (
+                  <Button size="sm" variant="outline" className="flex-1 text-emerald-700" icon={<Check className="h-4 w-4" />} onClick={() => void setStatus(r, 'confirmed')}>Approve</Button>
+                )}
+                <ActionMenu
+                  label={`More actions for ${r.reference}`}
+                  items={[
+                    { label: 'Move to waitlist', icon: <Clock3 className="h-4 w-4" />, hidden: r.status === 'waitlist', onClick: () => void setStatus(r, 'waitlist') },
+                    { label: 'Reject', icon: <X className="h-4 w-4" />, hidden: r.status === 'rejected', onClick: () => void setStatus(r, 'rejected') },
+                    { label: 'Resend confirmation email', icon: <Mail className="h-4 w-4" />, onClick: () => resendEmail(r) },
+                    { label: 'Delete', icon: <Trash2 className="h-4 w-4" />, danger: true, onClick: () => setDeleteReg(r) },
+                  ]}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+        )}
+
+        {wide && (
+        <Card padded={false} className="hidden md:block print:hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+                <tr className="border-b border-slate-100 bg-slate-50/60 text-left text-xs uppercase tracking-wide text-slate-400">
                   <th className="px-4 py-3 font-medium">Reference</th>
                   <th className="px-4 py-3 font-medium">Name</th>
                   <th className="px-4 py-3 font-medium">Email</th>
@@ -269,7 +326,7 @@ export default function RegistrationsPage() {
               </thead>
               <tbody>
                 {visible.map((r) => (
-                  <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/60">
+                  <tr key={r.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
                     <td className="px-4 py-2.5">
                       <button onClick={() => setOpenReg(r)} className="font-mono text-xs font-semibold text-navy-700 hover:underline">
                         {r.reference}
@@ -294,16 +351,16 @@ export default function RegistrationsPage() {
                           <Eye className="h-3.5 w-3.5" /> View
                         </button>
                         {r.status !== 'confirmed' && (
-                          <button title="Approve" aria-label={`Approve ${r.reference}`} onClick={() => void setStatus(r, 'confirmed')} className="rounded p-1.5 text-emerald-500 hover:bg-emerald-50"><Check className="h-4 w-4" /></button>
+                          <button title="Approve" aria-label={`Approve ${r.reference}`} onClick={() => void setStatus(r, 'confirmed')} className="rounded-lg p-2 text-emerald-500 hover:bg-emerald-50"><Check className="h-4 w-4" /></button>
                         )}
                         {r.status !== 'waitlist' && (
-                          <button title="Move to waitlist" aria-label={`Waitlist ${r.reference}`} onClick={() => void setStatus(r, 'waitlist')} className="rounded p-1.5 text-amber-500 hover:bg-amber-50"><Clock3 className="h-4 w-4" /></button>
+                          <button title="Move to waitlist" aria-label={`Waitlist ${r.reference}`} onClick={() => void setStatus(r, 'waitlist')} className="rounded-lg p-2 text-amber-500 hover:bg-amber-50"><Clock3 className="h-4 w-4" /></button>
                         )}
                         {r.status !== 'rejected' && (
-                          <button title="Reject" aria-label={`Reject ${r.reference}`} onClick={() => void setStatus(r, 'rejected')} className="rounded p-1.5 text-red-400 hover:bg-red-50"><X className="h-4 w-4" /></button>
+                          <button title="Reject" aria-label={`Reject ${r.reference}`} onClick={() => void setStatus(r, 'rejected')} className="rounded-lg p-2 text-red-400 hover:bg-red-50"><X className="h-4 w-4" /></button>
                         )}
-                        <button title="Resend confirmation email" aria-label={`Resend email for ${r.reference}`} onClick={() => resendEmail(r)} className="rounded p-1.5 text-navy-500 hover:bg-navy-50"><Mail className="h-4 w-4" /></button>
-                        <button title="Delete" aria-label={`Delete ${r.reference}`} onClick={() => setDeleteReg(r)} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                        <button title="Resend confirmation email" aria-label={`Resend email for ${r.reference}`} onClick={() => resendEmail(r)} className="rounded-lg p-2 text-navy-500 hover:bg-navy-50"><Mail className="h-4 w-4" /></button>
+                        <button title="Delete" aria-label={`Delete ${r.reference}`} onClick={() => setDeleteReg(r)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -312,6 +369,8 @@ export default function RegistrationsPage() {
             </table>
           </div>
         </Card>
+        )}
+        </>
       )}
 
       {openReg && (

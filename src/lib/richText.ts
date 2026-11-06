@@ -17,7 +17,13 @@ function safeStyle(raw: string): string {
     const rgb = /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i.exec(value);
     if (rgb && rgb.slice(1).every(v => Number(v) <= 255)) value = '#' + rgb.slice(1).map(v => Number(v).toString(16).padStart(2, '0')).join('');
     if (['color', 'background-color'].includes(key) && safeColor(value, '')) return [`${key}:${value}`];
-    if (key === 'font-family' && /^[a-zA-Z ,"'-]+$/.test(value)) return [`${key}:${value}`];
+    if (key === 'font-family' && /^[a-zA-Z ,"'-]+$/.test(value)) {
+      if (!/Sarabun/i.test(value)) {
+        const generic = /(^|,\s*)(sans-serif|serif|monospace|system-ui|cursive)$/i;
+        value = generic.test(value) ? value.replace(generic, '$1Sarabun, $2') : `${value}, Sarabun`;
+      }
+      return [`${key}:${value}`];
+    }
     if (key === 'font-size' && /^(?:[89]|[1-6]\d|7[0-2])px$/.test(value)) return [`${key}:${value}`];
     if (key === 'text-align' && /^(left|center|right)$/.test(value)) return [`${key}:${value}`];
     if (key === 'white-space' && value === 'nowrap') return ['white-space:nowrap'];
