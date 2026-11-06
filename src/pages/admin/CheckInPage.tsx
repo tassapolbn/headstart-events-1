@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import { referenceFromScan } from '@/lib/scanReference';
@@ -13,6 +13,7 @@ import { boothText, boothExportNumber, boothVendorText } from '@/lib/regBooths';
 import { useToast } from '@/context/ToastContext';
 import { Badge, Button, Card, EmptyState, PageLoader, StatCard } from '@/components/ui/basics';
 import { Input } from '@/components/ui/inputs';
+import { RepeatScanAlert, playWarningBeep, type RepeatScan } from '@/components/checkin/RepeatScanAlert';
 
 const SCANNER_ID = 'qr-scanner-region';
 
@@ -37,6 +38,32 @@ export default function CheckInPage() {
   const [ticket, setTicket] = useState<TicketResult | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScan = useRef<{ ref: string; at: number }>({ ref: '', at: 0 });
+  // A QR that was already used: shown full screen until staff dismiss it.
+  const [repeat, setRepeat] = useState<RepeatScan | null>(null);
+  const repeatOpen = useRef(false);
+  const audioRef = useRef<AudioContext | null>(null);
+
+  // One check in at a time, so a second answer can never replace a warning
+  // that staff have not seen yet.
+  const busy = useRef(false);
+
+  /** Browsers only allow sound after a tap, so open (or wake) the audio on one. */
+  function unlockAudio() {
+    try {
+      if (!audioRef.current) {
+        const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (Ctx) audioRef.current = new Ctx();
+      }
+      if (audioRef.current?.state === 'suspended') void audioRef.current.resume();
+    } catch { /* no sound available */ }
+  }
+
+  const closeRepeat = useCallback(() => {
+    repeatOpen.current = false;
+    setRepeat(null);
+    // Let the same QR be scanned again straight away if staff want to recheck it.
+    lastScan.current = { ref: '', at: 0 };
+  }, []);
 
   async function load() {
     if (!id) return;
@@ -89,6 +116,16 @@ export default function CheckInPage() {
   }
 
   async function checkIn(reference: string) {
+    if (busy.current || repeatOpen.current) return;
+    busy.current = true;
+    try {
+      await runCheckIn(reference);
+    } finally {
+      busy.current = false;
+    }
+  }
+
+  async function runCheckIn(reference: string) {
     const { data, error } = await supabase.rpc('checkin_by_reference', { p_reference: reference });
     if (error) {
       toast(error.message.includes('NOT_FOUND') ? `No registration found for ${reference}.` : error.message, 'error');
@@ -96,7 +133,14 @@ export default function CheckInPage() {
     }
     const t = data as unknown as TicketResult;
     setTicket(t);
-    if (!t.already_checked_in) toast(`${reference} checked in.`);
+    if (t.already_checked_in) {
+      repeatOpen.current = true;
+      setRepeat(t);
+      playWarningBeep(audioRef.current);
+      try { navigator.vibrate?.([250, 120, 250]); } catch { /* not supported, e.g. iPhone */ }
+    } else {
+      toast(`${reference} checked in.`);
+    }
     void load();
   }
 
@@ -112,6 +156,7 @@ export default function CheckInPage() {
       setScanning(false);
       return;
     }
+    unlockAudio();
     setScanning(true);
     window.setTimeout(async () => {
       try {
@@ -121,6 +166,10 @@ export default function CheckInPage() {
           { facingMode: 'environment' },
           { fps: 8, qrbox: { width: 220, height: 220 } },
           (text) => {
+            // Hold further scans until staff have seen the repeat warning.
+            // While another check in is still running, drop this frame without
+            // remembering it, so the same QR is read again on the next frame.
+            if (repeatOpen.current || busy.current) return;
             const match = referenceFromScan(text);
             const now = Date.now();
             if (match && (match !== lastScan.current.ref || now - lastScan.current.at > 4000)) {
@@ -230,7 +279,8 @@ export default function CheckInPage() {
             </Button>
             <div id={SCANNER_ID} className={scanning ? 'overflow-hidden rounded-xl' : 'hidden'} aria-label="QR scanner viewport" />
             <p className="text-xs text-slate-500">
-              Each QR works once, like a ticket. Scanning it a second time shows a red warning with the original check in time.
+              Each QR works once, like a ticket. If a QR was already checked in, for example someone coming back for a second gift,
+              the screen turns red with a warning sound and shows when it was first scanned.
             </p>
           </div>
         </Card>
@@ -264,7 +314,7 @@ export default function CheckInPage() {
                       </button>
                     </div>
                   ) : (
-                    <Button size="sm" onClick={() => void checkIn(r.reference)}>Check in</Button>
+                    <Button size="sm" onClick={() => { unlockAudio(); void checkIn(r.reference); }}>Check in</Button>
                   )}
                 </li>
               ))}
@@ -272,6 +322,8 @@ export default function CheckInPage() {
           )}
         </Card>
       </div>
+
+      {repeat && <RepeatScanAlert scan={repeat} onClose={closeRepeat} />}
 
       {/* Printable sign up / check sheet */}
       <div className="hidden print:block">
