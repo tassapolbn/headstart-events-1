@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Copy, ExternalLink, Plus, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { storedAcks } from '@/components/policies/policyAcks';
@@ -8,10 +8,14 @@ import { isContentField } from '@/components/form-renderer/fieldZod';
 import { getSignedUrl, isStoredFileRef } from '@/lib/storage';
 import { boothList } from '@/lib/regBooths';
 import { useToast } from '@/context/ToastContext';
+import { useCampus } from '@/context/CampusContext';
+import { missingAnswerFields, moveRegistration, pickTargetEvents } from '@/lib/moveRegistration';
 import { Button } from '@/components/ui/basics';
 import { Field, Input, Select, Textarea } from '@/components/ui/inputs';
 import { AnswerEditor } from './AnswerEditor';
-import { Modal } from '@/components/ui/overlays';
+import { ConfirmDialog, Modal } from '@/components/ui/overlays';
+
+type TargetEvent = Pick<EventRecord, 'id' | 'name' | 'campus_id' | 'status' | 'settings' | 'form_schema'>;
 
 export function RegistrationModal({ event, registration, availableBooths, onClose, onSaved }: {
   event: EventRecord;
@@ -22,8 +26,67 @@ export function RegistrationModal({ event, registration, availableBooths, onClos
 }) {
   const { toast } = useToast();
   const [reg, setReg] = useState<Registration>(JSON.parse(JSON.stringify(registration)));
+  const hasUnsavedChanges = reg.name !== registration.name
+    || reg.email !== registration.email
+    || reg.phone !== registration.phone
+    || reg.status !== registration.status
+    || JSON.stringify(reg.data) !== JSON.stringify(registration.data);
   const [saving, setSaving] = useState(false);
   const [assignBooth, setAssignBooth] = useState('');
+  const { campuses } = useCampus();
+  const otherCampuses = campuses.filter((c) => c.id !== event.campus_id);
+  const [chosenCampus, setChosenCampus] = useState('');
+  const campusId = otherCampuses.find((c) => c.id === chosenCampus)?.id ?? otherCampuses[0]?.id ?? '';
+  const [targetEvents, setTargetEvents] = useState<TargetEvent[]>([]);
+  const [targetId, setTargetId] = useState('');
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [eventsError, setEventsError] = useState('');
+  const [confirmMove, setConfirmMove] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const targetEvent = targetEvents.find((e) => e.id === targetId && e.campus_id === campusId);
+  const campusName = otherCampuses.find((c) => c.id === campusId)?.name ?? '';
+  const missingAnswers = targetEvent ? missingAnswerFields(registration.data, targetEvent.form_schema ?? []) : [];
+
+  useEffect(() => {
+    let cancelled = false;
+    setTargetEvents([]);
+    setTargetId('');
+    setEventsError('');
+    if (!campusId) return;
+    setLoadingEvents(true);
+    async function loadEvents() {
+      try {
+        const { data, error } = await supabase.from('events')
+          .select('id, name, campus_id, status, settings, form_schema').eq('campus_id', campusId);
+        if (error) throw new Error(error.message);
+        if (cancelled) return;
+        const matches = pickTargetEvents((data ?? []) as TargetEvent[], event, campusId);
+        setTargetEvents(matches);
+        setTargetId(matches[0]?.id ?? '');
+      } catch (err) {
+        if (!cancelled) setEventsError(err instanceof Error ? err.message : 'Could not load events.');
+      } finally {
+        if (!cancelled) setLoadingEvents(false);
+      }
+    }
+    void loadEvents();
+    return () => { cancelled = true; };
+  }, [campusId, event]);
+
+  async function move() {
+    if (!targetEvent || moving || hasUnsavedChanges) return;
+    setMoving(true);
+    try {
+      await moveRegistration(registration, targetEvent);
+      toast(`Moved ${registration.reference} to ${campusName}. Refresh both Google Sheets if you use them.`);
+      onSaved();
+      onClose();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Move failed.', 'error');
+    } finally {
+      setMoving(false);
+    }
+  }
 
   const questionFields = event.form_schema.filter((f) => !isContentField(f));
   const heldBoothIds = useMemo(
@@ -142,16 +205,18 @@ export function RegistrationModal({ event, registration, availableBooths, onClos
   }
 
   return (
+    <>
     <Modal
-      open onClose={onClose} title={`Registration ${reg.reference}`} wide
+      open onClose={() => { if (!moving && !confirmMove) onClose(); }} title={`Registration ${reg.reference}`} wide
       footer={
         <>
-          <Button variant="outline" icon={<Copy className="h-3.5 w-3.5" />} onClick={() => void duplicate()}>Duplicate</Button>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => void save()} loading={saving}>Save changes</Button>
+          <Button variant="outline" disabled={moving} icon={<Copy className="h-3.5 w-3.5" />} onClick={() => void duplicate()}>Duplicate</Button>
+          <Button variant="outline" disabled={moving} onClick={onClose}>Cancel</Button>
+          <Button onClick={() => void save()} loading={saving} disabled={moving}>Save changes</Button>
         </>
       }
     >
+      <fieldset disabled={moving} className="min-w-0">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Status">
           <Select value={reg.status} onChange={(e) => setReg({ ...reg, status: e.target.value as RegistrationStatus })} aria-label="Registration status">
@@ -207,6 +272,31 @@ export function RegistrationModal({ event, registration, availableBooths, onClos
         </Field>
       </div>
 
+      {campuses.length > 1 && (
+        <div className="mt-5 space-y-3 rounded-lg bg-slate-50 p-3 text-sm">
+          <h3 className="font-semibold">Move to another campus</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Campus" className="min-w-0">
+              <Select value={campusId} onChange={(e) => setChosenCampus(e.target.value)} disabled={moving} aria-label="Target campus">
+                {otherCampuses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            </Field>
+            <Field label="Event" className="min-w-0">
+              <Select value={targetEvent?.id ?? ''} onChange={(e) => setTargetId(e.target.value)} disabled={moving || loadingEvents || !targetEvents.length} aria-label="Target event">
+                {!targetEvent && <option value="">{loadingEvents ? 'Loading events...' : 'Choose an event'}</option>}
+                {targetEvents.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </Select>
+            </Field>
+          </div>
+          {eventsError ? <p role="alert" className="text-red-600">{eventsError}</p> : !loadingEvents && !targetEvents.length && <p className="text-slate-500">No matching event in this campus yet</p>}
+          {(registration.booth_id || !!registration.registration_booths?.length) && <p className="text-amber-700">Its booths in this event will be released.</p>}
+          {registration.checked_in_at && <p className="text-amber-700">This person is checked in. The check-in will be cleared.</p>}
+          {missingAnswers.length > 0 && <p className="text-amber-700">{missingAnswers.length} answers have no matching question in that event's form and will be hidden (they are kept).</p>}
+          <Button variant="outline" className="w-full sm:w-auto" disabled={!targetEvent || loadingEvents || saving || hasUnsavedChanges} loading={moving} onClick={() => setConfirmMove(true)}>Move registration</Button>
+          {hasUnsavedChanges && <p className="text-slate-500">Save or cancel your changes before moving.</p>}
+        </div>
+      )}
+
       {storedAcks(reg.data).length > 0 && <div className="mt-5 rounded-lg bg-slate-50 p-3 text-sm">
         <h3 className="font-semibold">Recorded consent</h3>
         {storedAcks(reg.data).map(ack => <div key={ack.id} className="mt-2"><FormattedText value={ack.text} /><p className="text-xs text-slate-500">Accepted: {ack.accepted_at}</p></div>)}
@@ -224,6 +314,13 @@ export function RegistrationModal({ event, registration, availableBooths, onClos
         ))}
         {questionFields.length === 0 && <p className="text-sm text-slate-500">This event has no form questions.</p>}
       </div>
+      </fieldset>
     </Modal>
+    <ConfirmDialog
+      open={confirmMove} onClose={() => setConfirmMove(false)} onConfirm={() => void move()}
+      title="Move registration" confirmLabel="Move registration"
+      message={`Move ${registration.reference} to ${targetEvent?.name ?? ''} (${campusName})?`}
+    />
+    </>
   );
 }
