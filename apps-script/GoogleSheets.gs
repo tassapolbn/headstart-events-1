@@ -1,7 +1,7 @@
 // Event tabs are updated only by registrations and explicit admin refreshes.
 var SHEETS_OWNER_KEY = 'headstart_event';
 var SHEETS_BATCH_SIZE = 100;
-var SHEETS_FORMAT_VERSION = '2026-10-26-custom-columns';
+var SHEETS_FORMAT_VERSION = '2026-11-11-staff-edits';
 
 function sheetsDestination(value) {
   var match = String(value || '').trim().match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([A-Za-z0-9_-]+)(?:\/[^?#\s]*)?(?:[?#]\S*)?$/);
@@ -293,7 +293,9 @@ function sheetsSaveNotes(tab, layout) {
 
 function sheetsLayout(tab, event, plan) {
   var layout = sheetsDiscover(tab), header = layout.headerRow, columns = layout.columns;
-  if (header < 4) { tab.insertRowsBefore(header, 4 - header); header = 4; }
+  // An old row-1 layout is adopted once, with headings rewritten as before.
+  var adopting = header < 4;
+  if (adopting) { tab.insertRowsBefore(header, 4 - header); header = 4; }
   var hasRows = tab.getLastRow() > header;
   var added = plan.columns.filter(function (c) { return !columns.some(function (old) { return old.key === c.key; }); });
   if (hasRows && added.some(function (c) { return !c.excluded; })) sheetsRefreshNeeded(tab);
@@ -301,7 +303,8 @@ function sheetsLayout(tab, event, plan) {
   // together. Never overwrite the custom block when a question is added.
   if (added.length && layout.hasCustomColumns) tab.insertColumnsBefore(columns.length + 1, added.length);
   sheetsEnsureSize(tab, header + 1, columns.length + added.length);
-  added.forEach(function (c) { columns.push({ key: c.key, label: c.label, flags: {} }); });
+  // New columns get their width set once; existing widths are staff's to change.
+  added.forEach(function (c) { columns.push({ key: c.key, label: c.label, flags: {}, fresh: true }); });
   // Persist appended notes together, before labels, so partial header writes can recover.
   if (added.length) tab.getRange(header, columns.length - added.length + 1, 1, added.length).setNotes([
     columns.slice(-added.length).map(function (c) { return 'headstart:' + JSON.stringify(c); })
@@ -318,6 +321,7 @@ function sheetsLayout(tab, event, plan) {
       var sub = field && (field.subFields || []).filter(function (s) { return s.id === parts[3]; })[0];
       if (parts[1] === 'count' || (sub && sub.type === 'number')) c.target.kind = 'number';
     }
+    c.written = c.label;
     c.label = c.target.label;
   });
   var count = Math.max(0, tab.getLastRow() - header);
@@ -361,8 +365,33 @@ function sheetsLayout(tab, event, plan) {
   });
   var reconciled = { headerRow: header, columns: columns, notes: layout.notes };
   sheetsSaveNotes(tab, reconciled);
-  tab.getRange(header, 1, 1, columns.length).setNumberFormat('@').setValues([columns.map(function (c) { return sheetsText(c.label); })]);
+  sheetsWriteHeadings(tab, header, columns, adopting);
   return reconciled;
+}
+
+// What Sheets shows for text the export wrote (without its escape apostrophe).
+function sheetsShown(value) { return sheetsText(value).replace(/^'/, '').trim(); }
+
+// Staff may rename a heading in the sheet, for example to shorten a long
+// question. A heading is written only while it is empty or still shows the
+// label the export last wrote, so a renamed heading stays as staff typed it.
+// Clearing a heading brings back the form's wording on the next write.
+function sheetsWriteHeadings(tab, header, columns, adopting) {
+  var shown = adopting ? [] : tab.getRange(header, 1, 1, columns.length).getDisplayValues()[0], start = -1;
+  for (var i = 0; i <= columns.length; i++) {
+    var c = columns[i], write = false;
+    if (c) {
+      var now = String(shown[i] === undefined ? '' : shown[i]).trim();
+      var renamed = !adopting && now !== '' && (c.written === '' || now !== sheetsShown(c.written));
+      write = !renamed && (adopting || now !== sheetsShown(c.label));
+    }
+    if (write && start < 0) start = i;
+    if (!write && start >= 0) {
+      tab.getRange(header, start + 1, 1, i - start).setNumberFormat('@')
+        .setValues([columns.slice(start, i).map(function (col) { return sheetsText(col.label); })]);
+      start = -1;
+    }
+  }
 }
 
 function sheetsMerge(key, base, answer) {
@@ -452,7 +481,12 @@ function sheetsWriteRows(destination, event, rows, updateExisting, deferDecorati
     if (!max) return f;
     expanded = true; return Object.assign({}, f, { exportEntries: max });
   });
-  if (expanded) destination.layout = sheetsLayout(destination.tab, event, sheetsPlan(Object.assign({}, event, { form_schema: schema })));
+  if (expanded) {
+    // Columns the first pass added still get their width set once.
+    var fresh = destination.layout.columns.filter(function (c) { return c.fresh; }).map(function (c) { return c.key; });
+    destination.layout = sheetsLayout(destination.tab, event, sheetsPlan(Object.assign({}, event, { form_schema: schema })));
+    destination.layout.columns.forEach(function (c) { if (fresh.indexOf(c.key) !== -1) c.fresh = true; });
+  }
   var tab = destination.tab, layout = destination.layout, columns = layout.columns, header = layout.headerRow;
   var scanLast = Math.max(header, tab.getLastRow()), last = header, seen = Object.create(null), pending = Object.create(null), added = [], updates = [];
   // Staff may prefill checkboxes down the entire sheet. Append after the last
@@ -479,9 +513,18 @@ function sheetsWriteRows(destination, event, rows, updateExisting, deferDecorati
   sheetsSaveNotes(tab, layout);
   updates.forEach(function (update) { sheetsWriteCells(tab.getRange(update.row, 1, 1, columns.length), [update.cells]); });
   sheetsEnsureSize(tab, last + added.length + 1, columns.length);
-  if (added.length) sheetsWriteCells(tab.getRange(last + 1, 1, added.length, columns.length), added);
+  if (added.length) {
+    // Anything staff put directly under the registrations (a totals row, a
+    // note) is never written over: the new rows are inserted above it.
+    var below = tab.getRange(last + 1, 1, added.length, columns.length);
+    var used = function (grid) { return grid.some(function (r) { return r.some(function (v) { return v !== '' && v !== null; }); }); };
+    if (used(below.getFormulas()) || used(below.getDisplayValues())) tab.insertRowsAfter(last, added.length);
+    sheetsWriteCells(tab.getRange(last + 1, 1, added.length, columns.length), added);
+    var span = destination.newRows;
+    destination.newRows = { from: span ? Math.min(span.from, last + 1) : last + 1, to: last + added.length };
+  }
   if (!deferDecoration) {
-    sheetsDecorate(tab, event, layout);
+    sheetsDecorate(tab, event, layout, destination.newRows);
     sheetsRename(destination.book, tab, event);
   }
   SpreadsheetApp.flush();
@@ -542,7 +585,7 @@ function refreshEventSheet(payload) {
       if (needed && needed < run.started) sheetsMetaSet(tab, 'headstart_refresh_needed', null);
       sheetsMetaSet(tab, 'headstart_refresh', null);
     }
-    sheetsDecorate(tab, event, destination.layout);
+    sheetsDecorate(tab, event, destination.layout, destination.newRows);
     sheetsRename(destination.book, tab, event);
     SpreadsheetApp.flush();
     return { added: added, updated: updated, complete: complete, runId: run.id, restarted: restarted,
@@ -602,11 +645,11 @@ function sheetsCompactDetails(tab, layout) {
   sheetsSaveNotes(tab, layout);
 }
 
-function sheetsDecorate(tab, event, layout) {
+function sheetsDecorate(tab, event, layout, newRows) {
   sheetsCompactDetails(tab, layout);
   try { sheetsHeading(tab, event, layout); }
   catch (err) { console.warn('Sheet title/summary skipped: ' + err); }
-  try { styleRegistrationsSheet(tab, layout.columns, Math.max(tab.getLastRow(), layout.headerRow), layout.headerRow); }
+  try { styleRegistrationsSheet(tab, layout.columns, Math.max(tab.getLastRow(), layout.headerRow), layout.headerRow, newRows); }
   catch (err) { console.warn('Sheet styling skipped: ' + err); }
 }
 
@@ -616,23 +659,26 @@ function sheetsColumnLetter(index) {
   return letters;
 }
 
+// The title rows and the summary row are shared with staff. The export fills
+// only its own cells there (title, details, count and chosen totals) and
+// remembers what it wrote, so staff formulas such as =SUM(J5:J) and notes in
+// other cells stay, and an export cell someone has changed (a shorter title,
+// their own formula) is left exactly as they wrote it.
 function sheetsHeading(tab, event, layout) {
   var columns = layout.columns, header = layout.headerRow, first = header + 1, width = columns.length;
   var totals = columns.map(function (c, i) { return c.target.total && !c.target.excluded && !c.target.merged ? i : -1; }).filter(function (i) { return i >= 0; });
-  var visible, label;
+  var visible, label, want = [];
   for (var index = 0; index < width; index++) {
     if (columns[index].flags.hidden || tab.isColumnHiddenByUser(index + 1)) continue;
     if (visible === undefined) visible = index;
     if (totals.indexOf(index) === -1) { label = index; break; }
   }
-  tab.getRange(1, 1, 2, width).clearContent().setNumberFormat('@');
-  tab.getRange(header - 1, 1, 1, width).clearContent().setNumberFormat('@');
   if (visible !== undefined) {
-    tab.getRange(1, visible + 1, 1, 1).setValue(sheetsText(event.name));
+    want.push({ row: 1, col: visible + 1, content: sheetsText(event.name), format: '@' });
     var date = event.event_date ? Utilities.formatDate(new Date(event.event_date), 'UTC', 'EEEE d MMMM yyyy') : '';
     var time = [event.start_time, event.end_time].filter(Boolean).map(function (v) { return String(v).slice(0, 5); }).join('–');
     var details = [date, time, event.location, 'Updated ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'd MMM yyyy, HH:mm')].filter(Boolean).join(' • ');
-    tab.getRange(2, visible + 1, 1, 1).setValue(sheetsText(details));
+    want.push({ row: 2, col: visible + 1, content: sheetsText(details), format: '@' });
   }
   if (label !== undefined) {
     var ids = 'A' + first + ':A', count = 'COUNTA(' + ids + ')', shown = 'SUBTOTAL(103,' + ids + ')';
@@ -640,16 +686,77 @@ function sheetsHeading(tab, event, layout) {
     var prefix = totals.length ? '"Total for "&' : '';
     var note = sheetsMetaGet(tab, 'headstart_refresh_needed') ? '&" — New columns: click Refresh Google Sheet in the app to fill older rows"' : '';
     var formula = '=' + prefix + 'IF(' + shown + '=' + count + ',' + count + '&" ' + noun + '",' + shown + '&" of "&' + count + '&" ' + noun + ' shown")' + note;
-    tab.getRange(header - 1, label + 1, 1, 1).setNumberFormat('#,##0').setFormulas([[formula]]);
+    want.push({ row: header - 1, col: label + 1, content: formula, format: '#,##0' });
   }
   totals.forEach(function (i) {
     var letter = sheetsColumnLetter(i + 1);
-    tab.getRange(header - 1, i + 1, 1, 1).setNumberFormat(columns[i].flags.decimals ? '#,##0.0#' : '#,##0')
-      .setFormulas([['=SUBTOTAL(109,' + letter + first + ':' + letter + ')']]);
+    want.push({ row: header - 1, col: i + 1, content: '=SUBTOTAL(109,' + letter + first + ':' + letter + ')', format: columns[i].flags.decimals ? '#,##0.0#' : '#,##0' });
   });
+
+  var stored = null;
+  try { stored = JSON.parse(sheetsMetaGet(tab, 'headstart_heading') || 'null'); } catch (err) { stored = null; }
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) stored = null;
+  var keyOf = function (row, col) { return row + ',' + col; };
+  var rows = [1, 2, header - 1], span = width;
+  if (stored) Object.keys(stored).forEach(function (key) {
+    var at = key.split(',').map(Number);
+    if (at[0] > 0 && at[0] <= tab.getMaxRows() && rows.indexOf(at[0]) === -1) rows.push(at[0]);
+    if (at[1] > span) span = at[1];
+  });
+  span = Math.min(span, tab.getMaxColumns());
+  var grid = Object.create(null);
+  rows.forEach(function (row) {
+    var range = tab.getRange(row, 1, 1, span);
+    grid[row] = { formulas: range.getFormulas()[0], shown: range.getDisplayValues()[0], formats: stored ? null : range.getNumberFormats()[0] };
+  });
+  var now = function (row, col) {
+    var g = grid[row];
+    if (!g || col > span) return null;
+    if (g.formulas[col - 1]) return sheetsHeadingMark(g.formulas[col - 1]);
+    return g.shown[col - 1] === '' ? '' : sheetsHeadingMark(g.shown[col - 1], true);
+  };
+  var next = Object.create(null), wanted = Object.create(null);
+  want.forEach(function (w) {
+    var key = keyOf(w.row, w.col), current = now(w.row, w.col), mark = sheetsHeadingMark(w.content);
+    wanted[key] = true;
+    // Written when empty, unchanged since the export wrote it, or the first time.
+    if (!(stored === null || current === '' || current === mark || stored[key] === current)) return;
+    var cell = tab.getRange(w.row, w.col).setNumberFormat(w.format);
+    if (w.content.charAt(0) === '=') cell.setFormulas([[w.content]]); else cell.setValue(w.content);
+    next[key] = mark;
+  });
+  // Cells the export used before but no longer needs, while still unchanged.
+  if (stored) Object.keys(stored).forEach(function (key) {
+    if (wanted[key]) return;
+    var at = key.split(',').map(Number);
+    if (now(at[0], at[1]) === stored[key]) tab.getRange(at[0], at[1]).clearContent().clearFormat();
+  });
+  // Earlier versions made these rows plain text, where a typed formula stays
+  // text. Once, empty cells go back to automatic so staff formulas work.
+  if (stored === null) [1, 2, header - 1].forEach(function (row) {
+    var g = grid[row], from = 0;
+    for (var col = 1; col <= span + 1; col++) {
+      var free = col <= span && g.formats[col - 1] === '@' && !g.formulas[col - 1] && g.shown[col - 1] === '' && !wanted[keyOf(row, col)];
+      if (free && !from) from = col;
+      if (!free && from) { tab.getRange(row, from, 1, col - from).clearFormat(); from = 0; }
+    }
+  });
+  var saved = JSON.stringify(next);
+  if (saved !== JSON.stringify(stored)) sheetsMetaSet(tab, 'headstart_heading', saved);
 }
 
-function styleRegistrationsSheet(tab, columns, rows, header) {
+// Comparable form of a heading cell: formulas ignore spacing and case, text
+// is compared as Sheets shows it (without the export's escape apostrophe).
+function sheetsHeadingMark(content, isValue) {
+  var text = String(content === null || content === undefined ? '' : content);
+  if (!isValue && text.charAt(0) === '=') return 'f:' + text.replace(/\s+/g, '').toUpperCase();
+  return 'v:' + (isValue ? text : text.replace(/^'/, '')).trim();
+}
+
+// Branding is reapplied to the title, summary and heading rows. Data rows and
+// column widths are styled only when the export adds them, so staff colours,
+// bold, wrapping and resized columns stay.
+function styleRegistrationsSheet(tab, columns, rows, header, newRows) {
   var width = columns.length, s = SHEETS_STYLE;
   tab.setTabColor(s.navy); tab.setFrozenRows(header); tab.setHiddenGridlines(true);
   tab.getRange(1, 1, 2, width).setBackground(s.navy).setFontFamily('Arial').setFontColor(s.white).setWrap(false);
@@ -662,8 +769,9 @@ function styleRegistrationsSheet(tab, columns, rows, header) {
   tab.getRange(header, 1, 1, width).setBackground(s.navy).setFontColor(s.white).setFontFamily('Arial').setFontSize(11)
     .setFontWeight('bold').setVerticalAlignment('middle').setHorizontalAlignment('left').setWrap(true)
     .setBorder(null, null, true, null, null, null, s.gold, SpreadsheetApp.BorderStyle.SOLID_THICK);
-  if (rows > header) tab.getRange(header + 1, 1, rows - header, width).setFontFamily('Arial').setFontSize(10).setFontColor(s.text)
-    .setVerticalAlignment('top').setBorder(null, null, null, null, null, true, '#d5e0ec', SpreadsheetApp.BorderStyle.SOLID);
+  var fresh = newRows && newRows.to >= newRows.from ? newRows : null, height = fresh ? fresh.to - fresh.from + 1 : 0;
+  if (fresh) tab.getRange(fresh.from, 1, height, width).setFontFamily('Arial').setFontSize(10).setFontColor(s.text)
+    .setVerticalAlignment('top').setBorder(fresh.from > header + 1 ? true : null, null, null, null, null, true, '#d5e0ec', SpreadsheetApp.BorderStyle.SOLID);
   var table = tab.getRange(header, 1, rows - header + 1, width), banding = tab.getBandings()[0];
   if (banding) banding.setRange(table);
   else banding = table.applyRowBanding(SpreadsheetApp.BandingTheme.BLUE, true, false);
@@ -680,16 +788,24 @@ function styleRegistrationsSheet(tab, columns, rows, header) {
     criteria.forEach(function (criterion, i) { if (criterion && i <= filterWidth) filter.setColumnFilterCriteria(i, criterion); });
   }
   columns.forEach(function (c, i) {
-    tab.setColumnWidth(i + 1, c.key === 'id' ? 90 : SHEETS_WIDTHS[c.key] || 240);
-    if (rows > header && c.key.indexOf('answer:') === 0) tab.getRange(header + 1, i + 1, rows - header, 1).setWrap(true);
+    if (c.fresh) tab.setColumnWidth(i + 1, c.key === 'id' ? 90 : SHEETS_WIDTHS[c.key] || 240);
+    if (fresh && c.key.indexOf('answer:') === 0) tab.getRange(fresh.from, i + 1, height, 1).setWrap(true);
   });
   tab.hideColumns(1);
   var status = columns.map(function (c) { return c.key; }).indexOf('status');
   if (status !== -1 && tab.getLastColumn() <= width) {
     var range = tab.getRange(header + 1, status + 1, tab.getMaxRows() - header, 1).setHorizontalAlignment('center').setFontWeight('bold');
-    tab.setConditionalFormatRules(Object.keys(s.status).map(function (name) {
+    // The status colours replace only themselves; staff rules on the tab stay, ahead of them.
+    var ours = function (rule) {
+      var condition = rule.getBooleanCondition ? rule.getBooleanCondition() : null, ranges = rule.getRanges ? rule.getRanges() : [];
+      return !!condition && String(condition.getCriteriaType()) === 'TEXT_EQUAL_TO' &&
+        Object.keys(s.status).indexOf(String((condition.getCriteriaValues() || [])[0])) !== -1 && ranges.length > 0 &&
+        ranges.every(function (r) { return r.getColumn() === status + 1 && r.getNumColumns() === 1; });
+    };
+    var kept = tab.getConditionalFormatRules().filter(function (rule) { return !ours(rule); });
+    tab.setConditionalFormatRules(kept.concat(Object.keys(s.status).map(function (name) {
       return SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(name).setBackground(s.status[name][0]).setFontColor(s.status[name][1]).setRanges([range]).build();
-    }));
+    })));
   }
 }
 
