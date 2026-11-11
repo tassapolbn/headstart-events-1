@@ -10,7 +10,7 @@ The app remains the main record. Editing a sheet never changes the app. Exported
 2. Keep the existing Script Properties: `SUPABASE_URL`, `SERVICE_ROLE_KEY` and `FROM_NAME`. For a new installation, follow the setup at the top of `EmailRelay.gs`. The service key stays in Google's Script Properties; never place it in the website or a spreadsheet.
 3. In Project Settings, show the manifest file. Use the scopes in `apps-script/appsscript.json`, retaining any additional scopes your project needs. Sheets needs `https://www.googleapis.com/auth/spreadsheets`; removing old sheet triggers needs `https://www.googleapis.com/auth/script.scriptapp`.
 4. Select **installGoogleSheetsSync**, click **Run** and authorize with the school's Google account. This removes the former sheet-sync timer and never installs a timer. Unrelated triggers, such as an optional email summary, are preserved. Confirm there is no `syncGoogleSheets` entry under Triggers. Even a stale sheet trigger does no work with the new code.
-5. Choose **Deploy > Manage deployments > Edit > New version > Deploy** for the existing web app. Execute as the school account, with access set to **Anyone**, as required for public registration submissions. Reuse its `/exec` URL in the app's campus or global Relay web app URL setting. Saving script files alone does not update the deployment. Opening `/exec` should report version **2026-10-24-sheets**.
+5. Choose **Deploy > Manage deployments > Edit > New version > Deploy** for the existing web app. Execute as the school account, with access set to **Anyone**, as required for public registration submissions. Reuse its `/exec` URL in the app's campus or global Relay web app URL setting. Saving script files alone does not update the deployment. Opening `/exec` should report version **2026-11-11** or later.
 6. Deploy the updated website. No database migration, Supabase Edge Function, Realtime subscription or scheduled database job is needed.
 
 Manual refresh verifies the signed-in user's session with Supabase and requires the server-controlled `app_metadata.role` to be `owner` or `staff`. A role in user-editable metadata does not grant access. Assign legacy staff accounts a server role through the app's account management before refreshing.
@@ -40,7 +40,7 @@ The total uses **SUBTOTAL**, so it follows the sheet filter. Filter **Status** t
 
 - **Row 1:** the event name, once, in a navy title band.
 - **Row 2:** event date, time and location, plus an Updated timestamp in the script's time zone. The event date is formatted in UTC to keep the saved calendar date.
-- **Row 3:** the registration/response count and chosen totals, on pale gold. Filtering changes the count to show how many rows are visible. The label uses a visible column that is not a total; it is omitted if every visible column is a total.
+- **Row 3:** the registration/response count and chosen totals, on pale gold. Filtering changes the count to show how many rows are visible. The label uses a visible column that is not a total; it is omitted if every visible column is a total. The other cells in this row are yours: a formula such as `=SUM(J5:J)` typed there stays and counts every new registration.
 - **Row 4:** the column headings, white on navy with a gold rule. Rows through the header are frozen. Existing valid headers below row 4 are also supported; the summary sits immediately above the header.
 - **Row 5 onward:** the records, with alternating row colours and status colours. Column A contains the hidden Registration ID used to prevent duplicates. The filter extends to the tab's available rows and preserves column criteria when it grows.
 
@@ -48,15 +48,28 @@ Anonymous surveys, pending registrations and waitlist entries are included. File
 
 ## Upgrade an already-connected sheet
 
-After replacing both script files and deploying a new version, **click Refresh Google Sheet once for each connected event**. A valid old **Registrations** tab is adopted using its existing ownership marker. Its header notes are validated before anything is claimed or moved. An invalid header produces an error without changing the tab; restore the notes before retrying.
+After replacing both script files and deploying a new version, **click Refresh Google Sheet once for each connected event**. With version **2026-11-11**, the first write also turns empty cells in rows 1 to 3 back to automatic format; earlier versions left them as plain text, where a typed formula shows as text instead of a result. A valid old **Registrations** tab is adopted using its existing ownership marker. Its header notes are validated before anything is claimed or moved. An invalid header produces an error without changing the tab; restore the notes before retrying.
 
 For the old row-1 layout, three rows are inserted above the header, preserving the existing records. The legacy Event column is hidden, duplicate contact answers are folded into contact cells, and selected numeric totals convert existing numeric text in place. This includes rows whose registration no longer exists in the app. The tab becomes the event name, or its requested name, subject to name collisions. Other tabs' formulas keep their column positions; Google Sheets adjusts references for inserted rows and tab renames.
 
 Do not copy a claimed event tab and keep both copies in the same spreadsheet. A duplicate claim stops the export and names the conflicting tabs; remove the unwanted copy, then refresh.
 
+## Your own changes in the sheet
+
+You can edit the event tab directly. New registrations and **Refresh Google Sheet** keep:
+
+- **Renamed headings.** Shorten a long question in row 4 and it stays, even when the question's wording changes in the app. Clear the heading to bring back the app's wording.
+- **Your formulas and notes in rows 1 to 3.** The export writes only its own cells there: the title, the details line, the count and the totals chosen in the app. Anything else you type in those rows stays. If you change one of the export's cells (a shorter title, your own formula in place of a chosen total), it is left as you wrote it.
+- **Anything under the registrations.** If a row directly below the last registration has something in it, such as a totals row, new registrations are inserted above it instead of overwriting it.
+- **Formatting.** Column widths, colours, bold, wrapping and your own conditional formatting stay. Only new rows and new columns get the default style.
+
+For totals that always include new registrations, put them in row 3 with an open range, for example `=SUM(J5:J)` above column J, or tick **Total** in the app. A total under the data is kept, but Google Sheets does not stretch a range such as `J5:J29` to rows added below it.
+
+Refresh still rewrites the answers in the export's own columns for every row, so the sheet matches the app. Keep your own per-registration notes in columns to the right of the export (see **Staff columns beside the export**).
+
 ## Ownership, refresh and recovery
 
-Everything on an event's managed tab is app-owned: title, details, summary/totals, headings and managed columns below them. Refresh overwrites managed rows; presentation is reapplied on each registration write and once per refresh request. **Keep staff notes, formulas and reports on other tabs.** Keep the ID column and header notes intact. Adding questions appends columns; changing question order does not move existing columns. Labels follow current wording. Answers of deleted questions keep their column; staff can delete such a column in Google Sheets if it is no longer wanted, and it will not be recreated. A deleted question previously merged into Name, Email or Phone stays hidden with that contact column and is cleared when that contact unit is excluded, including archived rows.
+The export manages the hidden Registration ID column, the header notes, its own cells in rows 1 to 3 and the answers in its columns. Refresh overwrites the answers in managed rows. Branding is reapplied to the title, summary and heading rows on each registration write and once per refresh request; data rows and column widths are styled only when they are added. Keep the ID column and header notes intact. Adding questions appends columns; changing question order does not move existing columns. Headings follow the current wording unless you renamed them in the sheet. Answers of deleted questions keep their column; staff can delete such a column in Google Sheets if it is no longer wanted, and it will not be recreated. A deleted question previously merged into Name, Email or Phone stays hidden with that contact column and is cleared when that contact unit is excluded, including archived rows.
 
 Rows are archival. Deleting a registration from the app does not remove its sheet row, and refresh cannot update that row from the database. Excluding a column can still clear its archived cells, and migrations can fold contacts or convert exact numeric text already stored there. Use the Status filter when calculating totals for current participants.
 
@@ -77,6 +90,7 @@ Use test events and a restricted spreadsheet:
 5. Untick a column, save and refresh. Confirm its cells are cleared and the column hidden, while the app still has the answers. Re-include it, confirm the reminder, and refresh again to fill live registrations and clear the reminder. The last selected optional column must remain selected.
 6. Upgrade a valid old connected sheet. Confirm rows survive, three rows are inserted, Event is hidden, the tab is renamed, duplicate contacts are combined and selected totals include archived numeric text. Refresh once to update current records.
 7. If a refresh needs Continue, change an export setting, save, and continue the old request. Confirm it restarts safely. With no submissions or refresh clicks, there should be no sheet-sync executions.
+8. Rename a long heading in row 4, type `=SUM(J5:J)` in an empty cell of row 3 and put a note in the row under the last registration. Submit a test response and confirm all three stay, with the new row above your note.
 
 Automated tests simulate Apps Script, Sheets and database responses. Live permissions, deployment and school credentials still need this setup check. Google's deployment and POST parameter documentation: https://developers.google.com/apps-script/guides/web
 

@@ -389,3 +389,47 @@ test('checkSetup reports the connection and every campus relay URL without sendi
   r.ctx.supabaseGet = () => { throw new Error('Supabase error: {"message":"Invalid API key"}'); };
   assert.throws(() => r.ctx.checkSetup(), /Supabase refused the connection.*Invalid API key/);
 });
+
+// ---------------------------------------------------------------------------
+// "Confirm email with a 6-digit code" (October 2026).
+// ---------------------------------------------------------------------------
+
+test('the relay emails a confirmation code once, and never an expired one', () => {
+  const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
+  const row = { id, email: 'parent@example.com', code: '042817', expires_at: new Date(Date.now() + 600000).toISOString(), sent_at: null, events: { name: 'Friday Market' } };
+  const r = relay([]);
+  const patches = [], reads = [];
+  r.ctx.UrlFetchApp = { fetch: (url, options) => patches.push({ url, options }) };
+  r.ctx.supabaseGet = (path) => { reads.push(path); return [row]; };
+  let quota = 1000;
+  r.ctx.MailApp.getRemainingDailyQuota = () => quota;
+
+  assert.deepEqual(r.post({ action: 'send_code', requestId: id }), { ok: true });
+  assert.equal(r.mail.length, 1);
+  assert.equal(r.mail[0].to, 'parent@example.com');
+  assert.equal(r.mail[0].subject, '042817 is your code for Friday Market');
+  assert.match(r.mail[0].htmlBody, /042817/);
+  assert.match(reads[0], /^\/rest\/v1\/email_codes\?select=id,email,code,expires_at,sent_at,events\(name\)&id=eq\.0f8fad5b/);
+  assert.equal(patches.length, 1);
+  assert.match(patches[0].url, /\/rest\/v1\/email_codes\?id=eq\.0f8fad5b/);
+  assert.ok(JSON.parse(patches[0].options.payload).sent_at);
+
+  row.sent_at = new Date().toISOString();
+  assert.equal(r.post({ action: 'send_code', requestId: id }).skipped, 'already sent');
+  row.sent_at = null;
+  row.expires_at = new Date(Date.now() - 1000).toISOString();
+  assert.equal(r.post({ action: 'send_code', requestId: id }).error, 'expired');
+  assert.equal(r.mail.length, 1);
+
+  // Anything that is not a request id never reaches the database.
+  assert.equal(r.post({ action: 'send_code', requestId: "x' or 1=1" }).error, 'missing request');
+  assert.equal(reads.length, 3);
+
+  // The last emails of the day stay free for confirmations and staff notices.
+  row.expires_at = new Date(Date.now() + 600000).toISOString();
+  quota = 50;
+  assert.equal(r.post({ action: 'send_code', requestId: id }).error, 'daily email limit reached');
+  quota = 51;
+  assert.deepEqual(r.post({ action: 'send_code', requestId: id }), { ok: true });
+  assert.equal(r.mail.length, 2);
+});

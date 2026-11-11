@@ -46,7 +46,14 @@ class Sheet extends MetadataOwner {
   getLastRow() { return this.values.reduce((last, row, i) => row?.some(v => v !== '' && v != null) ? i + 1 : last, 0); }
   getLastColumn() { return Math.max(0, ...this.values.map(row => row?.reduce((last, v, i) => v !== '' && v != null ? i + 1 : last, 0) || 0)); }
   getMaxRows() { return this.rows; } getMaxColumns() { return this.columns; }
-  insertRowsAfter(_, count) { this.rows += count; }
+  insertRowsAfter(row, count) {
+    this.fail?.('insertRowsAfter', { row, count });
+    // Rows inside the used area shift down, as in Sheets; growing at the end adds capacity.
+    for (const store of [this.values, this.notes, this.formats, this.formulas]) {
+      if (store.length > row) store.splice(row, 0, ...Array.from({ length: count }, () => []));
+    }
+    this.rows += count;
+  }
   insertColumnsAfter(_, count) { this.columns += count; }
   insertColumnsBefore(col, count) {
     this.fail?.('insertColumnsBefore', { col, count });
@@ -75,6 +82,7 @@ class Sheet extends MetadataOwner {
   isColumnHiddenByUser(c) { this.calls.push(['isColumnHiddenByUser', c]); return this.hidden.includes(c); }
   getBandings() { return this.bandings; } getFilter() { return this.filter; }
   setConditionalFormatRules(rules) { this.rules = rules; }
+  getConditionalFormatRules() { return this.rules.slice(); }
   getRange(row, col, height = 1, width = 1) {
     assert.ok(row > 0 && col > 0 && height > 0 && width > 0);
     assert.ok(row + height - 1 <= this.rows && col + width - 1 <= this.columns);
@@ -93,13 +101,17 @@ class Sheet extends MetadataOwner {
     const fill = v => Array.from({ length: height }, () => Array(width).fill(v));
     const range = {
       getValues: () => { this.calls.push(['getValues', row, col, height, width]); return read(this.values); }, getNotes: () => read(this.notes), getNumberFormats: () => read(this.formats),
-      getA1Notation: () => [row, col, height, width].join(','), getNumColumns: () => width,
+      getFormulas: () => read(this.formulas),
+      // Displayed text: every value as a string (the mock does not calculate formulas).
+      getDisplayValues: () => read(this.values).map(r => r.map(v => v === '' || v == null ? '' : String(v))),
+      getA1Notation: () => [row, col, height, width].join(','), getNumColumns: () => width, getColumn: () => col,
       setValues: data => { write(this.values, plain(data), 'values'); return range; }, setValue: v => range.setValues([[v]]),
       setNotes: data => { write(this.notes, plain(data), 'notes'); return range; },
       setNumberFormat: v => { write(this.formats, fill(v), 'formats'); return range; },
       setNumberFormats: data => { write(this.formats, plain(data), 'formats'); return range; },
       setFormulas: data => { write(this.formulas, plain(data), 'formulas'); write(this.values, plain(data), 'formulaValues'); return range; },
       clearContent: () => { write(this.values, fill(''), 'clear'); write(this.formulas, fill(''), 'clearFormulas'); return range; },
+      clearFormat: () => { write(this.formats, fill(''), 'clearFormat'); return range; },
     };
     for (const method of ['setBackground', 'setFontColor', 'setFontFamily', 'setFontSize', 'setFontWeight', 'setVerticalAlignment', 'setHorizontalAlignment', 'setWrap', 'setBorder']) {
       range[method] = (...args) => { this.record(method, range.getA1Notation(), ...args); return range; };
@@ -155,7 +167,9 @@ function harness(events = [], registrations = []) {
       newConditionalFormatRule: () => {
         const rule = {};
         const builder = { whenTextEqualTo: t => (rule.text = t, builder), setBackground: c => (rule.background = c, builder),
-          setFontColor: c => (rule.color = c, builder), setRanges: r => (rule.ranges = r, builder), build: () => rule };
+          setFontColor: c => (rule.color = c, builder), setRanges: r => (rule.ranges = r, builder),
+          build: () => Object.assign(rule, { getRanges: () => rule.ranges,
+            getBooleanCondition: () => ({ getCriteriaType: () => 'TEXT_EQUAL_TO', getCriteriaValues: () => [rule.text] }) }) };
         return builder;
       },
       flush: () => { if (failFlush) { failFlush = false; throw new Error('Flush failure'); } } },
@@ -442,9 +456,10 @@ test('totals use strict finite numbers, explicit data and total formats, and ign
   assert.deepEqual(dataRows(tab).map(r => r[n]), [12, -2, 3.125, ...values.slice(3)]);
   assert.deepEqual(tab.formats.slice(4).map(r => r[n]), ['#,##0', '#,##0', '#,##0.0#########', '@', '@', '@', '@', '@', '@', '@', '#,##0']);
   assert.equal(tab.formats[2][n], '#,##0.0#'); assert.equal(tab.formats[2][slider], '#,##0');
-  for (const key of ['answer:names', 'answer:repeat']) assert.equal(tab.formulas[2][column(tab, key)], '');
+  for (const key of ['answer:names', 'answer:repeat']) assert.equal(tab.formulas[2][column(tab, key)] || '', '');
   assert.match(tab.formulas[2][1], /^="Total for "&IF\(SUBTOTAL\(103,A5:A\)/);
-  e.settings.googleSheetTotals = []; h.ctx.writeEventRows(e, [], false); assert.equal(tab.formulas[2][n], ''); assert.equal(tab.formats[2][n], '@');
+  // A total no longer chosen is cleared and its cell goes back to automatic, so a staff formula typed there works.
+  e.settings.googleSheetTotals = []; h.ctx.writeEventRows(e, [], false); assert.equal(tab.formulas[2][n], ''); assert.equal(tab.formats[2][n], '');
   assert.equal(flags(tab, 'answer:n').num, undefined);
   e.form_schema[0].type = 'long_text'; h.ctx.writeEventRows(e, [], false); assert.equal(flags(tab, 'answer:n').num, undefined); assert.equal(cell(tab, 'r0', 'answer:n'), 12);
 });
@@ -932,7 +947,7 @@ test('legacy notes with missing labels and old type properties upgrade without b
   h.send(e, registration('a', 'next')); assert.equal(cell(tab, 'live', 'answer:new'), 'New answer');
   const fresh = event('fresh'); fresh.form_schema = [{ id: 'blank', type: 'paragraph' }];
   h.send(fresh, registration('fresh', 'f1')); h.send(fresh, registration('fresh', 'f2'));
-  assert.equal(tabFor(h, fresh).values[3][column(tabFor(h, fresh), 'answer:blank')], '');
+  assert.equal(tabFor(h, fresh).values[3][column(tabFor(h, fresh), 'answer:blank')] ?? '', '');
 });
 
 test('missing-label compatibility still rejects malformed keys, explicit labels and flags without mutation', () => {
@@ -1091,7 +1106,7 @@ test('header diagnostics identify the exact tab, cell and duplicate source witho
     });
     assert.deepEqual(plain([tab.values, tab.notes]), before);
     const html = h.ctx.sheetRefreshPage({});
-    assert.ok(html.includes('Sheets version: 2026-10-26-custom-columns'));
+    assert.ok(html.includes('Sheets version: 2026-11-11-staff-edits'));
   }
 });
 
@@ -1130,4 +1145,101 @@ test('a manual column inserted inside the managed block still stops without writ
   const before = plain([tab.values, tab.notes]);
   assert.throws(() => h.ctx.writeEventRows(e, [], true), /cell E4: missing note/);
   assert.deepEqual(plain([tab.values, tab.notes]), before);
+});
+
+// ---------------------------------------------------------------------------
+// Staff edits made directly in Google Sheets are kept (November 2026).
+// ---------------------------------------------------------------------------
+
+test('headings renamed in the sheet survive new registrations; untouched headings follow the form', () => {
+  const h = harness(), e = event('a');
+  e.form_schema = [{ id: 'q1', type: 'long_text', label: 'Please tell us about any allergies your child has' }, { id: 'q2', type: 'long_text', label: 'Pick-up time' }];
+  h.send(e, registration('a', 'r1', { q1: 'None' }));
+  const tab = tabFor(h, e), q1 = column(tab, 'answer:q1'), q2 = column(tab, 'answer:q2');
+  tab.values[3][q1] = 'Allergies';
+  tab.calls = []; h.send(e, registration('a', 'r2', { q1: 'Nuts' }));
+  assert.equal(tab.values[3][q1], 'Allergies');
+  assert.ok(!tab.calls.some(c => c[0] === 'values' && c[1] === 4), 'unchanged headings are not rewritten');
+  e.form_schema[0].label = 'Allergies or dietary needs'; e.form_schema[1].label = 'Collection time';
+  h.send(e, registration('a', 'r3'));
+  assert.equal(tab.values[3][q1], 'Allergies'); assert.equal(tab.values[3][q2], 'Collection time');
+  assert.equal(JSON.parse(tab.notes[3][q1].slice(10)).label, 'Allergies or dietary needs', 'the note keeps the form wording');
+  tab.values[3][q1] = ''; h.send(e, registration('a', 'r4'));
+  assert.equal(tab.values[3][q1], 'Allergies or dietary needs', 'clearing a heading brings the form wording back');
+  assert.equal(dataRows(tab).length, 4);
+});
+
+test('staff formulas and notes in the title and total rows survive new registrations', () => {
+  const h = harness(), e = event('a');
+  e.form_schema = [{ id: 'chairs', type: 'number', label: 'Number of chairs' }, { id: 'tables', type: 'number', label: 'Number of tables' }];
+  e.settings.googleSheetTotals = ['tables'];
+  h.send(e, registration('a', 'r1', { chairs: '2', tables: '1' }));
+  const tab = tabFor(h, e), chairs = column(tab, 'answer:chairs'), tables = column(tab, 'answer:tables');
+  const c = h.ctx.sheetsColumnLetter(chairs + 1), t = h.ctx.sheetsColumnLetter(tables + 1);
+  tab.getRange(3, chairs + 1).setFormulas([[`=SUM(${c}5:${c})`]]);
+  tab.getRange(2, 6).setValue('Budget approved');
+  h.send(e, registration('a', 'r2', { chairs: '3', tables: '2' }));
+  assert.equal(tab.formulas[2][chairs], `=SUM(${c}5:${c})`);
+  assert.equal(tab.values[1][5], 'Budget approved');
+  assert.equal(tab.formulas[2][tables], `=SUBTOTAL(109,${t}5:${t})`, 'totals chosen in the app still work');
+  assert.match(tab.formulas[2][1], /responses/);
+  // A shorter title typed by staff stays; untouched details still update.
+  tab.getRange(1, 2).setValue('Market'); e.location = 'Main hall';
+  h.send(e, registration('a', 'r3'));
+  assert.equal(tab.values[0][1], 'Market'); assert.match(tab.values[1][1], /Main hall/);
+  // An export total replaced by staff is left as they wrote it.
+  tab.getRange(3, tables + 1).setFormulas([[`=MAX(${t}5:${t})`]]);
+  h.send(e, registration('a', 'r4'));
+  assert.equal(tab.formulas[2][tables], `=MAX(${t}5:${t})`);
+  assert.equal(tab.formulas[2][chairs], `=SUM(${c}5:${c})`);
+  assert.equal(dataRows(tab).length, 4);
+});
+
+test('upgrading an older tab once returns empty title and total cells to automatic format', () => {
+  const h = harness(), e = event('a'); h.send(e, registration('a', 'r1')); const tab = tabFor(h, e);
+  // What earlier versions left: plain text across rows 1 to 3 and no record of the export's cells.
+  for (const row of [0, 1, 2]) for (let col = 0; col < 10; col++) if (!tab.values[row]?.[col]) (tab.formats[row] ??= [])[col] = '@';
+  tab.metadata.splice(tab.metadata.findIndex(m => m.getKey() === 'headstart_heading'), 1);
+  h.send(e, registration('a', 'r2'));
+  assert.equal(tab.formats[2][5], ''); assert.equal(tab.formats[0][5], '');
+  assert.equal(tab.formats[2][1], '#,##0'); assert.equal(tab.formats[0][1], '@');
+  assert.ok(metadata(tab, 'headstart_heading'));
+});
+
+test('a staff totals row under the registrations is moved down, never written over', () => {
+  const h = harness(), e = event('a'); e.form_schema = [{ id: 'chairs', type: 'number', label: 'Chairs' }];
+  h.send(e, registration('a', 'r1', { chairs: '2' })); h.send(e, registration('a', 'r2', { chairs: '3' }));
+  const tab = tabFor(h, e), chairs = column(tab, 'answer:chairs'), c = h.ctx.sheetsColumnLetter(chairs + 1);
+  tab.getRange(7, 2).setValue('Total chairs'); tab.getRange(7, chairs + 1).setFormulas([[`=SUM(${c}5:${c}6)`]]);
+  h.send(e, registration('a', 'r3', { chairs: '4' }));
+  assert.equal(tab.values[6][0], 'r3');
+  assert.equal(tab.values[7][1], 'Total chairs'); assert.equal(tab.formulas[7][chairs], `=SUM(${c}5:${c}6)`);
+  // With a blank row in between, the gap is used first, then rows go above the total again.
+  tab.insertRowsAfter(7, 1);
+  h.send(e, registration('a', 'r4')); h.send(e, registration('a', 'r5'));
+  assert.deepEqual(tab.values.slice(4, 9).map(r => r[0]), ['r1', 'r2', 'r3', 'r4', 'r5']);
+  assert.equal(tab.values[9][1], 'Total chairs');
+  assert.equal(dataRows(tab).length, 5);
+});
+
+test('staff formatting stays: only new rows and new columns get the default style and width', () => {
+  const h = harness(), e = event('a'); const sheet = h.book('sheet-a').sheet = new StyledSheet();
+  h.send(e, registration('a', 'r1'));
+  assert.ok(sheet.calls.some(c => c[0] === 'width'), 'a new tab sizes its columns');
+  sheet.calls = []; h.send(e, registration('a', 'r2'));
+  assert.ok(!sheet.calls.some(c => c[0] === 'width'), 'resized columns are left alone');
+  assert.deepEqual(sheet.calls.filter(c => c[0] === 'setFontColor' && /^[5-9],/.test(c[1])).map(c => c[1]), ['6,1,1,10'], 'only the new row is styled');
+  e.form_schema.push({ id: 'q2', type: 'long_text', label: 'New question' });
+  sheet.calls = []; h.send(e, registration('a', 'r3'));
+  assert.deepEqual(sheet.calls.filter(c => c[0] === 'width').map(c => c[1]), [column(sheet, 'answer:q2') + 1]);
+});
+
+test('staff conditional formatting on the tab is kept beside the status colours', () => {
+  const h = harness(), e = event('a'); h.send(e, registration('a', 'r1')); const tab = tabFor(h, e);
+  const staffRule = { text: 'staff', getRanges: () => [tab.getRange(5, 2, 10, 1)],
+    getBooleanCondition: () => ({ getCriteriaType: () => 'TEXT_CONTAINS', getCriteriaValues: () => ['VIP'] }) };
+  tab.rules = [staffRule, ...tab.rules];
+  h.send(e, registration('a', 'r2'));
+  assert.equal(tab.rules[0], staffRule);
+  assert.deepEqual(plain(tab.rules.slice(1).map(r => r.text)), ['confirmed', 'pending', 'waitlist', 'rejected', 'cancelled']);
 });

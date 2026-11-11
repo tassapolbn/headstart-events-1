@@ -12,6 +12,10 @@ const messages: Record<string, string> = {
   SPAM_DETECTED: 'Your submission could not be processed. Please try again.',
   EVENT_NOT_FOUND: 'This event could not be found or is not accepting registrations.',
   NOT_FOUND: 'No registration was found for that reference.',
+  EMAIL_CODE_TOO_SOON: 'A code was sent less than a minute ago. Please check your inbox, or wait a minute before asking for another.',
+  EMAIL_CODE_TOO_MANY: 'Too many codes were asked for this email address. Please try again in an hour.',
+  EMAIL_CODE_NOT_USED: 'This form no longer asks for an email code. Please refresh the page.',
+  EMAIL_NOT_VERIFIED: 'Please confirm your email address again: send a new code below your email, then submit.',
 };
 
 /** Neutral wording for surveys, questionnaires and feedback forms. */
@@ -27,7 +31,7 @@ const surveyMessages: Record<string, string> = {
 };
 
 /** Extract a readable message from any error shape Supabase can produce. */
-function messageOf(error: unknown): string {
+export function messageOf(error: unknown): string {
   if (!error) return '';
   if (typeof error === 'string') return error;
   if (error instanceof Error && error.message) return error.message;
