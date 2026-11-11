@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
+import { referenceFromScan } from '@/lib/scanReference';
 import {
   ArrowLeft, BadgeCheck, Camera, CameraOff, Download, Printer, Search, TicketCheck, TicketX, Undo2, X,
 } from 'lucide-react';
@@ -8,10 +9,11 @@ import { supabase } from '@/lib/supabase';
 import type { Registration } from '@/lib/types';
 import { useEvent } from '@/hooks/useEvent';
 import { formatDateTime, download, cn } from '@/lib/utils';
-import { boothText } from '@/lib/regBooths';
+import { boothText, boothExportNumber, boothVendorText } from '@/lib/regBooths';
 import { useToast } from '@/context/ToastContext';
 import { Badge, Button, Card, EmptyState, PageLoader, StatCard } from '@/components/ui/basics';
 import { Input } from '@/components/ui/inputs';
+import { RepeatScanAlert, playWarningBeep, type RepeatScan } from '@/components/checkin/RepeatScanAlert';
 
 const SCANNER_ID = 'qr-scanner-region';
 
@@ -36,6 +38,32 @@ export default function CheckInPage() {
   const [ticket, setTicket] = useState<TicketResult | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScan = useRef<{ ref: string; at: number }>({ ref: '', at: 0 });
+  // A QR that was already used: shown full screen until staff dismiss it.
+  const [repeat, setRepeat] = useState<RepeatScan | null>(null);
+  const repeatOpen = useRef(false);
+  const audioRef = useRef<AudioContext | null>(null);
+
+  // One check in at a time, so a second answer can never replace a warning
+  // that staff have not seen yet.
+  const busy = useRef(false);
+
+  /** Browsers only allow sound after a tap, so open (or wake) the audio on one. */
+  function unlockAudio() {
+    try {
+      if (!audioRef.current) {
+        const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (Ctx) audioRef.current = new Ctx();
+      }
+      if (audioRef.current?.state === 'suspended') void audioRef.current.resume();
+    } catch { /* no sound available */ }
+  }
+
+  const closeRepeat = useCallback(() => {
+    repeatOpen.current = false;
+    setRepeat(null);
+    // Let the same QR be scanned again straight away if staff want to recheck it.
+    lastScan.current = { ref: '', at: 0 };
+  }, []);
 
   async function load() {
     if (!id) return;
@@ -88,6 +116,16 @@ export default function CheckInPage() {
   }
 
   async function checkIn(reference: string) {
+    if (busy.current || repeatOpen.current) return;
+    busy.current = true;
+    try {
+      await runCheckIn(reference);
+    } finally {
+      busy.current = false;
+    }
+  }
+
+  async function runCheckIn(reference: string) {
     const { data, error } = await supabase.rpc('checkin_by_reference', { p_reference: reference });
     if (error) {
       toast(error.message.includes('NOT_FOUND') ? `No registration found for ${reference}.` : error.message, 'error');
@@ -95,7 +133,14 @@ export default function CheckInPage() {
     }
     const t = data as unknown as TicketResult;
     setTicket(t);
-    if (!t.already_checked_in) toast(`${reference} checked in.`);
+    if (t.already_checked_in) {
+      repeatOpen.current = true;
+      setRepeat(t);
+      playWarningBeep(audioRef.current);
+      try { navigator.vibrate?.([250, 120, 250]); } catch { /* not supported, e.g. iPhone */ }
+    } else {
+      toast(`${reference} checked in.`);
+    }
     void load();
   }
 
@@ -111,6 +156,7 @@ export default function CheckInPage() {
       setScanning(false);
       return;
     }
+    unlockAudio();
     setScanning(true);
     window.setTimeout(async () => {
       try {
@@ -120,9 +166,11 @@ export default function CheckInPage() {
           { facingMode: 'environment' },
           { fps: 8, qrbox: { width: 220, height: 220 } },
           (text) => {
-            const match = text.match(/HS-[A-Z0-9]{6}/i)?.[0]?.toUpperCase()
-              ?? new URLSearchParams(text.split('?')[1] ?? '').get('ref')?.toUpperCase()
-              ?? text.trim().toUpperCase();
+            // Hold further scans until staff have seen the repeat warning.
+            // While another check in is still running, drop this frame without
+            // remembering it, so the same QR is read again on the next frame.
+            if (repeatOpen.current || busy.current) return;
+            const match = referenceFromScan(text);
             const now = Date.now();
             if (match && (match !== lastScan.current.ref || now - lastScan.current.at > 4000)) {
               lastScan.current = { ref: match, at: now };
@@ -140,9 +188,9 @@ export default function CheckInPage() {
 
   function exportAttendance() {
     const rows = [
-      ['Reference', 'Name', 'Email', 'Booth', 'Status', 'Checked in at', 'Late'],
+      ['Reference', 'Name', 'Email', 'Booth', 'Type of vendor', 'Status', 'Checked in at', 'Late'],
       ...regs.map((r) => [
-        r.reference, r.name ?? '', r.email ?? '', boothText(r),
+        r.reference, r.name ?? '', r.email ?? '', boothExportNumber(r), boothVendorText(r),
         r.checked_in_at ? 'Present' : 'Not arrived',
         r.checked_in_at ? new Date(r.checked_in_at).toLocaleString() : '',
         isLate(r) ? 'Late' : '',
@@ -157,18 +205,22 @@ export default function CheckInPage() {
   return (
     <div className="space-y-5">
       <div className="no-print flex flex-wrap items-center gap-3">
-        <Link to={`/admin/events/${id}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200" aria-label="Back to event">
+        <Link to={`/admin/events/${id}`} className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 sm:h-10 sm:w-10" aria-label="Back to event">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-xl font-bold text-navy-800">Event check in</h1>
-          <p className="text-sm text-slate-500">{event.name}</p>
+          <h1 className="truncate font-display text-xl font-bold text-navy-800 sm:text-2xl">Event check in</h1>
+          <p className="truncate text-sm text-slate-500">{event.name}</p>
         </div>
-        <Button variant="outline" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Print check sheet</Button>
-        <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={exportAttendance}>Export</Button>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <Button variant="outline" className="flex-1 sm:flex-none" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>
+            <span className="sm:hidden">Print sheet</span><span className="hidden sm:inline">Print check sheet</span>
+          </Button>
+          <Button variant="outline" className="flex-1 sm:flex-none" icon={<Download className="h-4 w-4" />} onClick={exportAttendance}>Export</Button>
+        </div>
       </div>
 
-      <div className="no-print grid grid-cols-3 gap-3">
+      <div className="no-print grid grid-cols-3 gap-2 sm:gap-3">
         <StatCard label="Expected" value={regs.length} tone="navy" />
         <StatCard label="Checked in" value={checkedIn.length} tone="green" />
         <StatCard label="Not arrived" value={regs.length - checkedIn.length} tone="slate" />
@@ -227,7 +279,8 @@ export default function CheckInPage() {
             </Button>
             <div id={SCANNER_ID} className={scanning ? 'overflow-hidden rounded-xl' : 'hidden'} aria-label="QR scanner viewport" />
             <p className="text-xs text-slate-500">
-              Each QR works once, like a ticket. Scanning it a second time shows a red warning with the original check in time.
+              Each QR works once, like a ticket. If a QR was already checked in, for example someone coming back for a second gift,
+              the screen turns red with a warning sound and shows when it was first scanned.
             </p>
           </div>
         </Card>
@@ -256,12 +309,12 @@ export default function CheckInPage() {
                     <div className="flex items-center gap-1.5">
                       {isLate(r) && <Badge color="amber">Late</Badge>}
                       <Badge color="green"><BadgeCheck className="h-3.5 w-3.5" /> Present</Badge>
-                      <button title="Undo check in" aria-label={`Undo check in for ${r.reference}`} onClick={() => void undoCheckIn(r)} className="rounded p-1.5 text-slate-400 hover:bg-slate-100">
+                      <button title="Undo check in" aria-label={`Undo check in for ${r.reference}`} onClick={() => void undoCheckIn(r)} className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 sm:h-8 sm:w-8">
                         <Undo2 className="h-4 w-4" />
                       </button>
                     </div>
                   ) : (
-                    <Button size="sm" onClick={() => void checkIn(r.reference)}>Check in</Button>
+                    <Button size="sm" onClick={() => { unlockAudio(); void checkIn(r.reference); }}>Check in</Button>
                   )}
                 </li>
               ))}
@@ -269,6 +322,8 @@ export default function CheckInPage() {
           )}
         </Card>
       </div>
+
+      {repeat && <RepeatScanAlert scan={repeat} onClose={closeRepeat} />}
 
       {/* Printable sign up / check sheet */}
       <div className="hidden print:block">

@@ -236,8 +236,14 @@ export type FormType = 'registration' | 'survey';
 export interface EventSettings {
   titleHtml?: string;
   policyDisplay?: 'sections' | 'checkbox';
-  /** One spreadsheet per event. Blank disables the scheduled registration export. */
+  /** Spreadsheet that receives this event's rows, in a tab of its own. Several events may share one. Blank disconnects. */
   googleSheetUrl?: string;
+  /** Name of this event's tab in that spreadsheet. Blank uses the event name. */
+  googleSheetTab?: string;
+  /** Number questions without collectNames, and sliders (field IDs), that get a total in the sheet. */
+  googleSheetTotals?: string[];
+  /** Sheet columns not sent: reference, created_at, name, email, phone, booth, status or answer:<fieldId>. */
+  googleSheetExclude?: string[];
   /** 'registration' = event sign up (reference, QR, booths). 'survey' = survey, questionnaire or feedback form. */
   formType: FormType;
   /** Optional custom heading above the form (falls back to the wording for the form type) */

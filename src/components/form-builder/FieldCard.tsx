@@ -30,7 +30,7 @@ export function SortableFieldCard({ field, selected, onSelect, onDuplicate, onDe
         {...attributes}
         {...listeners}
         aria-label={`Reorder ${field.label}`}
-        className="cursor-grab touch-none rounded p-1.5 text-slate-300 hover:text-slate-500 active:cursor-grabbing"
+        className="flex h-10 w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded sm:h-8 text-slate-300 hover:text-slate-500 active:cursor-grabbing"
       >
         <GripVertical className="h-4 w-4" />
       </button>
@@ -48,10 +48,10 @@ export function SortableFieldCard({ field, selected, onSelect, onDuplicate, onDe
           {field.mapTo ? ` - maps to ${field.mapTo}` : ''}
         </span>
       </button>
-      <button aria-label={`Duplicate ${field.label}`} onClick={onDuplicate} className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+      <button aria-label={`Duplicate ${field.label}`} onClick={onDuplicate} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg sm:h-8 sm:w-8 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
         <Copy className="h-4 w-4" />
       </button>
-      <button aria-label={`Delete ${field.label}`} onClick={onDelete} className="rounded p-1.5 text-red-300 hover:bg-red-50 hover:text-red-500">
+      <button aria-label={`Delete ${field.label}`} onClick={onDelete} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg sm:h-8 sm:w-8 text-red-300 hover:bg-red-50 hover:text-red-500">
         <Trash2 className="h-4 w-4" />
       </button>
     </li>

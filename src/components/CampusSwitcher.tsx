@@ -25,7 +25,7 @@ export function CampusSwitcher({ variant = 'sidebar' }: { variant?: 'sidebar' | 
               aria-selected={active}
               onClick={() => setCampusId(c.id)}
               className={cn(
-                'flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition',
+                'flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition lg:min-h-9',
                 active
                   ? 'text-white shadow'
                   : variant === 'sidebar'

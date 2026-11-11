@@ -6,7 +6,7 @@ Built with React, Vite, TypeScript, Tailwind CSS, React Hook Form, Zod and Frame
 
 A Thai language quick start guide is in `SETUP_GUIDE_TH.md`.
 
-For automatic registration exports to a separate Google spreadsheet per event,
+For automatic registration exports to an event tab in Google Sheets (several events can share one spreadsheet),
 see [Google Sheets setup](GOOGLE_SHEETS_SETUP.md). Updates happen only on a new
 registration or an admin refresh, independently of confirmation emails. No polling.
 
@@ -110,7 +110,7 @@ The architecture is modular by design. New modules (volunteer registration, pare
 - Sign in fails: confirm the user exists in Supabase Authentication and was auto confirmed.
 - No confirmation emails: open Settings and press "Send a test to all recipients"; run `checkSetup` in Apps Script and read the Execution log; confirm the three Script Properties.
 - Staff not notified about a form: check that form's **Email -> Notification recipients**. An empty list notifies nobody.
-- Email codes never arrive: open the relay URL and check it shows version `2026-10-24` or later, then look in the
+- Email codes never arrive: open the relay URL and check it shows version `2026-11-11` or later, then look in the
   parent's Junk or Spam folder. A message starting with "ADMIN:" on the form names the missing setup step.
 - Run `npm test` for the notification and relay regression tests, and `npm run build` for the TypeScript check and production build.
 - Booth map not showing publicly: the floor plan toggle must be on, the event saved, and at least one booth drawn and saved.
@@ -142,7 +142,7 @@ Turn it on per form: **Event -> Settings -> Confirm email with a 6-digit code**.
 Setup (once):
 1. Run `supabase/migration-008-email-codes.sql` in the Supabase SQL Editor.
 2. Update the Apps Script relay with the latest `apps-script/EmailRelay.gs` (Deploy -> Manage deployments ->
-   Edit -> New version). Opening the relay URL should then show version `2026-10-24`.
+   Edit -> New version). Opening the relay URL should then show version `2026-11-11` (`2026-10-24-sheets` cannot send codes).
 
 Notes:
 - Parents never sign in or create accounts. A signed-in account is treated as staff by the database, so
@@ -157,4 +157,4 @@ Notes:
 
 ## Flexible forms and on-demand Sheets
 
-See [Form design guide](FORM_DESIGN_GUIDE.md) for question photos and descriptions, type changes, standalone consent, rich headings, Sarabun and email styling. See [Google Sheets setup](GOOGLE_SHEETS_SETUP.md) for registration-triggered export and explicit admin refresh. No scheduled Sheets scans or new database migrations are required. After changing the email renderer, run `node scripts/build-email-relay.mjs` and check with `--check` before updating Apps Script.
+See [Form design guide](FORM_DESIGN_GUIDE.md) for question photos and descriptions, type changes, standalone consent, rich headings, Sarabun and email styling. See [Google Sheets setup](GOOGLE_SHEETS_SETUP.md) for registration-triggered export and explicit admin refresh: several events can share a spreadsheet, each with its own requested tab name, selected columns and optional totals that follow the filter. No scheduled Sheets scans or new database migrations are required. After changing the email renderer, run `node scripts/build-email-relay.mjs` and check with `--check` before updating Apps Script.

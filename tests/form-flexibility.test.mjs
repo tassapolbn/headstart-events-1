@@ -36,6 +36,13 @@ try {
   assert.match(safe, /color:#ff0080/); assert.match(safe, /font-family:&quot;Sarabun&quot;/);
   assert.match(safe, /<br\/>/); assert.match(safe, /white-space:nowrap/);
   assert.equal(m.richToHtml(safe, true), safe, 'saved formatting must survive repeated editor round trips');
+  assert.match(safe, /font-family:&quot;Sarabun&quot;, sans-serif/);
+  assert.match(m.richToHtml('<span style="font-family:Inter, sans-serif">x</span>'), /font-family:Inter, Sarabun, sans-serif/);
+  assert.match(m.richToHtml('<span style="font-family:Inter">x</span>'), /font-family:Inter, Sarabun/);
+  assert.equal(m.richToHtml('<span style="font-family:sArAbUn, serif">x</span>'), '<span style="font-family:sArAbUn, serif">x</span>');
+  for (const generic of ['sans-serif', 'serif', 'monospace', 'system-ui', 'cursive']) {
+    assert.equal(m.richToHtml(`<span style="font-family:Inter, ${generic}">x</span>`), `<span style="font-family:Inter, Sarabun, ${generic}">x</span>`);
+  }
   const hostile = m.richToHtml('<script>alert(1)</script><img src=x onerror=alert(1)><a href="javascript:alert(1)">bad</a><span style="color:expression(x);background-image:url(x)" onclick="alert(1)">text</span>');
   assert.ok(!hostile.includes('<script>') && !hostile.includes('<img'));
   assert.ok(!hostile.includes('href=') && !hostile.includes('style=') && !hostile.includes('<span onclick'));
@@ -79,6 +86,16 @@ try {
   const script = readFileSync(new URL('../apps-script/EmailRelay.gs', import.meta.url), 'utf8');
   const ctx = vm.createContext({ PropertiesService: { getScriptProperties: () => ({ getProperty: () => '' }) } });
   vm.runInContext(script, ctx);
+  for (const font of ['Inter', 'Arial', 'Sarabun']) {
+    const opts = { template: { body: '<p>Hello</p>', design: { font } }, mergeMap: {} };
+    const html = m.buildEmailHtml(opts);
+    assert.equal(ctx.HeadStartEmail.buildEmailHtml(opts), html, 'email font fallbacks must match in preview and Google renderer');
+    assert.match(html, /family=Sarabun:wght@400;600;700/);
+    assert.equal((html.match(/<link /g) || []).length, 1);
+    const stack = font === 'Sarabun' ? 'Sarabun,Arial,sans-serif' : font === 'Arial' ? 'Arial,Sarabun,sans-serif' : 'Inter,Sarabun,Arial,sans-serif';
+    assert.ok(html.includes(`font-family:${stack}`));
+    assert.equal(html.includes('&amp;family=Inter:wght@400;600;700'), font === 'Inter');
+  }
   for (const headerPosition of ['top', 'afterBanner', 'bottom', 'hidden']) {
     const opts = { template: { showLogo: true, showBanner: true, showQr: true, body: '<p>Hello {{name}}</p>', buttonLabel: 'Details', buttonUrl: 'https://example.com', design: { headerPosition, font: 'Sarabun', headerColor: '#112233', textColor: '#332211', headerAlign: 'right' } }, mergeMap: { name: 'Guest' }, logoUrl: 'https://example.com/logo.png', bannerUrl: 'https://example.com/banner.png', qrUrl: 'https://example.com/qr.png' };
     const html = m.buildEmailHtml(opts);

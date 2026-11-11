@@ -146,7 +146,7 @@ export function FormBuilder({ fields, onChange, theme, assetPrefix = 'forms' }: 
                     <button
                       key={type}
                       onClick={() => add(type as FieldType)}
-                      className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-left text-xs font-medium text-slate-600 transition hover:border-navy-300 hover:bg-navy-50 hover:text-navy-700"
+                      className="flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 sm:min-h-8 text-left text-xs font-medium text-slate-600 transition hover:border-navy-300 hover:bg-navy-50 hover:text-navy-700"
                     >
                       <Plus className="h-3 w-3 shrink-0" /> {m.label}
                     </button>

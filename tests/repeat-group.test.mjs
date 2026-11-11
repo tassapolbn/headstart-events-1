@@ -93,9 +93,12 @@ test('answers read clearly in exports, one line per child', () => {
   assert.equal(m.formatRepeatValue(siblings, [{ age: '7' }, { age: '10' }]), '2\nSibling 1: Age: 7\nSibling 2: Age: 10');
   const rows = m.buildRows({ form_schema: [children, siblings] },
     [{ reference: 'HS-1', status: 'confirmed', created_at: '2026-10-20T00:00:00Z', data: { kids, sibs: [{ age: '7' }] } }]);
-  assert.equal(rows[0].at(-2), 'Full name of your child (Children)');
-  assert.match(rows[1].at(-2), /^Child 1: Full name: Ann Smith/);
-  assert.equal(rows[1].at(-1), '1\nSibling 1: Age: 7');
+  const value = label => rows[1][rows[0].indexOf(label)];
+  assert.equal(value(`${children.label} — Child 1 — Full name`), 'Ann Smith');
+  assert.equal(value(`${children.label} — Child 2 — Full name`), 'Tom Smith');
+  assert.equal(value(`${children.label} — Child 2 — Class`), '');
+  assert.equal(value(`${siblings.label} — Count`), '1');
+  assert.equal(value(`${siblings.label} — Sibling 1 — Age`), '7');
   assert.equal(m.answerFitsQuestion(children, kids), true);
   assert.equal(m.answerFitsQuestion(children, 'Ann'), false);
 });
@@ -111,4 +114,22 @@ test('the form shows one child card with an "Add another" button, or a "how many
   assert.match(count, /type="number"/);
   assert.match(count, /Enter a number from 0 to 5/);
   assert.doesNotMatch(count, /Sibling 1/);
+});
+
+test('exports separate booth numbers as numbers from vendor labels', () => {
+  const rows = m.buildRows({ form_schema: [] }, [{ reference: 'HS-2', status: 'confirmed',
+    created_at: '2026-10-26T00:00:00Z', booths: { number: '21', label: 'Outside Provider' } }]);
+  assert.equal(rows[1][rows[0].indexOf('Booth')], 21);
+  assert.equal(rows[1][rows[0].indexOf('Type of vendor')], 'Outside Provider');
+});
+
+test('downloaded exports size repeating columns from actual answers including empty events', () => {
+  const field = { ...children, maxItems: 10 };
+  const empty = m.buildRows({ form_schema: [field] }, []);
+  assert.ok(empty[0].includes(`${field.label} — Count`));
+  assert.ok(!empty[0].some(label => label.includes('Child 1 —')));
+  const rows = m.buildRows({ form_schema: [field] }, [{ reference: 'A', status: 'confirmed',
+    created_at: '2026-10-26T00:00:00Z', data: { [field.id]: [{ name: 'Ann' }, { name: 'Tom' }] } }]);
+  assert.ok(rows[0].some(label => label.includes('Child 2 —')));
+  assert.ok(!rows[0].some(label => label.includes('Child 3 —')));
 });

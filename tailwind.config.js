@@ -30,8 +30,9 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Poppins', 'Inter', 'sans-serif']
+        sans: ['Inter', 'Sarabun', 'system-ui', 'sans-serif'],
+        display: ['Poppins', 'Inter', 'Sarabun', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'Sarabun', 'monospace']
       },
       boxShadow: {
         card: '0 1px 3px rgba(14,33,53,0.08), 0 4px 16px rgba(14,33,53,0.06)'

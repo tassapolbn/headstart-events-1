@@ -67,12 +67,12 @@ export default function PublicHome() {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <header className="bg-navy-800 px-4 pb-20 pt-12 text-center text-white">
+      <header className="bg-navy-800 px-4 pb-16 pt-10 text-center text-white sm:pb-20 sm:pt-12">
         <img src={settings?.email_logo_url ?? settings?.logo_url ?? '/logo.svg'} alt="School logo" className="mx-auto h-20 w-auto max-w-[82vw] object-contain sm:h-24" />
         <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-gold-300">Connect with our school community</p>
         <h1 className="mt-3 font-display text-3xl font-bold sm:text-4xl">Events and Forms</h1>
         <p className="mt-1.5 text-navy-100">Upcoming school events, surveys and feedback forms</p>
-        <Link to="/lookup" className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm text-navy-100 hover:bg-white/20">
+        <Link to="/lookup" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-full bg-white/10 px-5 text-sm font-medium text-navy-50 ring-1 ring-white/15 transition hover:bg-white/20">
           <Search className="h-4 w-4" /> Find my registration
         </Link>
       </header>
@@ -111,7 +111,7 @@ export default function PublicHome() {
                       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-navy-200 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-navy-200"
                     >
                       <div
-                        className="h-40 bg-navy-700 bg-cover bg-center"
+                        className="h-32 bg-navy-700 bg-cover bg-center sm:h-40"
                         style={
                           e.branding?.banner_url || e.branding?.poster_url
                             ? { backgroundImage: `url(${e.branding.banner_url ?? e.branding.poster_url})` }
@@ -147,7 +147,7 @@ export default function PublicHome() {
       </section>
 
       <footer className="pb-8 text-center text-xs text-slate-400">
-        <Link to="/admin" className="hover:underline">Staff sign in</Link>
+        <Link to="/admin" className="inline-flex min-h-11 items-center px-3 hover:underline">Staff sign in</Link>
       </footer>
     </main>
   );

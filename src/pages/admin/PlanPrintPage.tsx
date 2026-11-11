@@ -120,14 +120,15 @@ export default function PlanPrintPage() {
       <style>{paperCss[paper]}</style>
 
       <div className="no-print flex flex-wrap items-center gap-3">
-        <Link to={`/admin/events/${id}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200" aria-label="Back to event">
+        <Link to={`/admin/events/${id}`} className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 sm:h-10 sm:w-10" aria-label="Back to event">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-xl font-bold text-navy-800">Print floor plan</h1>
-          <p className="text-sm text-slate-500">{event.name} - {bookedCount} of {booths.length} booths taken</p>
+          <h1 className="truncate font-display text-xl font-bold text-navy-800 sm:text-2xl">Print floor plan</h1>
+          <p className="truncate text-sm text-slate-500">{event.name}</p>
+          <p className="text-xs text-slate-500">{bookedCount} of {booths.length} booths taken</p>
         </div>
-        <Button icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Print</Button>
+        <Button className="w-full sm:w-auto" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Print</Button>
       </div>
 
       <div className="no-print grid gap-5 lg:grid-cols-[300px_1fr]">

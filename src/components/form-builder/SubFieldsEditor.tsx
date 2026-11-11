@@ -33,9 +33,9 @@ export function SubFieldsEditor({ subFields, onChange }: {
         <div key={s.id} className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5">
           <div className="flex items-center gap-1.5">
             <Input value={s.label} onChange={(e) => set(i, { label: e.target.value })} placeholder="e.g. Full name" aria-label={`Detail ${i + 1} name`} />
-            <button type="button" aria-label={`Move detail ${i + 1} up`} disabled={i === 0} onClick={() => move(i, -1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
-            <button type="button" aria-label={`Move detail ${i + 1} down`} disabled={i === subFields.length - 1} onClick={() => move(i, 1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
-            <button type="button" aria-label={`Remove detail ${i + 1}`} onClick={() => onChange(subFields.filter((_, j) => j !== i))} className="rounded p-1 text-red-300 hover:text-red-500"><X className="h-4 w-4" /></button>
+            <button type="button" aria-label={`Move detail ${i + 1} up`} disabled={i === 0} onClick={() => move(i, -1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded sm:h-8 sm:w-7 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
+            <button type="button" aria-label={`Move detail ${i + 1} down`} disabled={i === subFields.length - 1} onClick={() => move(i, 1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded sm:h-8 sm:w-7 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
+            <button type="button" aria-label={`Remove detail ${i + 1}`} onClick={() => onChange(subFields.filter((_, j) => j !== i))} className="flex h-10 w-9 shrink-0 items-center justify-center rounded sm:h-8 sm:w-7 text-red-300 hover:text-red-500"><X className="h-4 w-4" /></button>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Select aria-label={`Detail ${i + 1} type`} value={s.type} className="w-auto"
@@ -67,7 +67,7 @@ export function SubFieldsEditor({ subFields, onChange }: {
       <button
         type="button"
         onClick={() => onChange([...subFields, { id: uid(), label: '', type: 'short_text' }])}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-navy-300 hover:text-navy-600"
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed sm:min-h-8 border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-navy-300 hover:text-navy-600"
       >
         <Plus className="h-3.5 w-3.5" /> Add a detail
       </button>

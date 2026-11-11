@@ -9,9 +9,9 @@ import { createBlankEvent, createFromTemplate, deleteEvent, duplicateEvent, publ
 import { useCampus } from '@/context/CampusContext';
 import { CampusBadge } from '@/components/CampusSwitcher';
 import { useToast } from '@/context/ToastContext';
-import { Badge, Button, Card, EmptyState, PageLoader } from '@/components/ui/basics';
+import { Badge, Button, Card, EmptyState, PageLoader, Spinner } from '@/components/ui/basics';
 import { Field, Input, Select, Textarea } from '@/components/ui/inputs';
-import { ConfirmDialog, Modal } from '@/components/ui/overlays';
+import { ActionMenu, ConfirmDialog, Modal, SegmentedControl } from '@/components/ui/overlays';
 
 type EventRow = EventRecord & { registrations: Array<{ count: number }> };
 
@@ -140,47 +140,36 @@ export default function EventsListPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-2xl font-bold text-navy-800">Events</h1>
             <CampusBadge />
           </div>
-          <p className="text-sm text-slate-500">Create, publish and manage event registrations and surveys for {campus?.name ?? 'this campus'}.</p>
+          <p className="mt-0.5 text-sm text-slate-500">Create, publish and manage event registrations and surveys for {campus?.name ?? 'this campus'}.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" icon={<MessageSquareText className="h-4 w-4" />} onClick={() => { setNewType('survey'); setCreateOpen(true); }}>New Survey / Feedback</Button>
-          <Button icon={<CalendarPlus className="h-4 w-4" />} onClick={() => { setNewType('registration'); setCreateOpen(true); }}>Create New Event</Button>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+          <Button variant="outline" icon={<MessageSquareText className="h-4 w-4" />} onClick={() => { setNewType('survey'); setCreateOpen(true); }}>
+            <span className="sm:hidden">New survey</span><span className="hidden sm:inline">New Survey / Feedback</span>
+          </Button>
+          <Button icon={<CalendarPlus className="h-4 w-4" />} onClick={() => { setNewType('registration'); setCreateOpen(true); }}>
+            <span className="sm:hidden">New event</span><span className="hidden sm:inline">Create New Event</span>
+          </Button>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-1 rounded-xl bg-slate-200/70 p-1">
-          {filters.map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition ${filter === f ? 'bg-white text-navy-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              {f}
-            </button>
-          ))}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative w-full lg:order-last lg:ml-auto lg:w-64">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search events" className="pl-9" aria-label="Search events" />
         </div>
-        <div className="flex flex-wrap gap-1 rounded-xl bg-slate-200/70 p-1">
-          {typeFilters.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setTypeFilter(f.id)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${typeFilter === f.id ? 'bg-white text-navy-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <div className="relative ml-auto w-full sm:w-64">
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search events" className="pl-9" aria-label="Search events" />
-        </div>
+        <SegmentedControl
+          label="Filter by status"
+          value={filter}
+          onChange={setFilter}
+          options={filters.map((f) => ({ id: f, label: f }))}
+        />
+        <SegmentedControl label="Filter by form type" value={typeFilter} onChange={setTypeFilter} options={typeFilters} />
       </div>
 
       {visible.length === 0 ? (
@@ -195,37 +184,52 @@ export default function EventsListPage() {
             const count = e.registrations?.[0]?.count ?? 0;
             const copy = formCopy(e);
             return (
-              <Card key={e.id} padded={false} className="overflow-hidden">
+              <Card key={e.id} padded={false} className="flex flex-col overflow-hidden transition hover:border-slate-300 hover:shadow-md" bodyClassName="flex flex-1 flex-col">
                 <div
-                  className="h-24 bg-navy-700 bg-cover bg-center"
-                  style={e.branding?.banner_url || e.branding?.poster_url ? { backgroundImage: `url(${e.branding.banner_url ?? e.branding.poster_url})` } : undefined}
+                  className="h-20 bg-navy-700 bg-cover bg-center sm:h-24"
+                  style={e.branding?.banner_url || e.branding?.poster_url
+                    ? { backgroundImage: `url(${e.branding.banner_url ?? e.branding.poster_url})` }
+                    : { background: `linear-gradient(120deg, ${e.theme?.primary ?? '#1a3c5e'}, ${e.theme?.accent ?? '#2f5d8a'})` }}
                 >
-                  <div className="flex h-full items-start justify-between p-3">
+                  <div className="flex h-full items-start justify-between gap-2 p-3">
                     <div className="flex flex-wrap gap-1.5">
                       <Badge color={statusColor[e.status]} className="capitalize">{e.status}</Badge>
                       <Badge color={copy.isSurvey ? 'amber' : 'blue'}>{copy.typeLabel}</Badge>
                     </div>
-                    <span className="rounded-full bg-white/90 px-2.5 py-0.5 text-xs font-semibold text-navy-800">{copy.countLabel(count)}</span>
+                    <span className="shrink-0 rounded-full bg-white/90 px-2.5 py-0.5 text-xs font-semibold text-navy-800">{copy.countLabel(count)}</span>
                   </div>
                 </div>
-                <div className="space-y-3 p-4">
-                  <div>
-                    <Link to={`/admin/events/${e.id}`} className="font-display text-base font-semibold text-navy-800 hover:underline">{e.name}</Link>
-                    <p className="text-xs text-slate-500">
+                <div className="flex flex-1 flex-col gap-3 p-4">
+                  <div className="min-w-0">
+                    <Link to={`/admin/events/${e.id}`} className="font-display text-base font-semibold leading-snug text-navy-800 hover:underline">{e.name}</Link>
+                    <p className="mt-0.5 text-xs text-slate-500">
                       {e.event_date ? formatDate(e.event_date, 'EEE d MMM yyyy') : copy.isSurvey ? 'No date' : 'Date not set'}
-                      {e.location ? ` - ${e.location}` : ''}
+                      {e.location ? ` · ${e.location}` : ''}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Button size="sm" variant="outline" icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => navigate(`/admin/events/${e.id}`)}>Edit</Button>
-                    <Button size="sm" variant="outline" icon={<ClipboardList className="h-3.5 w-3.5" />} onClick={() => navigate(`/admin/events/${e.id}/registrations`)}>{copy.entries}</Button>
-                    <Button size="sm" variant="outline" icon={<Copy className="h-3.5 w-3.5" />} loading={busyId === e.id} onClick={() => void handleDuplicate(e)}>Duplicate</Button>
-                    <Button size="sm" variant="outline" icon={<Shapes className="h-3.5 w-3.5" />} onClick={() => { setTplFor(e); setTplName(e.name); setTplDesc(''); }}>Save as template</Button>
-                    <Button size="sm" variant="outline" icon={<Link2 className="h-3.5 w-3.5" />} onClick={() => copyLink(e)}>Copy link</Button>
-                    <a href={publicEventUrl(e.slug)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                      <ExternalLink className="h-3.5 w-3.5" /> View
+                  {/* Main actions stay visible; the rest sit behind "More". */}
+                  <div className="mt-auto flex items-center gap-1.5">
+                    <Button size="sm" variant="outline" className="flex-1 sm:flex-none" icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => navigate(`/admin/events/${e.id}`)}>Edit</Button>
+                    <Button size="sm" variant="outline" className="flex-1 sm:flex-none" icon={<ClipboardList className="h-3.5 w-3.5" />} onClick={() => navigate(`/admin/events/${e.id}/registrations`)}>{copy.entries}</Button>
+                    <a
+                      href={publicEventUrl(e.slug)} target="_blank" rel="noreferrer" aria-label={`View public page for ${e.name}`} title="View public page"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 sm:min-h-8 sm:min-w-8"
+                    >
+                      <ExternalLink className="h-4 w-4" />
                     </a>
-                    <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={() => setDeleteFor(e)}>Delete</Button>
+                    {busyId === e.id ? (
+                      <span className="inline-flex min-h-11 min-w-11 items-center justify-center sm:min-h-8 sm:min-w-8"><Spinner size={16} /></span>
+                    ) : (
+                      <ActionMenu
+                        label={`More actions for ${e.name}`}
+                        items={[
+                          { label: 'Copy public link', icon: <Link2 className="h-4 w-4" />, onClick: () => copyLink(e) },
+                          { label: 'Duplicate', icon: <Copy className="h-4 w-4" />, onClick: () => void handleDuplicate(e) },
+                          { label: 'Save as template', icon: <Shapes className="h-4 w-4" />, onClick: () => { setTplFor(e); setTplName(e.name); setTplDesc(''); } },
+                          { label: 'Delete', icon: <Trash2 className="h-4 w-4" />, danger: true, onClick: () => setDeleteFor(e) },
+                        ]}
+                      />
+                    )}
                   </div>
                 </div>
               </Card>

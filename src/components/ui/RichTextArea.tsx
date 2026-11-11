@@ -54,29 +54,31 @@ export function RichTextArea({ value, onChange, rows = 6, label, hint, id, inlin
     holder.appendChild(s.getRangeAt(0).cloneContents());
     command('insertHTML', `<span style="${escapeHtml(style)}">${richToHtml(holder.innerHTML)}</span>`);
   }
-  const button = 'rounded px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-navy-300';
+  const button = 'inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-navy-300 sm:min-h-8 sm:min-w-8';
+  const picker = 'min-h-11 shrink-0 rounded-md border border-slate-200 bg-white px-1.5 text-xs sm:min-h-8';
   return <div className="space-y-1.5">
     {label && <span className="block text-sm font-medium text-slate-700">{label}</span>}
     <div className="overflow-hidden rounded-lg border border-slate-300 bg-white">
-      {!source && <div className="flex flex-wrap items-center gap-1 border-b border-slate-100 p-1.5" role="toolbar" aria-label={`${label || 'Text'} formatting`}>
+      {/* One sideways-scrolling row on phones, wrapping on larger screens */}
+      {!source && <div className="no-scrollbar flex items-center gap-1 overflow-x-auto border-b [contain:inline-size] sm:[contain:none] border-slate-100 bg-slate-50/60 p-1.5 sm:flex-wrap" role="toolbar" aria-label={`${label || 'Text'} formatting`}>
         {([{ name: 'bold', title: 'Bold', icon: Bold }, { name: 'italic', title: 'Italic', icon: Italic }, { name: 'underline', title: 'Underline', icon: Underline },
           ...(!inline ? [{ name: 'insertUnorderedList', title: 'Bullet list', icon: List }, { name: 'insertOrderedList', title: 'Numbered list', icon: ListOrdered }] : [])]).map(item =>
           <button key={item.name} type="button" className={button} aria-label={item.title} title={item.title} onMouseDown={e => e.preventDefault()} onClick={() => command(item.name)}><item.icon className="h-4 w-4" /></button>)}
-        <label className="flex items-center gap-1 text-xs text-slate-600">Text color
-          <input type="color" aria-label="Selected text color" value={color} className="h-7 w-8" onMouseDown={remember}
+        <label className="flex shrink-0 items-center gap-1 whitespace-nowrap pl-1 text-xs text-slate-600">Text color
+          <input type="color" aria-label="Selected text color" value={color} className="h-11 w-11 sm:h-8 sm:w-8" onMouseDown={remember}
             onChange={e => setColor(e.target.value)} />
         </label>
         <button type="button" className={button} onMouseDown={e => e.preventDefault()} onClick={() => wrap(`color:${color}`)}>Apply color</button>
-        <select aria-label="Selected text font" className="max-w-32 rounded border p-1 text-xs" value="" onMouseDown={remember}
-          onChange={e => { ensureFont(e.target.value); wrap(`font-family:${e.target.value}, sans-serif`); }}>
+        <select aria-label="Selected text font" className={`max-w-32 ${picker}`} value="" onMouseDown={remember}
+          onChange={e => { ensureFont(e.target.value); wrap(`font-family:${e.target.value}, Sarabun, sans-serif`); }}>
           <option value="" disabled>Font…</option>{fontOptions.map(font => <option key={font}>{font}</option>)}
         </select>
-        {!inline && <select aria-label="Text style" className="rounded border p-1 text-xs" value="" onMouseDown={remember} onChange={e => command('formatBlock', e.target.value)}>
+        {!inline && <select aria-label="Text style" className={picker} value="" onMouseDown={remember} onChange={e => command('formatBlock', e.target.value)}>
           <option value="" disabled>Text style…</option><option value="p">Paragraph</option><option value="h2">Heading</option><option value="h3">Subheading</option>
         </select>}
         <button type="button" className={button} onMouseDown={e => e.preventDefault()} onClick={() => command('insertHTML', '<br>')}>Line break</button>
         <button type="button" className={button} title="Select a phrase to keep its words on one line" onMouseDown={e => e.preventDefault()} onClick={() => wrap('white-space:nowrap')}>Keep words together</button>
-        {!inline && <select aria-label="Paragraph alignment" className="rounded border p-1 text-xs" value="" onMouseDown={remember} onChange={e => command(e.target.value)}>
+        {!inline && <select aria-label="Paragraph alignment" className={picker} value="" onMouseDown={remember} onChange={e => command(e.target.value)}>
           <option value="" disabled>Align…</option><option value="justifyLeft">Left</option><option value="justifyCenter">Center</option><option value="justifyRight">Right</option>
         </select>}
         <button type="button" className={button} onMouseDown={e => e.preventDefault()} onClick={() => {
@@ -94,7 +96,7 @@ export function RichTextArea({ value, onChange, rows = 6, label, hint, id, inlin
     </div>
     <div className="flex items-start justify-between gap-2 text-xs text-slate-500">
       <p>{hint || 'Select words to change their color or font. Use Line break to choose where a new line begins.'}</p>
-      <button type="button" className="shrink-0 underline" onClick={() => { emitted.current = null; setSource(!source); }}>{source ? 'Visual editor' : 'HTML'}</button>
+      <button type="button" className="-my-2 min-h-10 shrink-0 px-1 underline sm:min-h-0" onClick={() => { emitted.current = null; setSource(!source); }}>{source ? 'Visual editor' : 'HTML'}</button>
     </div>
   </div>;
 }

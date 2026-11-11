@@ -21,11 +21,16 @@ export function Button({
     ghost: 'text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-300',
     danger: 'bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-400',
   };
-  const sizes = { sm: 'px-2.5 py-1.5 text-xs', md: 'px-4 py-2 text-sm', lg: 'px-5 py-2.5 text-base' };
+  // Phones get a 44px tap target; larger screens keep the compact sizes.
+  const sizes = {
+    sm: 'min-h-11 px-3 py-1.5 text-sm sm:min-h-8 sm:px-2.5 sm:text-xs',
+    md: 'min-h-11 px-4 py-2 text-sm sm:min-h-10',
+    lg: 'min-h-12 px-5 py-2.5 text-base',
+  };
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition active:scale-[0.98]',
+        'inline-flex select-none items-center justify-center gap-2 rounded-lg font-medium transition active:scale-[0.98]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
         'disabled:cursor-not-allowed disabled:opacity-50',
         variants[variant], sizes[size], className
@@ -90,18 +95,18 @@ export function PageLoader({ label = 'Loading' }: { label?: string }) {
 // ------------------------------------------------------------------
 // Card
 // ------------------------------------------------------------------
-export function Card({ title, actions, children, className, padded = true }: {
-  title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; padded?: boolean;
+export function Card({ title, actions, children, className, bodyClassName, padded = true }: {
+  title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyClassName?: string; padded?: boolean;
 }) {
   return (
-    <section className={cn('rounded-2xl border border-slate-200 bg-white shadow-card', className)}>
+    <section className={cn('min-w-0 rounded-2xl border border-slate-200/80 bg-white shadow-card', className)}>
       {(title || actions) && (
-        <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
-          <h2 className="font-display text-sm font-semibold text-navy-800">{title}</h2>
-          <div className="flex items-center gap-2">{actions}</div>
+        <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-3.5">
+          <h2 className="min-w-0 font-display text-sm font-semibold text-navy-800">{title}</h2>
+          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className={padded ? 'p-5' : ''}>{children}</div>
+      <div className={cn(padded && 'p-4 sm:p-5', bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -113,7 +118,7 @@ export function EmptyState({ icon, title, hint, action }: {
   icon?: ReactNode; title: string; hint?: string; action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-12 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white/60 px-5 py-10 text-center sm:px-6 sm:py-12">
       {icon && <div className="text-slate-400">{icon}</div>}
       <p className="font-medium text-slate-700">{title}</p>
       {hint && <p className="max-w-sm text-sm text-slate-500">{hint}</p>}
@@ -137,11 +142,11 @@ export function StatCard({ label, value, hint, icon, tone = 'navy' }: {
     slate: 'bg-slate-100 text-slate-600',
   };
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-      {icon && <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', tones[tone])}>{icon}</div>}
+    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-card min-[400px]:p-4 sm:flex-row sm:items-center sm:gap-4">
+      {icon && <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11', tones[tone])}>{icon}</div>}
       <div className="min-w-0">
-        <p className="truncate text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-        <p className="font-display text-2xl font-bold text-navy-800">{value}</p>
+        <p className="text-xs font-medium text-slate-500 sm:truncate sm:uppercase sm:tracking-wide">{label}</p>
+        <p className="font-display text-2xl font-bold leading-tight text-navy-800">{value}</p>
         {hint && <p className="truncate text-xs text-slate-400">{hint}</p>}
       </div>
     </div>

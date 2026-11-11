@@ -56,14 +56,14 @@ export default function ShareTab({ draft }: TabProps) {
             <a
               href={`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`}
               target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#06C755] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#06C755] px-3 py-2 text-xs sm:min-h-9 font-semibold text-white hover:opacity-90"
             >
               <MessageCircle className="h-3.5 w-3.5" /> Share on LINE
             </a>
             <a
               href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
               target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs sm:min-h-9 font-semibold text-white hover:opacity-90"
             >
               <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
             </a>

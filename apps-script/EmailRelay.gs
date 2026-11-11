@@ -62,7 +62,7 @@ var SERVICE_KEY = (PROPS.getProperty('SERVICE_ROLE_KEY') || '').trim();
 var FROM_NAME = PROPS.getProperty('FROM_NAME') || 'HeadStart Events';
 
 // Change this whenever the file changes, so the deployed copy can be checked.
-var RELAY_VERSION = '2026-10-24';
+var RELAY_VERSION = '2026-11-11';
 
 // ------------------------------------------------------------
 // Web app entry points
@@ -595,11 +595,11 @@ function emailDesign(raw = {}) {
 function buildEmailHtml(opts) {
     const { template, mergeMap, logoUrl, bannerUrl, qrUrl, schoolName } = opts;
     const d = emailDesign(template.design);
-    const font = `${d.font},Arial,sans-serif`;
+    const font = d.font === 'Sarabun' ? 'Sarabun,Arial,sans-serif' : d.font === 'Arial' ? 'Arial,Sarabun,sans-serif' : `${d.font},Sarabun,Arial,sans-serif`;
     const header = `<tr><td style="background:${d.headerColor};padding:${d.headerPadding}px 32px;text-align:${d.headerAlign};">${template.showLogo && logoUrl
         ? `<img src="${logoUrl}" alt="School logo" height="${d.logoHeight}" style="height:${d.logoHeight}px;max-width:100%;object-fit:contain;"/>`
         : `<p style="font-family:${font};color:${d.headerTextColor};font-size:18px;font-weight:bold;margin:8px 0 0;">${schoolName ?? 'HeadStart International School Phuket'}</p>`}</td></tr>`;
-    const fontLink = d.font === 'Arial' ? '' : `<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(d.font)}:wght@400;600;700&amp;display=swap" rel="stylesheet">`;
+    const fontLink = `<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700${d.font !== 'Arial' && d.font !== 'Sarabun' ? `&amp;family=${encodeURIComponent(d.font)}:wght@400;600;700` : ''}&amp;display=swap" rel="stylesheet">`;
     const body = renderMergeFields(template.body, mergeMap);
     const button = template.buttonLabel && template.buttonUrl
         ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto;"><tr><td style="background:${d.buttonColor};border-radius:10px;">

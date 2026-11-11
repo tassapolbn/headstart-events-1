@@ -126,7 +126,7 @@ export function EmailTemplateEditor({ event, template, onChange }: {
                     key={m}
                     type="button"
                     onClick={() => insertMergeField(m)}
-                    className="rounded-full bg-navy-50 px-2.5 py-0.5 font-mono text-[11px] text-navy-700 hover:bg-navy-100"
+                    className="inline-flex min-h-9 items-center rounded-full bg-navy-50 px-3 font-mono text-xs sm:min-h-7 sm:text-[11px] text-navy-700 hover:bg-navy-100"
                     title={`Insert ${m}`}
                   >
                     {m}

@@ -51,7 +51,7 @@ export function PoliciesEditor({ policies, onChange, prefix }: {
             <button
               key={s}
               onClick={() => add(s)}
-              className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs text-slate-500 hover:border-navy-300 hover:text-navy-600"
+              className="inline-flex min-h-10 items-center rounded-full border border-dashed border-slate-300 px-3 text-xs sm:min-h-8 text-slate-500 hover:border-navy-300 hover:text-navy-600"
             >
               + {s}
             </button>
@@ -73,9 +73,9 @@ export function PoliciesEditor({ policies, onChange, prefix }: {
                   {p.title || 'Untitled section'}
                   {!p.enabled && <span className="ml-2 text-xs font-normal text-slate-400">(hidden)</span>}
                 </button>
-                <button aria-label="Move up" disabled={i === 0} onClick={() => move(p.id, -1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
-                <button aria-label="Move down" disabled={i === policies.length - 1} onClick={() => move(p.id, 1)} className="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
-                <button aria-label="Delete section" onClick={() => remove(p.id)} className="rounded p-1 text-red-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                <button aria-label="Move up" disabled={i === 0} onClick={() => move(p.id, -1)} className="flex h-10 w-10 items-center justify-center rounded-lg sm:h-8 sm:w-8 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
+                <button aria-label="Move down" disabled={i === policies.length - 1} onClick={() => move(p.id, 1)} className="flex h-10 w-10 items-center justify-center rounded-lg sm:h-8 sm:w-8 text-slate-400 hover:text-slate-600 disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
+                <button aria-label="Delete section" onClick={() => remove(p.id)} className="flex h-10 w-10 items-center justify-center rounded-lg sm:h-8 sm:w-8 text-red-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
               </div>
               {openId === p.id && (
                 <div className="space-y-3 border-t border-slate-100 p-3">

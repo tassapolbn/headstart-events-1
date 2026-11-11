@@ -100,14 +100,14 @@ export default function SignsPage() {
       <style>{signPrintCss(format)}</style>
 
       <div className="no-print flex flex-wrap items-center gap-3">
-        <Link to={`/admin/events/${id}`} className="rounded-lg p-2 text-slate-500 hover:bg-slate-200" aria-label="Back to event">
+        <Link to={`/admin/events/${id}`} className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 sm:h-10 sm:w-10" aria-label="Back to event">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-xl font-bold text-navy-800">Vendor sign generator</h1>
-          <p className="text-sm text-slate-500">{event.name}</p>
+          <h1 className="truncate font-display text-xl font-bold text-navy-800 sm:text-2xl">Vendor sign generator</h1>
+          <p className="truncate text-sm text-slate-500">{event.name}</p>
         </div>
-        <Button icon={<Printer className="h-4 w-4" />} onClick={() => window.print()} disabled={chosen.length === 0}>
+        <Button className="w-full sm:w-auto" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()} disabled={chosen.length === 0}>
           Print {chosen.length} sign{chosen.length === 1 ? '' : 's'}
         </Button>
       </div>
@@ -279,7 +279,7 @@ function SignLayout({ reg, title, eventName, logo, sponsorLogo, showQr, preview,
         <p
           style={{
             flex: 1, minWidth: 0, margin: 0,
-            fontFamily: 'Poppins, Inter, sans-serif', fontWeight: 600, color: '#1a3c5e',
+            fontFamily: 'Poppins, Inter, Sarabun, sans-serif', fontWeight: 600, color: '#1a3c5e',
             fontSize: mm(4.4), lineHeight: 1.2,
             overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
           }}
@@ -303,7 +303,7 @@ function SignLayout({ reg, title, eventName, logo, sponsorLogo, showQr, preview,
         <p
           style={{
             margin: 0,
-            fontFamily: 'Poppins, Inter, sans-serif', fontWeight: 800, color: '#1a3c5e',
+            fontFamily: 'Poppins, Inter, Sarabun, sans-serif', fontWeight: 800, color: '#1a3c5e',
             fontSize: `calc(${mm(17)} * ${nameScale})`,
             lineHeight: 1.08,
             wordBreak: 'break-word',
@@ -322,7 +322,7 @@ function SignLayout({ reg, title, eventName, logo, sponsorLogo, showQr, preview,
               background: '#F0B323', color: '#1a3c5e',
               borderRadius: '9999px',
               padding: `${mm(1.6)} ${mm(6)}`,
-              fontFamily: 'Poppins, Inter, sans-serif', fontWeight: 700,
+              fontFamily: 'Poppins, Inter, Sarabun, sans-serif', fontWeight: 700,
               fontSize: mm(8), lineHeight: 1.15,
               whiteSpace: 'nowrap',
             }}
@@ -334,7 +334,7 @@ function SignLayout({ reg, title, eventName, logo, sponsorLogo, showQr, preview,
 
       {/* Footer: reference and QR */}
       <div style={{ display: 'flex', width: '100%', alignItems: 'flex-end', justifyContent: 'space-between', gap: mm(3) }}>
-        <p style={{ margin: 0, fontFamily: 'monospace', color: '#94a3b8', fontSize: mm(3.2) }}>{reg.reference}</p>
+        <p style={{ margin: 0, fontFamily: 'ui-monospace, Consolas, Sarabun, monospace', color: '#94a3b8', fontSize: mm(3.2) }}>{reg.reference}</p>
         {showQr && <QRCodeSVG value={lookupUrl} size={Math.round(short * 0.55)} level="M" />}
       </div>
     </div>
