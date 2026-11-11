@@ -6,11 +6,12 @@ import type { EventRecord, EventTemplateRecord, FormType } from '@/lib/types';
 import { copyForType, formCopy, formTypeOf } from '@/lib/formCopy';
 import { formatDate } from '@/lib/utils';
 import { createBlankEvent, createFromTemplate, deleteEvent, duplicateEvent, publicEventUrl, saveAsTemplate } from '@/lib/eventOps';
+import { isSharedTemplate, templateCampusFilter } from '@/lib/templateScope';
 import { useCampus } from '@/context/CampusContext';
 import { CampusBadge } from '@/components/CampusSwitcher';
 import { useToast } from '@/context/ToastContext';
 import { Badge, Button, Card, EmptyState, PageLoader, Spinner } from '@/components/ui/basics';
-import { Field, Input, Select, Textarea } from '@/components/ui/inputs';
+import { Field, Input, Select, Switch, Textarea } from '@/components/ui/inputs';
 import { ActionMenu, ConfirmDialog, Modal, SegmentedControl } from '@/components/ui/overlays';
 
 type EventRow = EventRecord & { registrations: Array<{ count: number }> };
@@ -49,13 +50,14 @@ export default function EventsListPage() {
   const [tplFor, setTplFor] = useState<EventRow | null>(null);
   const [tplName, setTplName] = useState('');
   const [tplDesc, setTplDesc] = useState('');
+  const [tplShared, setTplShared] = useState(false);
 
   const [deleteFor, setDeleteFor] = useState<EventRow | null>(null);
 
   async function load() {
     const [ev, tpl] = await Promise.all([
       supabase.from('events').select('*, registrations(count)').eq('campus_id', campusId).order('created_at', { ascending: false }),
-      supabase.from('event_templates').select('*').eq('campus_id', campusId).order('created_at', { ascending: false }),
+      supabase.from('event_templates').select('*').or(templateCampusFilter(campusId)).order('created_at', { ascending: false }),
     ]);
     setRows((ev.data ?? []) as EventRow[]);
     setTemplates((tpl.data ?? []) as EventTemplateRecord[]);
@@ -111,7 +113,7 @@ export default function EventsListPage() {
   async function handleSaveTemplate() {
     if (!tplFor || !tplName.trim()) return;
     try {
-      await saveAsTemplate(tplFor.id, tplName.trim(), tplDesc.trim());
+      await saveAsTemplate(tplFor.id, tplName.trim(), tplDesc.trim(), tplShared);
       toast('Saved as a reusable template.');
       setTplFor(null);
       void load();
@@ -225,7 +227,7 @@ export default function EventsListPage() {
                         items={[
                           { label: 'Copy public link', icon: <Link2 className="h-4 w-4" />, onClick: () => copyLink(e) },
                           { label: 'Duplicate', icon: <Copy className="h-4 w-4" />, onClick: () => void handleDuplicate(e) },
-                          { label: 'Save as template', icon: <Shapes className="h-4 w-4" />, onClick: () => { setTplFor(e); setTplName(e.name); setTplDesc(''); } },
+                          { label: 'Save as template', icon: <Shapes className="h-4 w-4" />, onClick: () => { setTplFor(e); setTplName(e.name); setTplDesc(''); setTplShared(false); } },
                           { label: 'Delete', icon: <Trash2 className="h-4 w-4" />, danger: true, onClick: () => setDeleteFor(e) },
                         ]}
                       />
@@ -291,7 +293,7 @@ export default function EventsListPage() {
             <Select value={newFrom} onChange={(e) => setNewFrom(e.target.value)} aria-label="Start from template">
               <option value="blank">{newType === 'survey' ? 'Blank survey / feedback form' : 'Blank event'}</option>
               {templates.map((t) => (
-                <option key={t.id} value={t.id}>Template: {t.name}</option>
+                <option key={t.id} value={t.id}>Template: {t.name}{isSharedTemplate(t) ? ' (all campuses)' : ''}</option>
               ))}
             </Select>
           </Field>
@@ -317,6 +319,7 @@ export default function EventsListPage() {
           <Field label="Description" htmlFor="tpl-desc">
             <Textarea id="tpl-desc" rows={3} value={tplDesc} onChange={(e) => setTplDesc(e.target.value)} placeholder="What is this template for?" />
           </Field>
+          <Switch label="Share with all campuses" checked={tplShared} onChange={setTplShared} />
         </div>
       </Modal>
 

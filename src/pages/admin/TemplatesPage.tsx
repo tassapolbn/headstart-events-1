@@ -4,18 +4,19 @@ import { CalendarPlus, Pencil, Shapes, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { EventTemplateRecord } from '@/lib/types';
 import { createFromTemplate } from '@/lib/eventOps';
+import { isSharedTemplate, templateCampusFilter } from '@/lib/templateScope';
 import { useCampus } from '@/context/CampusContext';
 import { CampusBadge } from '@/components/CampusSwitcher';
 import { formatDate } from '@/lib/utils';
 import { useToast } from '@/context/ToastContext';
 import { Button, Card, EmptyState, PageLoader } from '@/components/ui/basics';
-import { Field, Input, Textarea } from '@/components/ui/inputs';
+import { Field, Input, Select, Textarea } from '@/components/ui/inputs';
 import { ConfirmDialog, Modal } from '@/components/ui/overlays';
 
 export default function TemplatesPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { campusId, campus } = useCampus();
+  const { campusId, campus, campuses } = useCampus();
   const [templates, setTemplates] = useState<EventTemplateRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [useFor, setUseFor] = useState<EventTemplateRecord | null>(null);
@@ -24,10 +25,11 @@ export default function TemplatesPage() {
   const [renameFor, setRenameFor] = useState<EventTemplateRecord | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renameDesc, setRenameDesc] = useState('');
+  const [renameShared, setRenameShared] = useState(false);
   const [deleteFor, setDeleteFor] = useState<EventTemplateRecord | null>(null);
 
   async function load() {
-    const { data } = await supabase.from('event_templates').select('*').eq('campus_id', campusId).order('created_at', { ascending: false });
+    const { data } = await supabase.from('event_templates').select('*').or(templateCampusFilter(campusId)).order('created_at', { ascending: false });
     setTemplates((data ?? []) as EventTemplateRecord[]);
     setLoading(false);
   }
@@ -51,7 +53,7 @@ export default function TemplatesPage() {
     if (!renameFor || !renameValue.trim()) return;
     const { error } = await supabase
       .from('event_templates')
-      .update({ name: renameValue.trim(), description: renameDesc.trim() })
+      .update({ name: renameValue.trim(), description: renameDesc.trim(), campus_id: renameShared ? null : campusId })
       .eq('id', renameFor.id);
     if (error) toast(error.message, 'error');
     else {
@@ -81,7 +83,7 @@ export default function TemplatesPage() {
           <CampusBadge />
         </div>
         <p className="text-sm text-slate-500">
-          Reusable blueprints. A template copies the form, theme, floor plan, policies, email design and settings.
+          Reusable blueprints. A template copies the form, theme, floor plan, policies, email design and settings. Share a template with all campuses from Edit.
         </p>
       </div>
 
@@ -101,8 +103,13 @@ export default function TemplatesPage() {
               <Card key={t.id}>
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h2 className="font-display text-base font-semibold text-navy-800">{t.name}</h2>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="break-words font-display text-base font-semibold text-navy-800">{t.name}</h2>
+                        <span className="rounded-full bg-navy-50 px-2 py-0.5 text-xs text-navy-700">
+                          {isSharedTemplate(t) ? 'All campuses' : campuses.find((c) => c.id === t.campus_id)?.name ?? t.campus_id}
+                        </span>
+                      </div>
                       <p className="text-xs text-slate-400">Saved {formatDate(t.created_at.slice(0, 10), 'd MMM yyyy')}</p>
                     </div>
                     <Shapes className="h-5 w-5 shrink-0 text-gold-500" />
@@ -113,7 +120,7 @@ export default function TemplatesPage() {
                     <Button size="sm" icon={<CalendarPlus className="h-3.5 w-3.5" />} onClick={() => { setUseFor(t); setNewName(''); }}>
                       Create event
                     </Button>
-                    <Button size="sm" variant="outline" icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => { setRenameFor(t); setRenameValue(t.name); setRenameDesc(t.description); }}>
+                    <Button size="sm" variant="outline" icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => { setRenameFor(t); setRenameValue(t.name); setRenameDesc(t.description); setRenameShared(isSharedTemplate(t)); }}>
                       Edit
                     </Button>
                     <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={() => setDeleteFor(t)}>
@@ -161,6 +168,12 @@ export default function TemplatesPage() {
           <Field label="Description">
             <Textarea rows={3} value={renameDesc} onChange={(e) => setRenameDesc(e.target.value)} />
           </Field>
+          <Field label="Available in" htmlFor="template-scope">
+            <Select id="template-scope" value={renameShared ? 'all' : 'campus'} onChange={(e) => setRenameShared(e.target.value === 'all')}>
+              <option value="campus">This campus only ({campus?.name ?? campusId})</option>
+              <option value="all">All campuses</option>
+            </Select>
+          </Field>
         </div>
       </Modal>
 
@@ -169,7 +182,7 @@ export default function TemplatesPage() {
         onClose={() => setDeleteFor(null)}
         onConfirm={() => void handleDelete()}
         title="Delete template?"
-        message={`"${deleteFor?.name}" will be removed. Events already created from it are not affected.`}
+        message={`"${deleteFor?.name}" will be removed. Events already created from it are not affected.${deleteFor && isSharedTemplate(deleteFor) ? ' It is shared, so it disappears for every campus.' : ''}`}
         confirmLabel="Delete template"
         danger
       />

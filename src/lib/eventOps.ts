@@ -84,13 +84,13 @@ export async function duplicateEvent(eventId: string): Promise<string> {
   return insertEventWithBooths(snapshotEventFields(event), booths.map(snapshotBooth), `Copy of ${event.name}`, event.campus_id ?? 'hsc');
 }
 
-export async function saveAsTemplate(eventId: string, name: string, description: string): Promise<void> {
+export async function saveAsTemplate(eventId: string, name: string, description: string, shared = false): Promise<void> {
   const { event, booths } = await loadEventWithBooths(eventId);
   const snapshot: TemplateSnapshot = {
     event: snapshotEventFields(event),
     booths: booths.map(snapshotBooth),
   };
-  const { error } = await supabase.from('event_templates').insert({ name, description, snapshot, campus_id: event.campus_id ?? 'hsc' });
+  const { error } = await supabase.from('event_templates').insert({ name, description, snapshot, campus_id: shared ? null : (event.campus_id ?? 'hsc') });
   if (error) throw error;
 }
 
